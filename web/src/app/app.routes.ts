@@ -20,5 +20,25 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/documents/review').then((m) => m.Review),
   },
+  {
+    path: 'search',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/search/search').then((m) => m.Search),
+  },
+  {
+    path: 'spend',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/spend/spend').then((m) => m.Spend),
+  },
+  {
+    path: 'reminders',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/reminders/reminders').then((m) => m.Reminders),
+  },
+  {
+    path: 'spaces',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/spaces/spaces').then((m) => m.Spaces),
+  },
   { path: '**', redirectTo: 'documents' },
 ];

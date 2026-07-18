@@ -98,3 +98,14 @@ th { color: var(--muted); font-weight: 600; }
 .error { color: var(--error); font-size: 0.9rem; }
 .warn { color: var(--warn); font-size: 0.9rem; font-weight: 600; }
 a { color: var(--brand); }
+
+h3 { margin: 1.25rem 0 0.5rem; font-size: 1.05rem; }
+code { background: #f1f3f5; padding: 0.15rem 0.4rem; border-radius: 6px; font-size: 0.85rem; }
+
+.card + .card { margin-top: 1rem; }
+
+.inline-form { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+.inline-form label { margin: 0; }
+.inline-form button { margin: 0; }
+
+.space-select { width: auto; margin: 0; padding: 0.35rem 0.5rem; }

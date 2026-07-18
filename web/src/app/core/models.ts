@@ -58,3 +58,66 @@ export interface ConfirmRequest {
   dueDate?: string;
   vital?: boolean;
 }
+
+export interface SpaceSummary {
+  id: string;
+  name: string;
+  kind: 'personal' | 'shared';
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface Member {
+  userId: string;
+  role: 'owner' | 'member' | 'viewer';
+  joinedAt: string;
+}
+
+export interface IngestAddress {
+  token: string;
+  address: string;
+}
+
+export interface ReminderResponse {
+  id: string;
+  documentId: string | null;
+  spaceId: string;
+  type: 'due' | 'renewal' | 'warranty_expiry';
+  remindOn: string;
+  status: 'pending' | 'sent' | 'dismissed';
+  createdAt: string;
+}
+
+export interface CategorySpend {
+  category: string;
+  label: string;
+  total: number;
+  count: number;
+}
+
+export interface MonthlySpend {
+  period: string;
+  total: number;
+  count: number;
+}
+
+export interface SpendSummary {
+  from: string;
+  to: string;
+  total: number;
+  count: number;
+  byCategory: CategorySpend[];
+}
+
+export interface DriveStatus {
+  connected: boolean;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+}
+
+export interface SearchResult {
+  interpreted: Record<string, unknown>;
+  count: number;
+  results: DocumentResponse[];
+}
+

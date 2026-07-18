@@ -4,8 +4,20 @@
     <nav>
       <a routerLink="/documents">Documents</a>
       <a routerLink="/upload">Upload</a>
+      <a routerLink="/search">Search</a>
+      <a routerLink="/spend">Spend</a>
+      <a routerLink="/reminders">Reminders</a>
+      <a routerLink="/spaces">Spaces</a>
     </nav>
     <span class="spacer"></span>
+    @if (spaceCtx.spaces().length) {
+      <select class="space-select" [ngModel]="spaceCtx.currentSpaceId()"
+              (ngModelChange)="onSpaceChange($event)">
+        @for (s of spaceCtx.spaces(); track s.id) {
+          <option [value]="s.id">{{ s.name }}{{ s.kind === 'shared' ? ' (shared)' : '' }}</option>
+        }
+      </select>
+    }
     <span class="muted">{{ auth.user()?.email }}</span>
     <button class="link" (click)="logout()">Sign out</button>
   }

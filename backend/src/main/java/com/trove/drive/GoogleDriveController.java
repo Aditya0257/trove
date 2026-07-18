@@ -65,16 +65,28 @@ public class GoogleDriveController {
         this.currentUser = currentUser;
     }
 
-    /** Owner starts the flow → 302 to Google's consent screen. */
+    /** Owner starts the flow → 302 to Google's consent screen (for direct/curl use). */
     @GetMapping("/connect")
     public ResponseEntity<Void> connect(@RequestParam("spaceId") UUID spaceId) {
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(buildAuthorizeUrl(spaceId))).build();
+    }
+
+    /**
+     * Returns the Google consent URL as JSON so a SPA (which holds the JWT in memory,
+     * not in navigations) can fetch it authenticated, then redirect the browser to it.
+     */
+    @GetMapping("/authorize-url")
+    public java.util.Map<String, String> authorizeUrl(@RequestParam("spaceId") UUID spaceId) {
+        return java.util.Map.of("url", buildAuthorizeUrl(spaceId));
+    }
+
+    private String buildAuthorizeUrl(UUID spaceId) {
         if (!props.configured()) {
             throw new IllegalStateException("Google OAuth is not configured (set google.oauth.*)");
         }
         authorization.requireOwner(spaceId, currentUser.requireUserId());
         String state = encryptionService.encrypt(spaceId + "|" + UUID.randomUUID());
-        String url = oauthService.authorizationUrl(state);
-        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+        return oauthService.authorizationUrl(state);
     }
 
     /** Google redirects here after consent (public; identity comes from signed state). */
