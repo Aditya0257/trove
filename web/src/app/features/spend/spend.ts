@@ -2,25 +2,26 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
+import { MoneyPipe } from '../../core/money.pipe';
 import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models';
 
 @Component({
   selector: 'app-spend',
-  imports: [RouterLink],
+  imports: [RouterLink, MoneyPipe],
   template: `
     <div class="card">
       <h1>Spend</h1>
       <p class="muted">Totals over <b>confirmed</b> documents only.</p>
 
       @if (summary(); as s) {
-        <p><b>Total: {{ s.total }}</b> across {{ s.count }} document(s).</p>
+        <p><b>Total: {{ s.total | money }}</b> across {{ s.count }} document(s).</p>
         <h3>By category</h3>
         @if (s.byCategory.length) {
           <table>
             <thead><tr><th>Category</th><th>Total</th><th>Count</th></tr></thead>
             <tbody>
               @for (c of s.byCategory; track c.category) {
-                <tr><td>{{ c.label }}</td><td>{{ c.total }}</td><td>{{ c.count }}</td></tr>
+                <tr><td>{{ c.label }}</td><td>{{ c.total | money }}</td><td>{{ c.count }}</td></tr>
               }
             </tbody>
           </table>
@@ -33,7 +34,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
           <thead><tr><th>Month</th><th>Total</th><th>Count</th></tr></thead>
           <tbody>
             @for (m of byMonth(); track m.period) {
-              <tr><td>{{ m.period }}</td><td>{{ m.total }}</td><td>{{ m.count }}</td></tr>
+              <tr><td>{{ m.period }}</td><td>{{ m.total | money }}</td><td>{{ m.count }}</td></tr>
             }
           </tbody>
         </table>
@@ -48,7 +49,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
               <tr>
                 <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
                 <td>{{ d.category }}</td>
-                <td>{{ d.amount }}</td>
+                <td>{{ d.amount | money: d.currency }}</td>
                 <td class="warn">{{ deltaPct(d) }}</td>
               </tr>
             }

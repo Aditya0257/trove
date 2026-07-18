@@ -36,6 +36,10 @@ public class SearchQuery {
     private String status;
     private boolean latestOnly;
     private Integer limit;
+    /** "amount" or "date" (default date). */
+    private String sortBy;
+    /** "asc" or "desc" (default desc). */
+    private String sortDir;
 
     public String getCategoryCode() { return categoryCode; }
     public void setCategoryCode(String categoryCode) { this.categoryCode = categoryCode; }
@@ -63,4 +67,10 @@ public class SearchQuery {
 
     public Integer getLimit() { return limit; }
     public void setLimit(Integer limit) { this.limit = limit; }
+
+    public String getSortBy() { return sortBy; }
+    public void setSortBy(String sortBy) { this.sortBy = sortBy; }
+
+    public String getSortDir() { return sortDir; }
+    public void setSortDir(String sortDir) { this.sortDir = sortDir; }
 }

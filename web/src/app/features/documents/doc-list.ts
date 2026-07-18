@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
+import { MoneyPipe } from '../../core/money.pipe';
 import { Category, DocumentResponse } from '../../core/models';
 
 @Component({
   selector: 'app-doc-list',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, MoneyPipe],
   template: `
     <div class="card">
       <div class="row-between">
@@ -35,7 +36,7 @@ import { Category, DocumentResponse } from '../../core/models';
                 <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
                 <td>{{ d.category || '—' }}</td>
                 <td>{{ d.merchant || '—' }}</td>
-                <td>{{ d.amount != null ? (d.currency || '') + ' ' + d.amount : '—' }}</td>
+                <td>{{ d.amount | money: d.currency }}</td>
                 <td>{{ d.docDate || '—' }}</td>
                 <td><span class="badge" [class.confirmed]="d.status === 'confirmed'">{{ d.status }}</span></td>
               </tr>

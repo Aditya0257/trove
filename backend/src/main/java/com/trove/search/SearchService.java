@@ -56,22 +56,28 @@ public class SearchService {
     private final CategoryService categoryService;
     private final MerchantRepository merchantRepository;
     private final NaturalQueryParser parser;
+    private final LlmQueryParser llmQueryParser;
 
     public SearchService(DocumentRepository documentRepository, DocumentService documentService,
                          SpaceAuthorization authorization, CategoryService categoryService,
-                         MerchantRepository merchantRepository, NaturalQueryParser parser) {
+                         MerchantRepository merchantRepository, NaturalQueryParser parser,
+                         LlmQueryParser llmQueryParser) {
         this.documentRepository = documentRepository;
         this.documentService = documentService;
         this.authorization = authorization;
         this.categoryService = categoryService;
         this.merchantRepository = merchantRepository;
         this.parser = parser;
+        this.llmQueryParser = llmQueryParser;
     }
 
-    /** Parses natural-language text into filters, runs the search, echoes both. */
+    /**
+     * Parses natural-language text into filters (LLM if enabled, else rule-based),
+     * runs the search, and echoes the interpreted filters back.
+     */
     @Transactional(readOnly = true)
     public SearchResult naturalSearch(UUID spaceId, UUID userId, String queryText) {
-        SearchQuery q = parser.parse(queryText);
+        SearchQuery q = llmQueryParser.parse(queryText).orElseGet(() -> parser.parse(queryText));
         List<DocumentResponse> results = search(spaceId, userId, q);
         return new SearchResult(q, results.size(), results);
     }
@@ -97,11 +103,21 @@ public class SearchService {
         }
 
         int limit = q.getLimit() != null ? Math.min(q.getLimit(), 200) : 50;
-        Sort sort = Sort.by(Sort.Order.desc("docDate"), Sort.Order.desc("createdAt"));
+        Sort sort = sortFor(q);
         Specification<Document> spec = DocumentSpecifications.build(spaceId, q, categoryId, textMerchantIds);
 
         List<Document> docs = documentRepository.findAll(spec, PageRequest.of(0, limit, sort)).getContent();
         return documentService.present(docs);
+    }
+
+    /** Sort by amount (for "expensive"/"top") when asked, else newest-first by date. */
+    private Sort sortFor(SearchQuery q) {
+        if ("amount".equalsIgnoreCase(q.getSortBy())) {
+            boolean asc = "asc".equalsIgnoreCase(q.getSortDir());
+            Sort.Order amount = asc ? Sort.Order.asc("amount") : Sort.Order.desc("amount");
+            return Sort.by(amount.nullsLast(), Sort.Order.desc("createdAt"));
+        }
+        return Sort.by(Sort.Order.desc("docDate"), Sort.Order.desc("createdAt"));
     }
 
     /** A natural-language search result: the interpreted filters + the matches. */
