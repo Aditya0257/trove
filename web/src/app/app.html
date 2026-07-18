@@ -1,0 +1,16 @@
+<header class="topbar">
+  <a class="brand" routerLink="/documents">🗄️ Trove</a>
+  @if (auth.isLoggedIn()) {
+    <nav>
+      <a routerLink="/documents">Documents</a>
+      <a routerLink="/upload">Upload</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="muted">{{ auth.user()?.email }}</span>
+    <button class="link" (click)="logout()">Sign out</button>
+  }
+</header>
+
+<main class="container">
+  <router-outlet />
+</main>

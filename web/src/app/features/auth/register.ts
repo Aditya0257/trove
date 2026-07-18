@@ -1,0 +1,51 @@
+import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth.service';
+
+@Component({
+  selector: 'app-register',
+  imports: [FormsModule, RouterLink],
+  template: `
+    <div class="card auth-card">
+      <h1>Create your Trove</h1>
+      <form (ngSubmit)="submit()">
+        <label>Display name
+          <input type="text" name="displayName" [(ngModel)]="displayName" required />
+        </label>
+        <label>Email
+          <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
+        </label>
+        <label>Password (min 8 chars)
+          <input type="password" name="password" [(ngModel)]="password" required minlength="8"
+                 autocomplete="new-password" />
+        </label>
+        @if (error()) { <p class="error">{{ error() }}</p> }
+        <button type="submit" [disabled]="loading()">{{ loading() ? 'Creating…' : 'Create account' }}</button>
+      </form>
+      <p class="muted">Already have an account? <a routerLink="/login">Sign in</a></p>
+    </div>
+  `,
+})
+export class Register {
+  private auth = inject(AuthService);
+  private router = inject(Router);
+
+  displayName = '';
+  email = '';
+  password = '';
+  error = signal<string | null>(null);
+  loading = signal(false);
+
+  submit(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.auth.register(this.email, this.displayName, this.password).subscribe({
+      next: () => this.router.navigate(['/documents']),
+      error: (e) => {
+        this.error.set(e?.error?.message ?? 'Registration failed');
+        this.loading.set(false);
+      },
+    });
+  }
+}
