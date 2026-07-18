@@ -119,10 +119,19 @@ trove:
       # Periodic sweep that re-dispatches documents left un-extracted (crash safety).
       fixed-delay-ms: ${TROVE_EXTRACTION_RECONCILE_DELAY_MS:300000}   # 5 min
 
+  security:
+    jwt:
+      # HMAC-SHA256 signing secret (>= 32 bytes). MUST be overridden in prod via env.
+      secret: ${TROVE_JWT_SECRET:dev-only-change-me-please-32bytes-minimum-secret}
+      expiration-minutes: ${TROVE_JWT_EXPIRATION_MINUTES:720}
+
   dev:
-    # Seeded identity (Flyway V6). Endpoints default to these until real auth exists.
+    # Seeded identity (Flyway V6). Used to provision a usable dev login for testing.
     default-user-id: ${TROVE_DEV_USER_ID:00000000-0000-0000-0000-000000000001}
     default-space-id: ${TROVE_DEV_SPACE_ID:00000000-0000-0000-0000-000000000010}
+    # If set, the seeded dev user gets this password on first startup (local testing
+    # only). Blank disables the dev login — leave blank in production.
+    default-password: ${TROVE_DEV_PASSWORD:devpassword}
 
 logging:
   level:

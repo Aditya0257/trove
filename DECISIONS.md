@@ -179,3 +179,29 @@ Format for each entry:
   storage, or review code.
 - **Touches:** `DESIGN.md` §6.2.
 - **Status:** active.
+
+## D10 — Auth is stateless JWT + BCrypt; access control is per-space membership
+
+- **Decision:** Slice 3 uses **JWT (HS256) + Spring Security + BCrypt**. Register/login
+  are the only public endpoints; every other endpoint requires a Bearer token. The
+  token carries the user id; **space roles are looked up per-space from
+  `space_member`, not baked into the token**. A single `SpaceAuthorization` gate
+  enforces read (any member), write (owner/member), and admin (owner) on every
+  document/space operation. Registration also provisions the user's personal space.
+  The seeded dev user is given a real BCrypt login on startup by
+  `DevAccountInitializer` (only while it holds the placeholder hash; disabled when
+  `trove.dev.default-password` is blank). Document endpoints no longer take a
+  dev-default user/space — they use the authenticated user and default to that
+  user's personal space.
+- **Original text:** `DESIGN.md` §3 — *"`auth` — … Register/login, issue JWT, resolve
+  current user."* and *"`space` — … every document/query is checked against
+  membership + role. This is where multi-user access control lives."* Supersedes the
+  Slice-1 shortcut recorded in D6 (seeded dev user with no login).
+- **Why:** Stateless JWT fits the disposable/redeployable host (any instance
+  validates a token with just the shared secret — no session store). BCrypt is the
+  standard for password storage. Keeping roles out of the token means a role change
+  takes effect immediately (no stale-token window) and one user can hold different
+  roles in different spaces. Centralizing checks in `SpaceAuthorization` prevents
+  accidental cross-space data leaks.
+- **Touches:** `DESIGN.md` §3, `DECISIONS.md` → D6 (dev-login now real), `README.md`.
+- **Status:** active.

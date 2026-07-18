@@ -25,8 +25,45 @@ Extraction below): the engine walks an ordered list of `{provider, model}` steps
 threshold, and skips quota-exhausted free tiers via a circuit breaker. With no keys
 configured it runs the stub only, so it behaves exactly like Slice 1.
 
-Later phases (auth/spaces, spend, reminders, anomalies, search, backups,
-ingestion) are **not** built yet — see `DESIGN.md` §5.
+**Auth + spaces** are implemented (Slice 3): JWT login, and shared spaces with
+owner/member/viewer roles enforced on every document operation (see Auth below).
+
+Later phases (spend, reminders, anomalies, search, backups, ingestion) are **not**
+built yet — see `DESIGN.md` §5.
+
+## Auth (JWT) + spaces
+
+Register/login are the only public endpoints; everything else needs
+`Authorization: Bearer <token>`. Passwords are BCrypt-hashed; tokens are stateless
+HS256 JWTs. A document always lives in one **space**; membership + role
+(owner/member/viewer) decide who can read/write it. Registering a user also creates
+their private personal space.
+
+```bash
+B=http://localhost:8080
+# Log in as the seeded dev user (local only; set trove.dev.default-password)
+TOKEN=$(curl -s -X POST $B/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"dev@trove.local","password":"devpassword"}' | jq -r .token)
+
+# or register a new account (also provisions a personal space)
+curl -s -X POST $B/api/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","displayName":"You","password":"a-strong-password"}' | jq
+
+# then call any endpoint with the token (defaults to your personal space):
+curl -s -F "file=@receipt.jpg" -H "Authorization: Bearer $TOKEN" $B/api/documents | jq
+curl -s -H "Authorization: Bearer $TOKEN" $B/api/documents | jq
+
+# shared spaces + roles
+SPID=$(curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -X POST $B/api/spaces -d '{"name":"Household"}' | jq -r .id)
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -X POST $B/api/spaces/$SPID/members -d '{"email":"someone@example.com","role":"member"}' | jq
+# upload into a specific space:
+curl -s -F "file=@receipt.jpg" -H "Authorization: Bearer $TOKEN" "$B/api/documents?spaceId=$SPID" | jq
+```
+
+Config: `trove.security.jwt.secret` (set a strong value via `TROVE_JWT_SECRET` in
+prod) and `trove.dev.default-password` (blank in prod to disable the dev login).
 
 ## Extraction (multi-provider, free-tier first)
 
@@ -111,6 +148,14 @@ space, and the global categories (V6). The API listens on
 ## Try the flow (sample requests)
 
 Use any image or PDF. The examples assume a file `receipt.jpg`.
+
+> **Auth required:** all `/api/documents` and `/api/spaces` calls need a token now
+> (see the Auth section above). Get one and export it first:
+> ```bash
+> TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+>   -d '{"email":"dev@trove.local","password":"devpassword"}' | jq -r .token)
+> ```
+> then add `-H "Authorization: Bearer $TOKEN"` to each request below.
 
 ### Upload a document
 

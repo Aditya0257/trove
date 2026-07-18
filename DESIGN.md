@@ -206,6 +206,13 @@ interfaces:
 - `space` — `SpaceController`, `SpaceService`, `SpaceAuthorization`.
   Create/join spaces; every document/query is checked against membership +
   role. This is where multi-user access control lives.
+
+  > **Build note (D10):** Implemented in Slice 3. Auth is stateless JWT (HS256) +
+  > BCrypt; register/login are the only public endpoints. Space roles (owner/member/
+  > viewer) are read per-space from `space_member` (not carried in the token), and
+  > `SpaceAuthorization` gates read/write/admin on every operation. Document
+  > endpoints now use the authenticated user (defaulting to their personal space),
+  > replacing the Slice-1 dev-default (D6). See `DECISIONS.md` → D10.
 - `document` — `DocumentController`, `DocumentService`, `DocumentRepository`,
   `Document` entity. Upload, get, list-by-category, confirm review.
 - `storage` — **`StorageService` (interface)** with `R2StorageService` impl

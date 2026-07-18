@@ -43,6 +43,7 @@ import com.trove.document.dto.LineItemResponse;
 import com.trove.merchant.Merchant;
 import com.trove.merchant.MerchantRepository;
 import com.trove.merchant.MerchantService;
+import com.trove.space.SpaceAuthorization;
 import com.trove.storage.DocumentSidecar;
 import com.trove.storage.StorageProperties;
 import com.trove.storage.StorageService;
@@ -76,6 +77,7 @@ public class DocumentService {
     private final CategoryRepository categoryRepository;
     private final MerchantService merchantService;
     private final MerchantRepository merchantRepository;
+    private final SpaceAuthorization spaceAuthorization;
     private final ApplicationEventPublisher events;
 
     public DocumentService(DocumentRepository documentRepository,
@@ -86,6 +88,7 @@ public class DocumentService {
                            CategoryRepository categoryRepository,
                            MerchantService merchantService,
                            MerchantRepository merchantRepository,
+                           SpaceAuthorization spaceAuthorization,
                            ApplicationEventPublisher events) {
         this.documentRepository = documentRepository;
         this.lineItemRepository = lineItemRepository;
@@ -95,6 +98,7 @@ public class DocumentService {
         this.categoryRepository = categoryRepository;
         this.merchantService = merchantService;
         this.merchantRepository = merchantRepository;
+        this.spaceAuthorization = spaceAuthorization;
         this.events = events;
     }
 
@@ -107,6 +111,9 @@ public class DocumentService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Uploaded file is empty");
         }
+
+        // 0) Authorize: the uploader must be an owner/member of the target space.
+        spaceAuthorization.requireCanWrite(spaceId, uploadedBy);
 
         // 1) Hash the bytes and reject a duplicate already in this space.
         byte[] bytes = readBytes(file);
@@ -142,7 +149,8 @@ public class DocumentService {
 
     /** Lists documents in a space, optionally filtered to one category code. */
     @Transactional(readOnly = true)
-    public List<DocumentResponse> list(UUID spaceId, String categoryCode) {
+    public List<DocumentResponse> list(UUID spaceId, UUID userId, String categoryCode) {
+        spaceAuthorization.requireCanRead(spaceId, userId);
         List<Document> docs;
         if (categoryCode != null && !categoryCode.isBlank()) {
             Category category = categoryService.resolve(spaceId, categoryCode);
@@ -153,11 +161,12 @@ public class DocumentService {
         return docs.stream().map(this::toResponse).toList();
     }
 
-    /** Fetches a single document by id (404 if unknown). */
+    /** Fetches a single document by id (404 if unknown, 403 if not a member). */
     @Transactional(readOnly = true)
-    public DocumentResponse get(UUID documentId) {
+    public DocumentResponse get(UUID documentId, UUID userId) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanRead(doc.getSpaceId(), userId);
         return toResponse(doc);
     }
 
@@ -169,6 +178,7 @@ public class DocumentService {
     public DocumentResponse confirm(UUID documentId, UUID reviewerId, ConfirmRequest req) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanWrite(doc.getSpaceId(), reviewerId);
 
         if (req != null) {
             if (req.category() != null && !req.category().isBlank()) {

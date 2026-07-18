@@ -41,6 +41,13 @@ public class DevProperties {
     /** Seeded default personal space (space.id from V6). */
     private UUID defaultSpaceId;
 
+    /**
+     * Plaintext password assigned to the seeded dev user on first startup (only if it
+     * still has the non-login placeholder hash). Lets you log in as the dev user for
+     * local testing. Set to blank in prod to disable.
+     */
+    private String defaultPassword = "";
+
     public UUID getDefaultUserId() {
         return defaultUserId;
     }
@@ -55,5 +62,13 @@ public class DevProperties {
 
     public void setDefaultSpaceId(UUID defaultSpaceId) {
         this.defaultSpaceId = defaultSpaceId;
+    }
+
+    public String getDefaultPassword() {
+        return defaultPassword;
+    }
+
+    public void setDefaultPassword(String defaultPassword) {
+        this.defaultPassword = defaultPassword;
     }
 }

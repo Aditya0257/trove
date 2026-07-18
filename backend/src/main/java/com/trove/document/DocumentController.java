@@ -1,35 +1,36 @@
 /*
  * ============================================================================
- *  DocumentController — REST surface for Slice 1
+ *  DocumentController — REST surface for documents (authenticated)
  * ============================================================================
  *
  *  Purpose
  *  -------
- *  HTTP endpoints for the vertical slice: upload a document, list by category,
- *  fetch one, get a fresh view URL, and confirm a review.
+ *  HTTP endpoints for the document flow: upload, list by category, fetch one, get a
+ *  fresh view URL, and confirm a review — all on behalf of the authenticated user.
  *
  *  Business use case
  *  -----------------
- *  This is what the (future) web/mobile clients — and curl, today — call to drive
- *  the whole flow. It is intentionally thin: all logic lives in DocumentService.
+ *  What the web/mobile clients (and curl) call. The acting user comes from the JWT;
+ *  the target space defaults to the user's personal space when not specified.
  *
  *  Solution architecture
  *  ---------------------
- *  Base path /api/documents. Until real auth exists, space and user default to the
- *  seeded dev identity (DevProperties / Flyway V6, DECISIONS.md → D6); callers may
- *  override spaceId/uploadedBy via params for testing multiple spaces.
+ *  Base path /api/documents (all authenticated). Identity from CurrentUser;
+ *  space membership/role enforcement lives in DocumentService/SpaceAuthorization.
+ *  A missing spaceId resolves to the caller's personal space via SpaceService.
  *
  *  Reasoning & logic
  *  -----------------
- *  Upload is multipart (a file). Everything else is JSON. Upload returns 201; the
- *  response shows status=needs_review with extraction pending (it fills in shortly).
+ *  Controller stays thin: resolve user + space, delegate. Upload is multipart;
+ *  everything else JSON. Upload returns 201 with status=needs_review.
  * ============================================================================
  */
 package com.trove.document;
 
-import com.trove.common.DevProperties;
+import com.trove.common.security.CurrentUser;
 import com.trove.document.dto.ConfirmRequest;
 import com.trove.document.dto.DocumentResponse;
+import com.trove.space.SpaceService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,56 +52,57 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
-    private final DevProperties dev;
+    private final SpaceService spaceService;
+    private final CurrentUser currentUser;
 
-    public DocumentController(DocumentService documentService, DevProperties dev) {
+    public DocumentController(DocumentService documentService, SpaceService spaceService,
+                             CurrentUser currentUser) {
         this.documentService = documentService;
-        this.dev = dev;
+        this.spaceService = spaceService;
+        this.currentUser = currentUser;
     }
 
-    /** Upload a document (multipart). Defaults to the seeded dev space + user. */
+    /** Upload a document (multipart). Defaults to the caller's personal space. */
     @PostMapping
     public ResponseEntity<DocumentResponse> upload(
             @RequestPart("file") MultipartFile file,
-            @RequestParam(value = "spaceId", required = false) UUID spaceId,
-            @RequestParam(value = "uploadedBy", required = false) UUID uploadedBy) {
+            @RequestParam(value = "spaceId", required = false) UUID spaceId) {
 
-        UUID space = spaceId != null ? spaceId : dev.getDefaultSpaceId();
-        UUID user = uploadedBy != null ? uploadedBy : dev.getDefaultUserId();
+        UUID user = currentUser.requireUserId();
+        UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
         DocumentResponse created = documentService.upload(space, user, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    /** List documents in a space, optionally filtered by category code. */
+    /** List documents in a space (defaults to personal), optionally by category. */
     @GetMapping
     public List<DocumentResponse> list(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "category", required = false) String category) {
 
-        UUID space = spaceId != null ? spaceId : dev.getDefaultSpaceId();
-        return documentService.list(space, category);
+        UUID user = currentUser.requireUserId();
+        UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
+        return documentService.list(space, user, category);
     }
 
-    /** Fetch one document by id. */
+    /** Fetch one document by id (must be a member of its space). */
     @GetMapping("/{id}")
     public DocumentResponse get(@PathVariable UUID id) {
-        return documentService.get(id);
+        return documentService.get(id, currentUser.requireUserId());
     }
 
     /** Return a fresh short-lived URL to view/download the original file. */
     @GetMapping("/{id}/file")
     public Map<String, String> fileUrl(@PathVariable UUID id) {
-        return Map.of("url", documentService.get(id).fileUrl());
+        return Map.of("url", documentService.get(id, currentUser.requireUserId()).fileUrl());
     }
 
-    /** Confirm a document's review (optionally with edits). Defaults reviewer to dev user. */
+    /** Confirm a document's review (optionally with edits). */
     @PostMapping("/{id}/confirm")
     public DocumentResponse confirm(
             @PathVariable UUID id,
-            @RequestBody(required = false) ConfirmRequest body,
-            @RequestParam(value = "reviewerId", required = false) UUID reviewerId) {
+            @RequestBody(required = false) ConfirmRequest body) {
 
-        UUID reviewer = reviewerId != null ? reviewerId : dev.getDefaultUserId();
-        return documentService.confirm(id, reviewer, body);
+        return documentService.confirm(id, currentUser.requireUserId(), body);
     }
 }
