@@ -370,6 +370,12 @@ be rebuilt from these alone):
 }
 ```
 
+> **Build note (D15):** The implemented sidecar carries a few extra fields beyond the
+> shape above — `sidecarKey`, `mimeType`, `sizeBytes`, `originalFilename`, `vital`,
+> `extractionConfidence` — so a document row can be rebuilt *faithfully* from the
+> sidecar alone during disaster recovery. Additive and backward-compatible. See
+> `DECISIONS.md` → D15.
+
 ### 6.2 ExtractionProvider
 
 One call in (an image/PDF), structured fields out. Swappable: start with the

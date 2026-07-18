@@ -44,7 +44,11 @@ public record DocumentSidecar(
         UUID spaceId,
         UUID uploadedBy,
         String storageKey,
+        String sidecarKey,
         String fileHash,          // "sha256:...."
+        String mimeType,
+        long sizeBytes,
+        String originalFilename,
         String category,          // category code, e.g. "electricity"
         String merchant,          // canonical merchant name
         LocalDate docDate,
@@ -52,6 +56,8 @@ public record DocumentSidecar(
         String currency,
         LocalDate dueDate,
         String status,            // needs_review | confirmed
+        boolean vital,
+        BigDecimal extractionConfidence,
         String rawText,
         Map<String, Object> extra,
         Instant createdAt

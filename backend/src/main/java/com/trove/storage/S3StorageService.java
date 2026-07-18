@@ -47,6 +47,8 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -57,6 +59,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -149,6 +153,32 @@ public class S3StorageService implements StorageService {
                         .key(storageKey)
                         .build())
                 .asByteArray();
+    }
+
+    @Override
+    public void put(String storageKey, byte[] bytes, String contentType) {
+        s3.putObject(PutObjectRequest.builder()
+                        .bucket(props.getBucket())
+                        .key(storageKey)
+                        .contentType(contentType != null ? contentType : "application/octet-stream")
+                        .build(),
+                RequestBody.fromBytes(bytes));
+    }
+
+    @Override
+    public List<String> list(String prefix) {
+        List<String> keys = new ArrayList<>();
+        ListObjectsV2Request.Builder req = ListObjectsV2Request.builder()
+                .bucket(props.getBucket())
+                .prefix(prefix == null ? "" : prefix);
+        ListObjectsV2Response resp;
+        String token = null;
+        do {
+            resp = s3.listObjectsV2(req.continuationToken(token).build());
+            resp.contents().forEach(o -> keys.add(o.key()));
+            token = resp.isTruncated() ? resp.nextContinuationToken() : null;
+        } while (token != null);
+        return keys;
     }
 
     @Override

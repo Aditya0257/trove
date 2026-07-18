@@ -152,6 +152,33 @@ public class Document extends BaseEntity {
         this.categoryId = categoryId;
     }
 
+    /**
+     * Reconstructs a document with a KNOWN id (disaster-recovery from a sidecar, or
+     * faithful import). isNew stays true so save() inserts with this exact id. Line
+     * items are not carried here (they are not part of the sidecar).
+     */
+    public static Document restore(UUID id, UUID spaceId, UUID uploadedBy, String storageKey,
+                                   String sidecarKey, String fileHash, String mimeType, long sizeBytes,
+                                   String originalFilename, UUID categoryId, UUID merchantId,
+                                   java.time.LocalDate docDate, BigDecimal amount, String currency,
+                                   java.time.LocalDate dueDate, String rawText, Map<String, Object> extra,
+                                   BigDecimal extractionConfidence, boolean vital, String status) {
+        Document d = new Document(spaceId, uploadedBy, storageKey, sidecarKey, fileHash, mimeType,
+                sizeBytes, originalFilename, categoryId);
+        d.setId(id);
+        d.merchantId = merchantId;
+        d.docDate = docDate;
+        d.amount = amount;
+        if (currency != null) d.currency = currency;
+        d.dueDate = dueDate;
+        d.rawText = rawText;
+        if (extra != null) d.extra = extra;
+        d.extractionConfidence = extractionConfidence;
+        d.vital = vital;
+        if (status != null) d.status = status;
+        return d;
+    }
+
     // ── getters (all fields) ──────────────────────────────────────────────────
     public UUID getSpaceId() { return spaceId; }
     public UUID getUploadedBy() { return uploadedBy; }

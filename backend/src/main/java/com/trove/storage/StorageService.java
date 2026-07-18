@@ -36,6 +36,7 @@ package com.trove.storage;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 public interface StorageService {
@@ -60,6 +61,13 @@ public interface StorageService {
 
     /** Fetches the raw bytes of a stored object (used by extraction to read the file). */
     byte[] get(String storageKey);
+
+    /** Lists every object key under the given prefix ("" = whole bucket). Used by
+     *  export and disaster-recovery rebuild to enumerate files + sidecars. */
+    List<String> list(String prefix);
+
+    /** Writes bytes at an exact key (used by import/restore to reinstate objects). */
+    void put(String storageKey, byte[] bytes, String contentType);
 
     /** Deletes a single stored object by key. */
     void delete(String storageKey);

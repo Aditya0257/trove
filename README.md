@@ -41,7 +41,38 @@ it's well above the trailing average for its category (see Anomalies below).
 **Search** is implemented (Slice 7): natural-language and structured search over
 your documents (see Search below).
 
-Later phases (backups, ingestion) are **not** built yet — see `DESIGN.md` §5.
+**Backups + disaster recovery** are implemented (Slice 8): export/import ZIP,
+rebuild-the-DB-from-sidecars, and a pg_dump job (see Backup & recovery below).
+
+Later phases (2nd-cloud mirror, Google Drive sync, forward-to-file ingestion) are
+**not** built yet — see `DESIGN.md` §5.
+
+## Backup & recovery
+
+The provider-independent safety net behind "lose the host, lose ZERO documents":
+
+```bash
+# On-demand full export (manifest.json + data.csv + files/), per space:
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/export" -o vault-export.zip
+
+# Restore from an export ZIP (admin only): re-uploads files, rebuilds rows:
+curl -s -H "Authorization: Bearer $TOKEN" -F "file=@vault-export.zip" "$B/api/import" | jq
+
+# Disaster recovery — rebuild the whole document index from bucket sidecars (admin):
+curl -s -H "Authorization: Bearer $TOKEN" -X POST "$B/api/admin/rebuild" | jq
+
+# Database snapshot to object storage (admin; also runs on a schedule if enabled):
+curl -s -H "Authorization: Bearer $TOKEN" -X POST "$B/api/admin/pg-dump" | jq
+
+# Backup-run history:
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/admin/backup-runs" | jq
+```
+
+Admin ops are gated to the seeded dev user for now. `pg_dump` needs the binary —
+set `trove.backup.pg-dump-path` (e.g. the Homebrew path) and, for the nightly run,
+`trove.backup.scheduled-dump-enabled=true`. The DB is a rebuildable index: even with
+an empty database, `/api/admin/rebuild` reconstructs every document from the
+self-describing sidecars in object storage.
 
 ## Search
 

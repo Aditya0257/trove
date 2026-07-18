@@ -286,3 +286,30 @@ Format for each entry:
   D9). Returning the interpretation keeps the feature debuggable and trustworthy.
 - **Touches:** `DESIGN.md` §3.
 - **Status:** active.
+
+## D15 — Backup/DR: export ZIP, import, sidecar rebuild, pg_dump (mirror/Drive later)
+
+- **Decision:** Slice 8 delivers the provider-independent safety net: an on-demand
+  **export ZIP** (`manifest.json` + `data.csv` + `files/` with originals + sidecars),
+  **import** (restore files to their keys, then rebuild rows), **DR rebuild** that
+  reconstructs document rows straight from bucket sidecars, and a **pg_dump** job
+  (on-demand + opt-in schedule) that uploads the snapshot to object storage. All log
+  to `backup_run`. Import and DR share one faithful, idempotent restore path (from
+  sidecars). Admin-only ops (import/rebuild/pg-dump/runs) are gated to the seeded dev
+  user until a full role model exists. The **second-cloud mirror and Google Drive
+  sync are deferred** (need external accounts) with clear seams.
+- **Original text:** `DESIGN.md` §3 `backup` module and §4.3/§4.4/§4.5 (backup
+  fan-out, export/restore, DR rebuild).
+- **Why:** These are the pieces that make "lose the app + DB + host, lose ZERO
+  documents" real *and testable now* with no external provider. DR-from-sidecars is
+  the truest restore (original ids/fields), which is why import reuses it. pg_dump is
+  stored in the same durable bucket so one place holds files + a DB restore point.
+- **Sidecar enrichment:** `DocumentSidecar` gained `sidecarKey`, `mimeType`,
+  `sizeBytes`, `originalFilename`, `vital`, and `extractionConfidence` beyond the
+  fields shown in `DESIGN.md` §6.1, so a row can be rebuilt *faithfully* from the
+  sidecar alone. Additive and backward-compatible (older sidecars read with defaults).
+- **Known limitation:** line items are not in the sidecar, so DR rebuild does not
+  restore them (documents + all header fields are restored). A future enhancement can
+  add line items to the sidecar.
+- **Touches:** `DESIGN.md` §3, `DESIGN.md` §6.1 (sidecar shape).
+- **Status:** active.
