@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================================
+   backend/pom.xml : Maven build for the Trove Spring Boot API
+  ============================================================================
+
+   Purpose
+     Declares how the backend is built: Java 21 target, Spring Boot managed
+     dependencies, Flyway (schema owner), the Postgres driver, the AWS S3 SDK v2
+     (object storage), and validation. Produces a single runnable fat-jar.
+
+   Business use case
+     Trove runs as one stateless jar on an Oracle Always-Free ARM box. Disposable
+     app, precious data means the build must yield an artifact we can redeploy
+     anywhere with zero host state. A fat-jar is exactly that.
+
+   Solution architecture
+     * spring-boot-starter-web       : REST controllers (upload/list/confirm).
+     * spring-boot-starter-data-jpa  : the rebuildable Postgres index.
+     * flyway-core (+ postgresql)    : Flyway owns the schema; Hibernate validates.
+     * aws sdk s3                    : one client for both Cloudflare R2 (prod) and
+                                       MinIO (dev). See DECISIONS.md D1.
+     * validation                   : request DTO validation.
+
+   Design
+     No Lombok (DECISIONS.md D7): explicit, self-documenting code. Jackson (via the
+     web starter) handles sidecar JSON + jsonb mapping.
+
+   Reasoning and logic
+     Java version is pinned to 21 per the brief (DECISIONS.md D2) even though the
+     dev machine runs JDK 25, so the artifact stays portable to a real JDK-21 host.
+     The AWS BOM pins one coherent set of SDK module versions.
+  ============================================================================
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.trove</groupId>
+    <artifactId>trove-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>trove-backend</name>
+    <description>Trove — private document vault (Slice 1: upload, store, stub-extract, list, confirm)</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <aws.sdk.version>2.28.29</aws.sdk.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Pins a coherent set of AWS SDK v2 module versions. -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- REST layer -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- JPA / Hibernate over the Postgres index -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Bean Validation for request DTOs -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Flyway owns the schema (migrations in src/main/resources/db/migration) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- Postgres JDBC driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- AWS S3 SDK v2 — object storage client for R2 (prod) & MinIO (dev).
+             The s3 module includes the presigner used for short-lived view URLs. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

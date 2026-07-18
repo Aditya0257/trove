@@ -1,0 +1,103 @@
+# =============================================================================
+#  application.yml — runtime configuration for the Trove backend
+# =============================================================================
+#
+#  Purpose
+#  -------
+#  Wires the app to its two stateful dependencies (Postgres, S3/MinIO), selects
+#  the extraction provider, sizes the async extraction executor, and seeds the
+#  default dev identity. Everything sensitive is overridable by env var.
+#
+#  Business use case
+#  -----------------
+#  One config file works locally (docker-compose defaults below) and in prod (env
+#  vars point the SAME code at Neon Postgres + Cloudflare R2). No code change to
+#  switch environments — see DECISIONS.md → D1.
+#
+#  Solution architecture
+#  ---------------------
+#  - datasource  → Postgres (rebuildable index).
+#  - jpa         → ddl-auto=validate: Flyway owns the schema, Hibernate only checks.
+#  - trove.storage → S3 client settings (endpoint/keys/bucket); path-style for MinIO.
+#  - trove.extraction → which ExtractionProvider bean is active (stub for now).
+#  - trove.extraction.executor → the bounded async pool (DECISIONS.md → D3).
+#  - trove.dev   → seeded user/space UUIDs used when no auth context exists (D6).
+#
+#  Reasoning & logic
+#  -----------------
+#  Defaults match infra/docker-compose.yml so `docker compose up` + run just works.
+#  Secrets are literal only for local dev; in prod they come from env vars
+#  (${VAR:default} syntax), honoring "secrets via env vars only."
+# =============================================================================
+
+spring:
+  application:
+    name: trove
+
+  datasource:
+    url: ${TROVE_DB_URL:jdbc:postgresql://localhost:5432/trove}
+    username: ${TROVE_DB_USER:trove}
+    password: ${TROVE_DB_PASSWORD:trove}
+
+  jpa:
+    hibernate:
+      # Flyway is the single owner of the schema. Hibernate must never mutate it;
+      # it only validates that the entities match the migrated tables.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      # Documents are photos/PDFs; allow reasonably large uploads.
+      max-file-size: 25MB
+      max-request-size: 30MB
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# ── Trove-specific configuration ─────────────────────────────────────────────
+trove:
+  storage:
+    # S3-compatible endpoint. Local MinIO by default; set to the R2 endpoint in prod.
+    endpoint: ${TROVE_S3_ENDPOINT:http://localhost:9000}
+    region: ${TROVE_S3_REGION:us-east-1}
+    access-key: ${TROVE_S3_ACCESS_KEY:minioadmin}
+    secret-key: ${TROVE_S3_SECRET_KEY:minioadmin}
+    bucket: ${TROVE_S3_BUCKET:trove}
+    # MinIO needs path-style access (bucket in the path, not the hostname).
+    # R2 also supports path-style, so true is safe for both.
+    path-style-access: ${TROVE_S3_PATH_STYLE:true}
+    # Create the bucket on startup if missing (dev convenience; harmless in prod).
+    auto-create-bucket: ${TROVE_S3_AUTO_CREATE_BUCKET:true}
+    # TTL for presigned view/download URLs handed to clients.
+    presign-ttl-seconds: ${TROVE_S3_PRESIGN_TTL:900}
+
+  extraction:
+    # Which ExtractionProvider bean is active: 'stub' now, 'vision' later.
+    provider: ${TROVE_EXTRACTION_PROVIDER:stub}
+    executor:
+      # Bounded async pool for extraction (DECISIONS.md → D3). CallerRunsPolicy
+      # applies backpressure instead of dropping work or exhausting memory.
+      core-pool-size: ${TROVE_EXTRACTION_CORE_POOL:2}
+      max-pool-size: ${TROVE_EXTRACTION_MAX_POOL:4}
+      queue-capacity: ${TROVE_EXTRACTION_QUEUE:100}
+    reconciler:
+      # Periodic sweep that re-dispatches documents left un-extracted (crash safety).
+      fixed-delay-ms: ${TROVE_EXTRACTION_RECONCILE_DELAY_MS:300000}   # 5 min
+
+  dev:
+    # Seeded identity (Flyway V6). Endpoints default to these until real auth exists.
+    default-user-id: ${TROVE_DEV_USER_ID:00000000-0000-0000-0000-000000000001}
+    default-space-id: ${TROVE_DEV_SPACE_ID:00000000-0000-0000-0000-000000000010}
+
+logging:
+  level:
+    com.trove: ${TROVE_LOG_LEVEL:INFO}
