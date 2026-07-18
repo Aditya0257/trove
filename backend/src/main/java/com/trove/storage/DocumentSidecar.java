@@ -57,6 +57,7 @@ public record DocumentSidecar(
         LocalDate dueDate,
         String status,            // needs_review | confirmed
         boolean vital,
+        boolean encrypted,        // stored file bytes are AES-encrypted at rest
         BigDecimal extractionConfidence,
         String rawText,
         Map<String, Object> extra,

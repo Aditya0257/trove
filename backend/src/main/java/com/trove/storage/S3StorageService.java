@@ -104,21 +104,27 @@ public class S3StorageService implements StorageService {
 
     @Override
     public StoredObject store(UUID spaceId, String categoryCode, MultipartFile file) {
-        byte[] bytes = readBytes(file);
+        return storeBytes(spaceId, categoryCode, file.getOriginalFilename(),
+                resolveContentType(file), readBytes(file));
+    }
+
+    @Override
+    public StoredObject storeBytes(UUID spaceId, String categoryCode, String originalFilename,
+                                   String contentType, byte[] bytes) {
+        String ct = (contentType == null || contentType.isBlank()) ? "application/octet-stream" : contentType;
         String hash = HashUtil.sha256Hex(bytes);
-        String contentType = resolveContentType(file);
-        String storageKey = buildKey(categoryCode, file.getOriginalFilename(), contentType);
+        String storageKey = buildKey(categoryCode, originalFilename, ct);
         String sidecarKey = deriveSidecarKey(storageKey);
 
         s3.putObject(PutObjectRequest.builder()
                         .bucket(props.getBucket())
                         .key(storageKey)
-                        .contentType(contentType)
+                        .contentType(ct)
                         .build(),
                 RequestBody.fromBytes(bytes));
 
-        log.info("Stored object key={} size={}B mime={}", storageKey, bytes.length, contentType);
-        return new StoredObject(storageKey, sidecarKey, hash, bytes.length, contentType);
+        log.info("Stored object key={} size={}B mime={}", storageKey, bytes.length, ct);
+        return new StoredObject(storageKey, sidecarKey, hash, bytes.length, ct);
     }
 
     @Override

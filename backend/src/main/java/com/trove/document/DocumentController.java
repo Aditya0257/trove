@@ -62,16 +62,31 @@ public class DocumentController {
         this.currentUser = currentUser;
     }
 
-    /** Upload a document (multipart). Defaults to the caller's personal space. */
+    /** Upload a document (multipart). Defaults to the caller's personal space.
+     *  Pass vital=true for sensitive PII (passport/ID/policy) → encrypted at rest. */
     @PostMapping
     public ResponseEntity<DocumentResponse> upload(
             @RequestPart("file") MultipartFile file,
-            @RequestParam(value = "spaceId", required = false) UUID spaceId) {
+            @RequestParam(value = "spaceId", required = false) UUID spaceId,
+            @RequestParam(value = "vital", required = false, defaultValue = "false") boolean vital) {
 
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        DocumentResponse created = documentService.upload(space, user, file);
+        DocumentResponse created = documentService.upload(space, user, file, vital);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /** Stream the original file bytes (decrypted if the document is vital/encrypted). */
+    @GetMapping("/{id}/content")
+    public ResponseEntity<byte[]> content(@PathVariable UUID id) {
+        DocumentService.DownloadedFile f = documentService.content(id, currentUser.requireUserId());
+        String filename = f.filename() != null ? f.filename() : "document";
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + filename + "\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType(
+                        f.contentType() != null ? f.contentType() : "application/octet-stream"))
+                .body(f.bytes());
     }
 
     /** List documents in a space (defaults to personal), optionally by category. */

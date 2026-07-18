@@ -56,6 +56,7 @@ public final class SidecarFactory {
                 doc.getDueDate(),
                 doc.getStatus(),
                 doc.isVital(),
+                doc.isEncrypted(),
                 doc.getExtractionConfidence(),
                 doc.getRawText(),
                 doc.getExtra(),

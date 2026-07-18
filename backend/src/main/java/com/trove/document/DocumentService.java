@@ -35,6 +35,7 @@ import com.trove.category.Category;
 import com.trove.category.CategoryRepository;
 import com.trove.category.CategoryService;
 import com.trove.common.HashUtil;
+import com.trove.common.security.EncryptionService;
 import com.trove.common.error.DuplicateDocumentException;
 import com.trove.common.error.NotFoundException;
 import com.trove.document.dto.ConfirmRequest;
@@ -83,6 +84,7 @@ public class DocumentService {
     private final MerchantRepository merchantRepository;
     private final SpaceAuthorization spaceAuthorization;
     private final AnomalyService anomalyService;
+    private final EncryptionService encryptionService;
     private final ApplicationEventPublisher events;
 
     public DocumentService(DocumentRepository documentRepository,
@@ -95,6 +97,7 @@ public class DocumentService {
                            MerchantRepository merchantRepository,
                            SpaceAuthorization spaceAuthorization,
                            AnomalyService anomalyService,
+                           EncryptionService encryptionService,
                            ApplicationEventPublisher events) {
         this.documentRepository = documentRepository;
         this.lineItemRepository = lineItemRepository;
@@ -106,6 +109,7 @@ public class DocumentService {
         this.merchantRepository = merchantRepository;
         this.spaceAuthorization = spaceAuthorization;
         this.anomalyService = anomalyService;
+        this.encryptionService = encryptionService;
         this.events = events;
     }
 
@@ -113,8 +117,19 @@ public class DocumentService {
      * Uploads one document. Order matters: the durable object store is written
      * before the DB row, and extraction is triggered only after commit.
      */
+    /** Upload without a vital flag (forwarded/ingested docs default to non-vital). */
     @Transactional
     public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file) {
+        return upload(spaceId, uploadedBy, file, false);
+    }
+
+    /**
+     * Uploads a document. When {@code vital} is true the stored file bytes are
+     * AES-encrypted at rest (passport/ID/policy) and served via the decrypt-stream
+     * endpoint instead of a presigned URL.
+     */
+    @Transactional
+    public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file, boolean vital) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Uploaded file is empty");
         }
@@ -122,24 +137,28 @@ public class DocumentService {
         // 0) Authorize: the uploader must be an owner/member of the target space.
         spaceAuthorization.requireCanWrite(spaceId, uploadedBy);
 
-        // 1) Hash the bytes and reject a duplicate already in this space.
+        // 1) Hash the PLAINTEXT bytes and reject a duplicate already in this space
+        //    (dedupe is on content, independent of whether we encrypt at rest).
         byte[] bytes = readBytes(file);
         String hash = HashUtil.sha256Hex(bytes);
         documentRepository.findBySpaceIdAndFileHash(spaceId, hash).ifPresent(existing -> {
             throw new DuplicateDocumentException(existing.getId());
         });
 
-        // 2) Store the file under the provisional category path (source of truth).
+        // 2) Store under the provisional category path. Vital docs are encrypted first.
         Category provisional = categoryService.resolve(spaceId, PROVISIONAL_CATEGORY);
-        StoredObject stored = storageService.store(spaceId, provisional.getCode(), file);
+        String contentType = (file.getContentType() != null && !file.getContentType().isBlank())
+                ? file.getContentType() : "application/octet-stream";
+        byte[] toStore = vital ? encryptionService.encryptBytes(bytes) : bytes;
+        StoredObject stored = storageService.storeBytes(spaceId, provisional.getCode(),
+                file.getOriginalFilename(), contentType, toStore);
 
-        // 3) Insert the index row as needs_review (extraction_confidence stays NULL).
-        //    saveAndFlush forces the INSERT now so @CreationTimestamp/@UpdateTimestamp
-        //    are populated before we build the sidecar and response (otherwise they
-        //    would flush only at commit, leaving createdAt null in the first sidecar).
+        // 3) Insert the index row as needs_review. file_hash/size_bytes describe the
+        //    PLAINTEXT (so dedupe + display are stable regardless of encryption).
         Document doc = new Document(spaceId, uploadedBy, stored.storageKey(), stored.sidecarKey(),
-                stored.fileHash(), stored.mimeType(), stored.sizeBytes(),
-                file.getOriginalFilename(), provisional.getId());
+                hash, contentType, bytes.length, file.getOriginalFilename(), provisional.getId());
+        doc.setVital(vital);
+        doc.setEncrypted(vital);
         documentRepository.saveAndFlush(doc);
 
         // 4) Write the initial sidecar so the bucket is self-describing immediately.
@@ -166,6 +185,39 @@ public class DocumentService {
             docs = documentRepository.findBySpaceIdOrderByCreatedAtDesc(spaceId);
         }
         return docs.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Returns the document's file bytes for viewing/download, decrypting if the file
+     * is stored encrypted (vital). Enforces space membership.
+     */
+    @Transactional(readOnly = true)
+    public DownloadedFile content(UUID documentId, UUID userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanRead(doc.getSpaceId(), userId);
+        byte[] bytes = storageService.get(doc.getStorageKey());
+        if (doc.isEncrypted()) {
+            bytes = encryptionService.decryptBytes(bytes);
+        }
+        return new DownloadedFile(bytes, doc.getMimeType(), doc.getOriginalFilename());
+    }
+
+    /** Re-encrypts or decrypts the stored file so it matches the document's vital flag. */
+    private void syncEncryptionWithVital(Document doc) {
+        if (doc.isVital() && !doc.isEncrypted()) {
+            byte[] plain = storageService.get(doc.getStorageKey());
+            storageService.put(doc.getStorageKey(), encryptionService.encryptBytes(plain), doc.getMimeType());
+            doc.setEncrypted(true);
+        } else if (!doc.isVital() && doc.isEncrypted()) {
+            byte[] cipher = storageService.get(doc.getStorageKey());
+            storageService.put(doc.getStorageKey(), encryptionService.decryptBytes(cipher), doc.getMimeType());
+            doc.setEncrypted(false);
+        }
+    }
+
+    /** File bytes + metadata for a download/stream response. */
+    public record DownloadedFile(byte[] bytes, String contentType, String filename) {
     }
 
     /** Lists confirmed documents flagged as spending anomalies in a space. */
@@ -209,6 +261,9 @@ public class DocumentService {
             if (req.vital() != null) doc.setVital(req.vital());
             if (req.extra() != null) doc.setExtra(req.extra());
         }
+
+        // If the vital flag changed, (de)encrypt the stored file bytes to match.
+        syncEncryptionWithVital(doc);
 
         doc.setStatus(DocumentStatus.CONFIRMED);
         doc.setReviewedBy(reviewerId);
@@ -256,8 +311,12 @@ public class DocumentService {
     private DocumentResponse toResponse(Document doc) {
         String categoryCode = categoryCodeOf(doc.getCategoryId());
         String merchantName = merchantNameOf(doc.getMerchantId());
-        String fileUrl = storageService.presignedUrl(doc.getStorageKey(),
-                Duration.ofSeconds(storageProperties.getPresignTtlSeconds()));
+        // Encrypted (vital) files can't be handed out as presigned URLs — the client
+        // would get ciphertext — so they are served via the decrypt-stream endpoint.
+        String fileUrl = doc.isEncrypted()
+                ? "/api/documents/" + doc.getId() + "/content"
+                : storageService.presignedUrl(doc.getStorageKey(),
+                        Duration.ofSeconds(storageProperties.getPresignTtlSeconds()));
         List<LineItemResponse> items = lineItemRepository.findByDocumentId(doc.getId()).stream()
                 .map(li -> new LineItemResponse(li.getDescription(), li.getQuantity(),
                         li.getUnitPrice(), li.getAmount()))

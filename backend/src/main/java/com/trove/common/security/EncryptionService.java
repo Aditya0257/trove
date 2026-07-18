@@ -80,6 +80,36 @@ public class EncryptionService {
         }
     }
 
+    /** Encrypts raw bytes → iv ‖ ciphertext‖tag (used for vital file bytes at rest). */
+    public byte[] encryptBytes(byte[] plaintext) {
+        try {
+            byte[] iv = new byte[IV_BYTES];
+            random.nextBytes(iv);
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            byte[] ct = cipher.doFinal(plaintext);
+            byte[] out = new byte[iv.length + ct.length];
+            System.arraycopy(iv, 0, out, 0, iv.length);
+            System.arraycopy(ct, 0, out, iv.length, ct.length);
+            return out;
+        } catch (Exception e) {
+            throw new IllegalStateException("Encryption failed", e);
+        }
+    }
+
+    /** Decrypts bytes produced by {@link #encryptBytes(byte[])}. */
+    public byte[] decryptBytes(byte[] data) {
+        try {
+            byte[] iv = new byte[IV_BYTES];
+            System.arraycopy(data, 0, iv, 0, IV_BYTES);
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            return cipher.doFinal(data, IV_BYTES, data.length - IV_BYTES);
+        } catch (Exception e) {
+            throw new IllegalStateException("Decryption failed", e);
+        }
+    }
+
     /** Decrypts a token produced by {@link #encrypt(String)}. */
     public String decrypt(String token) {
         try {

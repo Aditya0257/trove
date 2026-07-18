@@ -116,6 +116,10 @@ public class Document extends BaseEntity {
     @Column(name = "is_vital", nullable = false)
     private boolean vital = false;
 
+    /** True when the stored file bytes are AES-encrypted at rest (vital documents). */
+    @Column(name = "encrypted", nullable = false)
+    private boolean encrypted = false;
+
     @Column(name = "status", nullable = false)
     private String status = DocumentStatus.NEEDS_REVIEW;
 
@@ -162,7 +166,8 @@ public class Document extends BaseEntity {
                                    String originalFilename, UUID categoryId, UUID merchantId,
                                    java.time.LocalDate docDate, BigDecimal amount, String currency,
                                    java.time.LocalDate dueDate, String rawText, Map<String, Object> extra,
-                                   BigDecimal extractionConfidence, boolean vital, String status) {
+                                   BigDecimal extractionConfidence, boolean vital, boolean encrypted,
+                                   String status) {
         Document d = new Document(spaceId, uploadedBy, storageKey, sidecarKey, fileHash, mimeType,
                 sizeBytes, originalFilename, categoryId);
         d.setId(id);
@@ -175,6 +180,7 @@ public class Document extends BaseEntity {
         if (extra != null) d.extra = extra;
         d.extractionConfidence = extractionConfidence;
         d.vital = vital;
+        d.encrypted = encrypted;
         if (status != null) d.status = status;
         return d;
     }
@@ -198,6 +204,8 @@ public class Document extends BaseEntity {
     public Map<String, Object> getExtra() { return extra; }
     public BigDecimal getExtractionConfidence() { return extractionConfidence; }
     public boolean isVital() { return vital; }
+    public boolean isEncrypted() { return encrypted; }
+    public void setEncrypted(boolean encrypted) { this.encrypted = encrypted; }
     public String getStatus() { return status; }
     public UUID getReviewedBy() { return reviewedBy; }
     public Instant getReviewedAt() { return reviewedAt; }

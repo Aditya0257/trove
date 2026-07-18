@@ -372,7 +372,7 @@ Format for each entry:
   `get`, keyed off `document.is_vital`) — not yet implemented; only the token uses it
   today.
 - **Touches:** `CLAUDE.md` (vital docs), `DECISIONS.md` → D17.
-- **Status:** active (token); vital-doc file encryption TODO.
+- **Status:** active (token) — vital-doc file encryption now implemented in **D21**.
 
 ## D19 — Second-cloud mirror to Backblaze B2 (S3-compatible), key-diff copy
 
@@ -407,4 +407,31 @@ Format for each entry:
   token-only ingest (202), rotation invalidating the old token (401), and
   backward-compatible shared-secret ingest (202).
 - **Touches:** `DECISIONS.md` → D16.
+- **Status:** active.
+
+## D21 — Vital documents are encrypted at rest; served via a decrypt-stream path
+
+- **Decision:** Documents flagged **vital** (passport/Aadhaar/PAN/policies) have their
+  file bytes **AES-256-GCM encrypted in object storage** (reusing D18's
+  EncryptionService). Vital is set at **upload** (`vital=true` → encrypt at store) or
+  at **confirm** (transition re-encrypts/decrypts the stored object in place). A
+  `document.encrypted` column (Flyway V9) tracks state. Because encrypted objects
+  can't be handed out as presigned URLs (client would get ciphertext), vital docs are
+  served via **`GET /api/documents/{id}/content`** (backend decrypts and streams);
+  non-vital keep fast presigned URLs. `file_hash`/`size_bytes` describe the plaintext
+  (so dedupe + display are stable). The `encrypted` flag rides in the sidecar, so DR
+  rebuild restores it faithfully.
+- **Original text:** `CLAUDE.md` — *"Vital documents … encrypt at rest. Decide this at
+  the storage layer, not as an afterthought."* Resolves the TODO left open in D18.
+- **Why:** Targeted encryption (only vital) matches the brief and keeps the common
+  path fast (presigned, no proxying). Storing the plaintext hash keeps content dedupe
+  working across encrypted/plaintext. A consequence (by design): vital files in the
+  Drive/mirror copies are ciphertext — arguably desirable for the most sensitive docs.
+  Verified live: vital upload stores ciphertext, `/content` decrypts to the exact
+  original, sidecar shows `encrypted=true`, confirm-time vital transition re-encrypts
+  in place, non-vital still presigned.
+- **Trade-off:** encryption is keyed by `TROVE_ENCRYPTION_KEY` — losing that key makes
+  vital files unrecoverable (expected property of encryption at rest; key must be
+  backed up out-of-band).
+- **Touches:** `CLAUDE.md` (vital docs), `DECISIONS.md` → D18.
 - **Status:** active.

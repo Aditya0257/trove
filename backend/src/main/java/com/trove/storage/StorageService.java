@@ -50,6 +50,15 @@ public interface StorageService {
     StoredObject store(UUID spaceId, String categoryCode, MultipartFile file);
 
     /**
+     * Stores already-prepared bytes (possibly encrypted) under the key scheme. Used by
+     * the vital-document path, where the caller encrypts before storing. The returned
+     * StoredObject's hash/size describe the STORED bytes; callers that need the
+     * plaintext hash/size compute those themselves.
+     */
+    StoredObject storeBytes(UUID spaceId, String categoryCode, String originalFilename,
+                            String contentType, byte[] bytes);
+
+    /**
      * Writes/overwrites the sidecar JSON for a stored file. The sidecar key is the
      * storage key with a .json extension. Called on upload, after extraction, and
      * after confirm so the bucket always mirrors the latest known state.

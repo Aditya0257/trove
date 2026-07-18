@@ -128,7 +128,7 @@ public class RebuildService {
                 s.originalFilename(), category.getId(),
                 merchant != null ? merchant.getId() : null,
                 s.docDate(), s.amount(), s.currency(), s.dueDate(), s.rawText(), s.extra(),
-                s.extractionConfidence(), s.vital(), s.status());
+                s.extractionConfidence(), s.vital(), s.encrypted(), s.status());
         documentRepository.save(doc);
         log.info("Rebuilt document {} from sidecar {}", s.documentId(), sidecarKey);
         return true;

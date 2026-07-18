@@ -49,11 +49,28 @@ route a forwarded document through the normal pipeline (see Ingestion below).
 
 **Google Drive backup** is implemented (per-owner OAuth) — see Google Drive below.
 
-**Second-cloud mirror** (Backblaze B2, S3-compatible) and **per-space ingest
-addresses** are implemented — see below.
+**Second-cloud mirror** (Backblaze B2, S3-compatible), **per-space ingest addresses**,
+and **vital-document encryption at rest** are implemented — see below.
 
-Remaining: vital-doc *file* encryption (the AES engine exists; wiring file bytes +
-a decrypt-stream serve path through it is the next TODO — `DECISIONS.md` D18).
+## Vital documents (encrypted at rest)
+
+Flag a document `vital=true` (passport/Aadhaar/PAN/policies) and its bytes are
+AES-256-GCM encrypted in object storage. Vital files are served via a decrypt-stream
+endpoint (not a presigned URL); non-vital keep presigned URLs.
+
+```bash
+# upload a vital document (stored encrypted):
+curl -s -F "file=@passport.jpg" -H "Authorization: Bearer $TOKEN" \
+  "$B/api/documents?vital=true" | jq '.vital, .fileUrl'
+# view/download (backend decrypts and streams):
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/documents/<ID>/content" -o passport.jpg
+# or flag vital during review — re-encrypts the stored file in place:
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -X POST "$B/api/documents/<ID>/confirm" -d '{"vital":true}' | jq '.vital'
+```
+
+Config: `TROVE_ENCRYPTION_KEY` (any passphrase; a 256-bit key is derived). **Back this
+up out-of-band** — losing it makes vital files unrecoverable.
 
 ## Second-cloud mirror (independent copy)
 
