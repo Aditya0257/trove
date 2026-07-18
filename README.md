@@ -4,18 +4,28 @@ A private vault for the documents that matter — bills, receipts, policies,
 warranties, IDs. You upload a document; Trove stores it durably, reads it, files
 it by category, and lets you review and confirm the extracted fields.
 
-> **Read first:** [`DESIGN.md`](DESIGN.md) (architecture, schema, interfaces) and
-> [`DECISIONS.md`](DECISIONS.md) (the running log of build decisions and their
-> reasoning).
+> **Read first:** [`DESIGN.md`](DESIGN.md) (architecture, schema, interfaces),
+> [`DECISIONS.md`](DECISIONS.md) (the running log of build decisions + reasoning),
+> [`docs/API.md`](docs/API.md) (the full REST API — hand this to whoever builds the
+> UI), and [`.env.example`](.env.example) (every config value + how to host it).
 
-## Where we are: **Slice 1** (the first end-to-end vertical)
+## Status: backend complete (build order 1–9 + hardening)
 
-Implemented, and nothing beyond it yet:
+The whole backend from `DESIGN.md` §5 is built, tested live, and committed:
+upload → durable store + sidecar; a **multi-provider extraction chain**; **JWT auth**
++ **shared spaces/roles**; **spend tracking**; **reminders**; **anomaly detection**;
+**natural-language search**; a full **backup story** (export/import ZIP, DR
+rebuild-from-sidecars, pg_dump, Google Drive per-owner sync, Backblaze B2 mirror);
+**forward-to-file ingestion** (email/WhatsApp + per-space addresses); and
+**vital-document encryption at rest**. The **web/mobile clients are not built yet**
+(placeholders) — see [`docs/API.md`](docs/API.md) to build them.
+
+Core vertical, for reference:
 
 - **Upload** a file → hash it → reject duplicates in the space → store it in
   object storage **with a sidecar JSON** → insert a `needs_review` row.
-- **Extraction** runs **asynchronously** (stub provider for now) and fills in
-  category / merchant / date / amount, then rewrites the sidecar.
+- **Extraction** runs **asynchronously** and fills in category / merchant / date /
+  amount, then rewrites the sidecar.
 - **List** documents (optionally by category) and **confirm** a document
   (`needs_review` → `confirmed`).
 
@@ -427,7 +437,44 @@ cache, the bucket is the truth. (The rebuild job itself is a later phase.)
 ## Configuration
 
 All settings live in `backend/src/main/resources/application.yml` and are
-env-overridable. To point at real Cloudflare R2 + Neon in prod, set
-`TROVE_S3_ENDPOINT`, `TROVE_S3_ACCESS_KEY`, `TROVE_S3_SECRET_KEY`,
-`TROVE_S3_BUCKET`, and `TROVE_DB_URL`/`TROVE_DB_USER`/`TROVE_DB_PASSWORD` — no
-code change (the storage impl speaks S3 to both; see `DECISIONS.md` → D1).
+**env-overridable**. The single source of truth for every knob — what it is, its dev
+default, and the exact prod value/provider to swap in — is **[`.env.example`](.env.example)**
+(richly commented). Copy it to `.env` and fill it in.
+
+> Spring Boot does **not** read `.env` automatically. Load it before running:
+> `set -a; source .env; set +a && java -jar backend/target/trove-backend-*.jar`
+> (or use a systemd `EnvironmentFile`, or docker-compose `env_file`).
+
+The extraction **chain** is a list, so it lives in `application.yml`
+(`trove.extraction.chain`) or is overridden via `SPRING_APPLICATION_JSON` — see the
+Extraction note in `.env.example`.
+
+## Deploying to production (all free tier)
+
+The app is a single stateless jar. Nothing durable lives on the host — the truth is
+in object storage. Point the env vars at hosted free tiers; **no code changes**.
+
+| Concern | Dev | Prod (free) | Env vars |
+|---|---|---|---|
+| Database | local Postgres | **Neon** (0.5 GB) | `TROVE_DB_URL/USER/PASSWORD` |
+| Object storage | MinIO | **Cloudflare R2** (10 GB) | `TROVE_S3_ENDPOINT/ACCESS_KEY/SECRET_KEY/BUCKET`, `TROVE_S3_AUTO_CREATE_BUCKET=false` |
+| 2nd cloud mirror | 2nd MinIO bucket | **Backblaze B2** (10 GB) | `TROVE_MIRROR_ENABLED=true` + `TROVE_MIRROR_*` |
+| Human-readable backup | — | **Google Drive** (per owner, 15 GB each) | `GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI` |
+| Extraction | stub / local Ollama | **Ollama** (self-host) or a vision API | `OLLAMA_ENDPOINT` / `GEMINI_API_KEY` + chain |
+| Host | `java -jar` | **Oracle Cloud Always-Free ARM** VM | run the jar behind Caddy/Nginx for HTTPS |
+| Secrets | dev defaults | **generate strong values** | `TROVE_JWT_SECRET`, `TROVE_ENCRYPTION_KEY` (`openssl rand -base64 48`) |
+
+Steps: (1) create the Neon DB (Flyway migrates it on first boot); (2) create the R2
+bucket + API token; (3) build `mvn -DskipTests package`, copy the jar to the Oracle
+VM; (4) put your prod values in `/etc/trove.env` and run via systemd with
+`EnvironmentFile=/etc/trove.env`; (5) front it with Caddy for automatic HTTPS and set
+`GOOGLE_OAUTH_REDIRECT_URI` to the HTTPS callback (and add it to the Google OAuth
+client's Authorized redirect URIs); (6) set `TROVE_DEV_PASSWORD=` (empty) to disable
+the dev login. **Back up `TROVE_ENCRYPTION_KEY` out-of-band** — losing it makes vital
+files unrecoverable.
+
+## Building a client (web / mobile)
+
+The clients aren't built yet. **[`docs/API.md`](docs/API.md)** is a self-contained
+REST reference (endpoints, payloads, auth, error shape, and suggested screens) — hand
+it to whoever (or whatever) builds the Angular/Flutter UI.
