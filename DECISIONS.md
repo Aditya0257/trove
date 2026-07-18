@@ -267,3 +267,22 @@ Format for each entry:
   way. Stored in `extra` (jsonb) to avoid a schema change (consistent with D5).
 - **Touches:** `DESIGN.md` §3.
 - **Status:** active.
+
+## D14 — Natural-language search is rule-based (no LLM), behind a swappable parser
+
+- **Decision:** Slice 7 adds search: a structured filter API and a natural-language
+  endpoint. NL is handled by a **rule-based `NaturalQueryParser`** (category
+  synonyms, month/year and relative periods, "last"/"all", leftover words → free
+  text) that produces a `SearchQuery`; both paths run through the same
+  Specification-based query. Free text matches raw OCR text, filename, OR a resolved
+  merchant. The natural endpoint returns the interpreted filters for transparency.
+- **Original text:** `DESIGN.md` §3 — *"`search` — `SearchService`: structured
+  filters + a natural-language layer ("all Nike purchases", "last water bill") mapped
+  to query params."*
+- **Why:** A rule-based parser is **free and instant** — no LLM cost or latency — and
+  fully covers the design's example queries at Trove's scale, fitting the zero-cost
+  goal. It's isolated behind its own class so an LLM-backed parser could replace it
+  later with no change to `SearchService` (same pluggable philosophy as extraction,
+  D9). Returning the interpretation keeps the feature debuggable and trustworthy.
+- **Touches:** `DESIGN.md` §3.
+- **Status:** active.

@@ -38,7 +38,28 @@ date is confirmed (see Reminders below).
 **Anomaly detection** is implemented (Slice 6): a confirmed bill is flagged when
 it's well above the trailing average for its category (see Anomalies below).
 
-Later phases (search, backups, ingestion) are **not** built yet — see `DESIGN.md` §5.
+**Search** is implemented (Slice 7): natural-language and structured search over
+your documents (see Search below).
+
+Later phases (backups, ingestion) are **not** built yet — see `DESIGN.md` §5.
+
+## Search
+
+Natural-language search maps a phrase to filters (category synonyms, months/years,
+"last"/"all", free text → OCR text / filename / merchant) with a rule-based parser
+(no LLM, free/instant). The response echoes how the phrase was interpreted.
+
+```bash
+# natural language
+curl -s -H "Authorization: Bearer $TOKEN" \
+  --get "$B/api/search" --data-urlencode 'q=my last electricity bill' | jq
+curl -s -H "Authorization: Bearer $TOKEN" \
+  --get "$B/api/search" --data-urlencode 'q=electricity from June' | jq '.interpreted, .count'
+
+# structured filters
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$B/api/search/structured?category=electricity&min=3000&from=2026-01-01&to=2026-12-31" | jq
+```
 
 ## Anomalies
 

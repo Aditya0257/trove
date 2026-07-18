@@ -30,6 +30,7 @@ package com.trove.category;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -63,5 +64,22 @@ public class CategoryService {
         return repository.findBySpaceIdIsNullAndCode(FALLBACK_CODE)
                 .orElseThrow(() -> new IllegalStateException(
                         "Fallback category '" + FALLBACK_CODE + "' is missing — check Flyway seed V6."));
+    }
+
+    /**
+     * Finds a category by code without falling back (space-specific → global). Used by
+     * search, where an unknown code should mean "no match", not the default category.
+     */
+    public Optional<Category> find(UUID spaceId, String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        if (spaceId != null) {
+            var spaceSpecific = repository.findBySpaceIdAndCode(spaceId, code);
+            if (spaceSpecific.isPresent()) {
+                return spaceSpecific;
+            }
+        }
+        return repository.findBySpaceIdIsNullAndCode(code);
     }
 }

@@ -241,6 +241,16 @@ public class DocumentService {
         return toResponse(doc);
     }
 
+    /**
+     * Maps already-loaded documents to responses (presigned URLs + line items).
+     * Used by search, which does its own authorization and query. Read-only tx so
+     * lazy access and presigning happen within a session.
+     */
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> present(List<Document> docs) {
+        return docs.stream().map(this::toResponse).toList();
+    }
+
     // ── mapping helpers ───────────────────────────────────────────────────────
 
     private DocumentResponse toResponse(Document doc) {
