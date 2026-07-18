@@ -63,6 +63,13 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+# ── Google OAuth (Drive backup leg) ──────────────────────────────────────────
+google:
+  oauth:
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:http://localhost:8080/api/integrations/google-drive/callback}
+
 # ── Trove-specific configuration ─────────────────────────────────────────────
 trove:
   storage:
@@ -143,6 +150,14 @@ trove:
       # HMAC-SHA256 signing secret (>= 32 bytes). MUST be overridden in prod via env.
       secret: ${TROVE_JWT_SECRET:dev-only-change-me-please-32bytes-minimum-secret}
       expiration-minutes: ${TROVE_JWT_EXPIRATION_MINUTES:720}
+    # Passphrase for encryption at rest (Drive refresh tokens; vital docs later).
+    # Any string; a 256-bit AES key is derived from it. MUST be set via env in prod.
+    encryption-key: ${TROVE_ENCRYPTION_KEY:dev-only-change-me-encryption-passphrase}
+
+  drive:
+    # How often the Drive sync job runs (only touches spaces with a connected Drive).
+    sync-fixed-delay-ms: ${TROVE_DRIVE_SYNC_DELAY_MS:3600000}   # 1h
+    scheduled-sync-enabled: ${TROVE_DRIVE_SCHEDULED_SYNC:true}
 
   dev:
     # Seeded identity (Flyway V6). Used to provision a usable dev login for testing.

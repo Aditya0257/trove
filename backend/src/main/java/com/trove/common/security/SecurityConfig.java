@@ -66,6 +66,9 @@ public class SecurityConfig {
                         // Ingestion webhooks are public endpoints, gated by a shared
                         // secret inside the controllers (external services call them).
                         .requestMatchers("/api/ingest/**").permitAll()
+                        // Google OAuth callback: the browser arrives from Google with
+                        // no JWT; identity is carried in the signed state parameter.
+                        .requestMatchers("/api/integrations/google-drive/callback").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

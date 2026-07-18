@@ -47,8 +47,40 @@ rebuild-the-DB-from-sidecars, and a pg_dump job (see Backup & recovery below).
 **Forward-to-file ingestion** is implemented (Slice 9): email/WhatsApp webhooks that
 route a forwarded document through the normal pipeline (see Ingestion below).
 
-Remaining later phases: 2nd-cloud mirror and Google Drive sync (need external
-accounts) — see `DESIGN.md` §5.
+**Google Drive backup** is implemented (per-owner OAuth) — see Google Drive below.
+
+Remaining later phases: 2nd-cloud mirror, per-space ingest addresses, and vital-doc
+*file* encryption (the encryption engine exists; wiring file bytes through it is a
+TODO) — see `DESIGN.md` §5 / `DECISIONS.md` D18.
+
+## Google Drive backup (per-owner OAuth)
+
+Each space owner connects **their own** Google Drive; Trove mirrors the space's
+documents into `Trove/{category}/{yyyy-MM}/` there. Scope is `drive.file` (the app
+only touches what it creates). Refresh tokens are encrypted at rest (AES-256-GCM).
+Why per-owner and not a service account: a service account has **0 GB** of Drive —
+per-owner OAuth uses each user's free **15 GB**, permanently. See `DECISIONS.md` D17.
+
+Config (env): `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+`GOOGLE_OAUTH_REDIRECT_URI` (default `http://localhost:8080/api/integrations/google-drive/callback`),
+and `TROVE_ENCRYPTION_KEY`.
+
+```bash
+# 1) Owner starts the flow — returns a 302 to Google's consent screen:
+curl -s -D- -H "Authorization: Bearer $TOKEN" \
+  "$B/api/integrations/google-drive/connect?spaceId=$SPID" | grep -i location
+#    open that Location URL in a browser, sign in, allow.
+# 2) Check status:
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$B/api/integrations/google-drive/status?spaceId=$SPID" | jq
+# 3) Trigger a sync (owner): files appear in your Drive under Trove/…
+curl -s -H "Authorization: Bearer $TOKEN" -X POST \
+  "$B/api/integrations/google-drive/sync?spaceId=$SPID" | jq
+```
+
+In Google Cloud Console: the OAuth client's **Authorized redirect URI** must exactly
+match `GOOGLE_OAUTH_REDIRECT_URI`, and while the app is in "Testing" your Google
+account must be added as a **test user**.
 
 ## Ingestion (forward-to-file)
 

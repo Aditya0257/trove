@@ -335,3 +335,41 @@ Format for each entry:
   required param returned 500).
 - **Touches:** `DESIGN.md` §3.
 - **Status:** active.
+
+## D17 — Google Drive backup via per-space-owner OAuth (NOT a service account)
+
+- **Decision:** The Google Drive backup leg uses **OAuth per space owner**: each owner
+  authorizes Trove (scope **`drive.file`**, `access_type=offline`, `prompt=consent`)
+  and the encrypted refresh token is stored per space. `DriveSyncJob` builds
+  `Trove/{categoryCode}/{yyyy-MM}/` in that owner's Drive and uploads each document,
+  idempotently (cached folder ids in `drive_folder`; per-doc `document_sync`).
+- **Original text:** `DESIGN.md` §1/§4.3 — Tier-3 Google Drive, "human-navigable",
+  scheduled Drive sync (previously deferred in D15).
+- **Why — service accounts don't work here:** a Google **service account has 0 GB of
+  Drive quota** and cannot own/store files in a normal Drive, so it literally cannot
+  hold backups. **Per-owner OAuth** instead writes into each user's **own 15 GB free,
+  permanent** Drive — for ~100 users that's ~1.5 TB of free durable backup with no
+  central quota to exhaust, and no "trial." Scope `drive.file` is least-privilege: the
+  app can only see/manage the folders and files **it created**, so we cache folder ids
+  locally rather than listing the user's Drive. This is the correct zero-cost,
+  scalable design for the stated audience.
+- **Config:** `google.oauth.client-id/secret/redirect-uri` (env). State is an
+  AES-GCM-signed space id (stateless, no server-side state table).
+- **Touches:** `DESIGN.md` §1, §4.3, `DECISIONS.md` → D15 (un-defers Drive).
+- **Status:** active.
+
+## D18 — Encryption at rest via a single AES-256-GCM service (seam for vital docs)
+
+- **Decision:** Added `EncryptionService` (AES-256-GCM; key derived by SHA-256 from
+  `TROVE_ENCRYPTION_KEY`). Used now to encrypt the Drive **refresh token** at rest.
+- **Original text:** `CLAUDE.md` — *"Vital documents … encrypt at rest. Decide this at
+  the storage layer, not as an afterthought."*
+- **Why:** Secrets/PII must not sit in plaintext. GCM gives confidentiality +
+  integrity in one primitive; a random IV per value is stored alongside the
+  ciphertext (self-describing). This is deliberately the **same seam** the brief's
+  vital-document encryption will reuse. **TODO (open):** wire vital-document *file*
+  bytes through this service at the storage layer (encrypt on `store`, decrypt on
+  `get`, keyed off `document.is_vital`) — not yet implemented; only the token uses it
+  today.
+- **Touches:** `CLAUDE.md` (vital docs), `DECISIONS.md` → D17.
+- **Status:** active (token); vital-doc file encryption TODO.
