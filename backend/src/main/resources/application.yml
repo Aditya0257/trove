@@ -100,16 +100,24 @@ trove:
     sync-fixed-delay-ms: ${TROVE_MIRROR_SYNC_DELAY_MS:3600000}
 
   extraction:
-    # Ordered provider fallback chain (DECISIONS.md → D9). The engine tries each
-    # step in order and takes the first result at/above acceptance-confidence.
-    # Default is stub-only, so with no keys the pipeline behaves like Slice 1.
-    # Free-tier example (uncomment + set env keys to enable real extraction):
-    #   chain:
-    #     - { provider: gemini,  model: gemini-2.0-flash }
-    #     - { provider: gemini,  model: gemini-2.0-flash-lite }
-    #     - { provider: ollama,  model: moondream }
-    #     - { provider: stub }
-    #   acceptance-confidence: 0.55
+    # WHICH PROVIDER READS DOCUMENTS.
+    # The engine tries the `chain` steps in order and takes the first result whose
+    # confidence >= acceptance-confidence. Available providers: cloudflare | gemini |
+    # ollama | stub. Pick based on where you run:
+    #
+    #   • HOSTED / free      → cloudflare  (Cloudflare Workers AI; free daily quota,
+    #                          nothing to self-host). RECOMMENDED for deployment.
+    #   • LOCAL dev, free    → ollama      (runs on your machine; not usable from a
+    #                          cloud host unless you also host Ollama).
+    #   • gemini             → only if your Google account actually has free quota
+    #                          (many new accounts get 0 — check ai.dev/rate-limit).
+    #   • stub               → no real reading; canned output. The safety net so the
+    #                          pipeline always completes. Keep it LAST in the chain.
+    #
+    # The default below is stub-only (works with zero setup). To enable real
+    # extraction WITHOUT editing this file, set SPRING_APPLICATION_JSON, e.g. hosted:
+    #   SPRING_APPLICATION_JSON='{"trove":{"extraction":{"acceptance-confidence":0.4,
+    #     "chain":[{"provider":"cloudflare"},{"provider":"stub"}]}}}'
     chain:
       - provider: stub
     acceptance-confidence: ${TROVE_EXTRACTION_ACCEPT_CONF:0.0}
@@ -119,14 +127,24 @@ trove:
       failure-threshold: ${TROVE_EXTRACTION_BREAKER_FAILS:2}
       cooldown-seconds: ${TROVE_EXTRACTION_BREAKER_COOLDOWN:300}
     providers:
+      # Cloudflare Workers AI — free + hosted. Get account id + an API token with the
+      # "Workers AI" permission at dash.cloudflare.com.
+      cloudflare:
+        account-id: ${CF_ACCOUNT_ID:}
+        api-token: ${CF_API_TOKEN:}
+        default-model: ${CF_MODEL:@cf/llava-hf/llava-1.5-7b-hf}
+        timeout-seconds: ${CF_TIMEOUT:60}
+      # Google Gemini — free tier is 0 on some accounts; verify before relying on it.
       gemini:
         api-key: ${GEMINI_API_KEY:}
         endpoint: ${GEMINI_ENDPOINT:https://generativelanguage.googleapis.com/v1beta}
         default-model: ${GEMINI_MODEL:gemini-2.0-flash}
         timeout-seconds: ${GEMINI_TIMEOUT:60}
+      # Ollama — local only. Great for dev; for a cloud host you'd have to run Ollama
+      # somewhere reachable. `ollama pull llava` (or moondream) first.
       ollama:
         endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
-        default-model: ${OLLAMA_MODEL:moondream}
+        default-model: ${OLLAMA_MODEL:llava}
         timeout-seconds: ${OLLAMA_TIMEOUT:120}
     executor:
       # Bounded async pool for extraction (DECISIONS.md → D3). CallerRunsPolicy
