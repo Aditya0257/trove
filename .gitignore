@@ -1,0 +1,25 @@
+# ── Java / Maven build output ────────────────────────────────────────────────
+backend/target/
+*.class
+
+# ── Secrets / local env (brief: secrets via env vars only, never commit keys) ─
+.env
+*.env
+!*.env.example
+
+# ── IDE / editor noise ───────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+*.swp
+.DS_Store
+
+# ── Local infra data volumes (Postgres/MinIO write here if bind-mounted) ─────
+infra/.data/
+infra/data/
+
+# ── Logs & tmp ───────────────────────────────────────────────────────────────
+*.log

@@ -1,0 +1,90 @@
+# =============================================================================
+#  infra/docker-compose.yml — local dev dependencies for Trove
+# =============================================================================
+#
+#  Purpose
+#  -------
+#  Bring up the two stateful services Trove needs to run locally — PostgreSQL
+#  (the rebuildable metadata index) and MinIO (an S3-compatible object store that
+#  stands in for Cloudflare R2) — with a single `docker compose up`.
+#
+#  Business use case
+#  -----------------
+#  The brief requires the whole app to build and run "with no cloud account," so a
+#  contributor can develop and test Trove offline. This file is that promise.
+#
+#  Solution architecture
+#  ---------------------
+#  Mirrors the prod topology (Neon Postgres + Cloudflare R2) with local equivalents
+#  that speak the same protocols. The Spring Boot app points at these via
+#  application.yml and, in prod, the identical code points at Neon + R2 by swapping
+#  endpoint/credentials env vars only — no code change (see DECISIONS.md → D1).
+#
+#  Design
+#  ------
+#  - postgres: v16, database/user/password all "trove" for dev simplicity.
+#  - minio:    S3 API on :9000, web console on :9001. Root creds minioadmin.
+#  - createbucket: a one-shot helper that waits for MinIO then creates the "trove"
+#    bucket, so the app has somewhere to write on first run. (The app also
+#    self-creates the bucket as a safety net; this makes it browsable immediately
+#    in the console.)
+#
+#  Reasoning & logic
+#  -----------------
+#  Named volumes keep data across restarts (dev convenience) but hold ZERO source
+#  of truth — per the core principle, the durable copy is R2 in prod. Healthchecks
+#  gate dependents so the app/bucket step don't start before the stores are ready.
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: trove-postgres
+    environment:
+      POSTGRES_DB: trove
+      POSTGRES_USER: trove
+      POSTGRES_PASSWORD: trove
+    ports:
+      - "5432:5432"
+    volumes:
+      - trove-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trove -d trove"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: trove-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API — the app talks here
+      - "9001:9001"   # Web console — browse the vault in a browser at http://localhost:9001
+    volumes:
+      - trove-miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: create the "trove" bucket so files have a home on first run.
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/trove &&
+      echo 'Bucket trove is ready.'
+      "
+
+volumes:
+  trove-pgdata:
+  trove-miniodata:
