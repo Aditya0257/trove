@@ -31,8 +31,32 @@ owner/member/viewer roles enforced on every document operation (see Auth below).
 **Spend tracking** is implemented (Slice 4): spend by category / by month / summary
 over confirmed documents (see Spend below).
 
-Later phases (reminders, anomalies, search, backups, ingestion) are **not** built
-yet — see `DESIGN.md` §5.
+**Reminders** are implemented (Slice 5): due/renewal/warranty reminders with a
+scheduled dispatcher, and a `due` reminder auto-created when a document with a due
+date is confirmed (see Reminders below).
+
+Later phases (anomalies, search, backups, ingestion) are **not** built yet — see
+`DESIGN.md` §5.
+
+## Reminders
+
+Types: `due`, `renewal`, `warranty_expiry`. A background scheduler scans on a fixed
+interval and dispatches reminders whose date has arrived (logged for now; email/
+WhatsApp channels come later). Confirming a document that has a due date
+auto-creates a `due` reminder, fired `trove.reminder.lead-days` before the due date.
+
+```bash
+# list reminders in your (personal) space
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/reminders" | jq
+# create a manual reminder
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -X POST $B/api/reminders -d '{"type":"renewal","remindOn":"2026-12-01"}' | jq
+# dismiss one
+curl -s -H "Authorization: Bearer $TOKEN" -X POST $B/api/reminders/<ID>/dismiss | jq
+```
+
+Config: `trove.reminder.scan-fixed-delay-ms` (scan cadence) and
+`trove.reminder.lead-days` (how many days before a due date to fire).
 
 ## Spend tracking
 

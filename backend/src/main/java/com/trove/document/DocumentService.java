@@ -209,6 +209,10 @@ public class DocumentService {
         storageService.writeSidecar(doc.getStorageKey(),
                 SidecarFactory.of(doc, categoryCode, merchantName));
 
+        // After commit, the reminder feature turns a confirmed due date into a
+        // 'due' reminder (decoupled via event). See ReminderEventListener.
+        events.publishEvent(new DocumentConfirmedEvent(doc.getId(), doc.getSpaceId(), doc.getDueDate()));
+
         log.info("Confirmed document {} by reviewer {}", documentId, reviewerId);
         return toResponse(doc);
     }

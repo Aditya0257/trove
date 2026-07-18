@@ -223,3 +223,25 @@ Format for each entry:
   foundation the later anomaly detector (build order item 6) will compare against.
 - **Touches:** `DESIGN.md` §3.
 - **Status:** active.
+
+## D12 — Reminders: scheduled dispatch + auto-create from confirmed due dates
+
+- **Decision:** Slice 5 adds reminders (`due` / `renewal` / `warranty_expiry`). A
+  `ReminderScheduler` (`@Scheduled` fixed delay) calls `ReminderService.dispatchDue`,
+  which "sends" (logs, for now) and marks `sent` every pending reminder whose
+  `remind_on <= today`. A `due` reminder is auto-created when a document is
+  **confirmed** with a due date — fired `lead-days` (default 3) before the due date —
+  via a `DocumentConfirmedEvent` (AFTER_COMMIT), keeping documents and reminders
+  decoupled. Manual create/list/dismiss endpoints under `/api/reminders`, space-scoped.
+- **Original text:** `DESIGN.md` §3 — *"`reminder` — `ReminderService` +
+  `ReminderScheduler` (`@Scheduled`) scanning `reminder.remind_on` and dispatching
+  notifications."*
+- **Why:** Auto-creating only from **confirmed** due dates upholds "never trust
+  extracted numbers/dates until a human confirms." The event keeps the reminder
+  feature from coupling into `document`. **Implementation note:** the auto-create runs
+  in the AFTER_COMMIT listener, where a plain `@Transactional` save flushes but never
+  commits (the row silently vanishes) — found in live testing and fixed with
+  `Propagation.REQUIRES_NEW`. Real notification channels (email/WhatsApp) are a later
+  phase; this slice delivers the scheduling mechanism.
+- **Touches:** `DESIGN.md` §3.
+- **Status:** active.

@@ -119,6 +119,12 @@ trove:
       # Periodic sweep that re-dispatches documents left un-extracted (crash safety).
       fixed-delay-ms: ${TROVE_EXTRACTION_RECONCILE_DELAY_MS:300000}   # 5 min
 
+  reminder:
+    # How often the scheduler scans for due reminders and dispatches them.
+    scan-fixed-delay-ms: ${TROVE_REMINDER_SCAN_DELAY_MS:3600000}   # 1h
+    # Fire a document's due reminder this many days before the due date.
+    lead-days: ${TROVE_REMINDER_LEAD_DAYS:3}
+
   security:
     jwt:
       # HMAC-SHA256 signing secret (>= 32 bytes). MUST be overridden in prod via env.
