@@ -28,8 +28,23 @@ configured it runs the stub only, so it behaves exactly like Slice 1.
 **Auth + spaces** are implemented (Slice 3): JWT login, and shared spaces with
 owner/member/viewer roles enforced on every document operation (see Auth below).
 
-Later phases (spend, reminders, anomalies, search, backups, ingestion) are **not**
-built yet — see `DESIGN.md` §5.
+**Spend tracking** is implemented (Slice 4): spend by category / by month / summary
+over confirmed documents (see Spend below).
+
+Later phases (reminders, anomalies, search, backups, ingestion) are **not** built
+yet — see `DESIGN.md` §5.
+
+## Spend tracking
+
+Aggregates over **confirmed** documents only (extracted amounts aren't trusted
+until a human confirms them). All endpoints are authenticated and space-scoped
+(default: your personal space); dates are optional ISO `yyyy-MM-dd`.
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/spend/by-category" | jq
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/spend/by-month?from=2026-01-01&to=2026-12-31" | jq
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/spend/summary?spaceId=$SPID" | jq
+```
 
 ## Auth (JWT) + spaces
 

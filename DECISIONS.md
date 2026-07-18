@@ -205,3 +205,21 @@ Format for each entry:
   accidental cross-space data leaks.
 - **Touches:** `DESIGN.md` §3, `DECISIONS.md` → D6 (dev-login now real), `README.md`.
 - **Status:** active.
+
+## D11 — Spend tracking aggregates CONFIRMED documents only
+
+- **Decision:** Slice 4 adds spend tracking (`/api/spend/by-category`, `/by-month`,
+  `/summary`) via native aggregate queries in `AnalyticsRepository`, summing
+  `document.amount` grouped by category and by `YYYY-MM`, scoped to a space and date
+  range. **Only `status = 'confirmed'` documents are counted.**
+- **Original text:** `DESIGN.md` §3 — *"`analytics` — `AnalyticsService`: spend by
+  category/period, and anomaly detection …"* (anomaly detection remains a later
+  phase).
+- **Why:** The core principle is that extracted numbers are never trusted until a
+  human confirms them. Spending totals must therefore be built only from verified
+  amounts — otherwise a misread bill would corrupt the numbers. Native SQL is used
+  because the aggregation joins document→category on a plain FK and buckets by month
+  with `to_char`; only members may read (SpaceAuthorization). This is also the data
+  foundation the later anomaly detector (build order item 6) will compare against.
+- **Touches:** `DESIGN.md` §3.
+- **Status:** active.
