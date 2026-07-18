@@ -50,6 +50,7 @@ public record DocumentResponse(
         Map<String, Object> extra,
         BigDecimal extractionConfidence,
         boolean vital,
+        boolean encrypted,
         String status,
         UUID reviewedBy,
         Instant reviewedAt,

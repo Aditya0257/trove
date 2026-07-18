@@ -34,6 +34,7 @@ export interface DocumentResponse {
   extra: Record<string, unknown>;
   extractionConfidence: number | null;
   vital: boolean;
+  encrypted: boolean;
   status: 'needs_review' | 'confirmed';
   reviewedBy: string | null;
   reviewedAt: string | null;

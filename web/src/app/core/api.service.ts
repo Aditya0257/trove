@@ -50,6 +50,12 @@ export class ApiService {
     return doc.fileUrl.startsWith('http') ? doc.fileUrl : `${API_BASE}${doc.fileUrl}`;
   }
 
+  /** Fetches file bytes via the API (auth header attached) — needed for vital docs,
+   *  which are served from /content and can't be opened as a plain link. */
+  getContent(id: string) {
+    return this.http.get(`${API_BASE}/api/documents/${id}/content`, { responseType: 'blob' });
+  }
+
   // --- search ---
   search(q: string, spaceId?: string) {
     return this.http.get<SearchResult>(`${API_BASE}/api/search${this.qs({ q, spaceId })}`);

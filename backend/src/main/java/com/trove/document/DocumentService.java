@@ -329,7 +329,7 @@ public class DocumentService {
                 categoryCode, merchantName,
                 doc.getDocDate(), doc.getAmount(), doc.getCurrency(), doc.getDueDate(),
                 doc.getRawText(), doc.getExtra(), doc.getExtractionConfidence(),
-                doc.isVital(), doc.getStatus(), doc.getReviewedBy(), doc.getReviewedAt(),
+                doc.isVital(), doc.isEncrypted(), doc.getStatus(), doc.getReviewedBy(), doc.getReviewedAt(),
                 doc.getCreatedAt(), doc.getUpdatedAt(), fileUrl, items);
     }
 

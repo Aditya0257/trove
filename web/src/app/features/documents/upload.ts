@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
+import { SpaceContext } from '../../core/space.context';
 
 @Component({
   selector: 'app-upload',
@@ -26,6 +27,7 @@ import { ApiService } from '../../core/api.service';
 export class Upload {
   private api = inject(ApiService);
   private router = inject(Router);
+  private spaceCtx = inject(SpaceContext);
 
   file = signal<File | null>(null);
   vital = false;
@@ -44,7 +46,7 @@ export class Upload {
     }
     this.loading.set(true);
     this.error.set(null);
-    this.api.uploadDocument(f, this.vital).subscribe({
+    this.api.uploadDocument(f, this.vital, this.spaceCtx.currentSpaceId()).subscribe({
       next: (doc) => this.router.navigate(['/documents', doc.id, 'review']),
       error: (e) => {
         this.error.set(e?.error?.message ?? 'Upload failed');

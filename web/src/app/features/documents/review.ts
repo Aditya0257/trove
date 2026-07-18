@@ -27,7 +27,7 @@ import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
         }
         @if (anomaly()) { <p class="warn">⚠️ This looks higher than usual for its category.</p> }
 
-        @if (fileUrl()) { <p><a [href]="fileUrl()" target="_blank" rel="noopener">View original file →</a></p> }
+        <p><button class="link" type="button" (click)="openFile()">View original file →</button></p>
 
         <form (ngSubmit)="confirm()">
           <label>Category
@@ -99,9 +99,24 @@ export class Review {
     return !!a?.anomaly;
   }
 
-  fileUrl(): string | null {
+  /**
+   * Opens the original file. Non-vital docs have a presigned URL (no auth needed) and
+   * open directly; vital (encrypted) docs are fetched from /content with the auth
+   * header, then shown from an in-memory blob URL.
+   */
+  openFile(): void {
     const d = this.doc();
-    return d ? this.api.fileUrl(d) : null;
+    if (!d) return;
+    if (d.encrypted) {
+      this.api.getContent(d.id).subscribe((blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      });
+    } else {
+      const url = this.api.fileUrl(d);
+      if (url) window.open(url, '_blank');
+    }
   }
 
   private loadAndPoll(attempt: number): void {
