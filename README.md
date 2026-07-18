@@ -1,0 +1,142 @@
+# Trove
+
+A private vault for the documents that matter — bills, receipts, policies,
+warranties, IDs. You upload a document; Trove stores it durably, reads it, files
+it by category, and lets you review and confirm the extracted fields.
+
+> **Read first:** [`DESIGN.md`](DESIGN.md) (architecture, schema, interfaces) and
+> [`DECISIONS.md`](DECISIONS.md) (the running log of build decisions and their
+> reasoning).
+
+## Where we are: **Slice 1** (the first end-to-end vertical)
+
+Implemented, and nothing beyond it yet:
+
+- **Upload** a file → hash it → reject duplicates in the space → store it in
+  object storage **with a sidecar JSON** → insert a `needs_review` row.
+- **Extraction** runs **asynchronously** (stub provider for now) and fills in
+  category / merchant / date / amount, then rewrites the sidecar.
+- **List** documents (optionally by category) and **confirm** a document
+  (`needs_review` → `confirmed`).
+
+Later phases (real extraction, auth/spaces, spend, reminders, anomalies, search,
+backups, ingestion) are **not** built yet — see `DESIGN.md` §5.
+
+## Layout
+
+```
+Trove/
+├── DESIGN.md  DECISIONS.md                      # architecture + decision log
+├── infra/docker-compose.yml                     # Postgres + MinIO for local dev
+├── backend/                                     # Spring Boot (Java 21) API
+│   ├── src/main/resources/db/migration/         # Flyway V1–V6 (schema + seed)
+│   └── src/main/java/com/trove/                 # package-by-feature
+│       ├── common/  storage/  extraction/
+│       └── category/  merchant/  document/
+├── web/     (placeholder — Angular, later)
+└── mobile/  (placeholder — Flutter, later)
+```
+
+## Prerequisites
+
+- **JDK 21+** (this machine has JDK 25, which runs the Java-21 build fine —
+  see `DECISIONS.md` → D2). If you hit runtime proxy issues on 25, install 21:
+  `sdk install java 21.0.4-tem` then `sdk use java 21.0.4-tem`.
+- **Maven** (3.9+).
+- **Docker + Docker Compose** (Docker Desktop). Make sure Docker is running.
+
+## Run it locally
+
+### 1. Start Postgres + MinIO
+
+```bash
+cd infra
+docker compose up -d
+# check they're healthy:
+docker compose ps
+```
+
+- MinIO console: http://localhost:9001  (user `minioadmin`, pass `minioadmin`) —
+  you can browse the `trove` bucket here and literally see files + sidecars appear.
+- Postgres: `localhost:5432`, db/user/pass all `trove`.
+
+### 2. Start the backend
+
+```bash
+cd ../backend
+mvn spring-boot:run
+# or run the built jar:
+# mvn -DskipTests package && java -jar target/trove-backend-0.1.0-SNAPSHOT.jar
+```
+
+On startup Flyway creates the schema (V1–V5) and seeds one dev user, a personal
+space, and the global categories (V6). The API listens on
+**http://localhost:8080**.
+
+## Try the flow (sample requests)
+
+Use any image or PDF. The examples assume a file `receipt.jpg`.
+
+### Upload a document
+
+```bash
+curl -s -F "file=@receipt.jpg" http://localhost:8080/api/documents | jq
+```
+
+Response (201) shows `"status": "needs_review"`. Right after upload,
+`category`/`amount` may still be empty — extraction runs **asynchronously**.
+
+### See extraction fill in (wait ~1s, then fetch it)
+
+```bash
+# grab the id from the upload response, then:
+curl -s http://localhost:8080/api/documents/<ID> | jq
+```
+
+The stub extractor fills `category: "shopping"`, `merchant: "Sample Store"`,
+`amount: 499.00`, `extractionConfidence: 0.5`, one line item, and
+`rawText: "STUB EXTRACTION"`. Status stays `needs_review` — a human confirms.
+
+### List documents (all, or by category)
+
+```bash
+curl -s "http://localhost:8080/api/documents" | jq
+curl -s "http://localhost:8080/api/documents?category=shopping" | jq
+```
+
+### List categories
+
+```bash
+curl -s http://localhost:8080/api/categories | jq
+```
+
+### Confirm the document (optionally correcting fields)
+
+```bash
+curl -s -X POST http://localhost:8080/api/documents/<ID>/confirm \
+  -H 'Content-Type: application/json' \
+  -d '{"amount": 512.00, "merchant": "Reliance Fresh", "category": "food"}' | jq
+```
+
+Response now shows `"status": "confirmed"` with `reviewedBy`/`reviewedAt` set.
+The sidecar in MinIO is rewritten to match.
+
+### Duplicate detection
+
+Upload the **same file** again → `409 Conflict` with the existing document id in
+`details.existingDocumentId`.
+
+## What proves the core principle
+
+Open the MinIO console (http://localhost:9001) and look inside the `trove`
+bucket: every file has a `.json` sidecar beside it holding its full metadata. If
+Postgres were wiped, those sidecars are enough to rebuild the index — the DB is a
+cache, the bucket is the truth. (The rebuild job itself is a later phase.)
+
+## Configuration
+
+All settings live in `backend/src/main/resources/application.yml` and are
+env-overridable. To point at real Cloudflare R2 + Neon in prod, set
+`TROVE_S3_ENDPOINT`, `TROVE_S3_ACCESS_KEY`, `TROVE_S3_SECRET_KEY`,
+`TROVE_S3_BUCKET`, and `TROVE_DB_URL`/`TROVE_DB_USER`/`TROVE_DB_PASSWORD` — no
+code change (the storage impl speaks S3 to both; see `DECISIONS.md` → D1).
