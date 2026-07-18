@@ -125,6 +125,14 @@ trove:
     # Fire a document's due reminder this many days before the due date.
     lead-days: ${TROVE_REMINDER_LEAD_DAYS:3}
 
+  anomaly:
+    # Flag a bill when it exceeds the trailing category average by this fraction.
+    threshold-pct: ${TROVE_ANOMALY_THRESHOLD:0.40}
+    # Months of confirmed history to average over.
+    lookback-months: ${TROVE_ANOMALY_LOOKBACK_MONTHS:12}
+    # Minimum prior confirmed samples before we judge (avoids false alarms).
+    min-samples: ${TROVE_ANOMALY_MIN_SAMPLES:3}
+
   security:
     jwt:
       # HMAC-SHA256 signing secret (>= 32 bytes). MUST be overridden in prod via env.

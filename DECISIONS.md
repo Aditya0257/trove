@@ -245,3 +245,25 @@ Format for each entry:
   phase; this slice delivers the scheduling mechanism.
 - **Touches:** `DESIGN.md` §3.
 - **Status:** active.
+
+## D13 — Anomaly detection: trailing category average, evaluated at confirm
+
+- **Decision:** Slice 6 flags a confirmed bill as an anomaly when its amount exceeds
+  the **trailing average of prior confirmed documents in the same category** (within
+  `lookback-months`) by at least `threshold-pct` (default 40%), requiring at least
+  `min-samples` (default 3) of history. The verdict is computed at **confirm** time
+  by `AnomalyService` and stored on the document under `extra.anomaly`
+  ({anomaly, amount, average, deltaPct, sampleCount, thresholdPct, enoughHistory}).
+  `GET /api/anomalies` lists flagged documents (native jsonb filter).
+- **Original text:** `DESIGN.md` §3 — *"`analytics` — `AnalyticsService`: … and
+  anomaly detection (e.g. this bill vs trailing average for the same
+  merchant/category)."*
+- **Why:** Comparing to confirmed history keeps the baseline trustworthy (same rule
+  as spend, D11). Evaluating at confirm means the flag is computed once, travels in
+  the self-describing sidecar, and needs no recomputation to display. `min-samples`
+  prevents false alarms on the first bills (correctly shown as `enoughHistory:false`
+  in testing). Category is used as the grouping for the headline use case
+  ("electricity higher than usual"); a merchant-level variant can be added the same
+  way. Stored in `extra` (jsonb) to avoid a schema change (consistent with D5).
+- **Touches:** `DESIGN.md` §3.
+- **Status:** active.

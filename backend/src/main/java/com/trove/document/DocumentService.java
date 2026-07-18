@@ -40,6 +40,8 @@ import com.trove.common.error.NotFoundException;
 import com.trove.document.dto.ConfirmRequest;
 import com.trove.document.dto.DocumentResponse;
 import com.trove.document.dto.LineItemResponse;
+import com.trove.anomaly.AnomalyResult;
+import com.trove.anomaly.AnomalyService;
 import com.trove.merchant.Merchant;
 import com.trove.merchant.MerchantRepository;
 import com.trove.merchant.MerchantService;
@@ -58,7 +60,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -78,6 +82,7 @@ public class DocumentService {
     private final MerchantService merchantService;
     private final MerchantRepository merchantRepository;
     private final SpaceAuthorization spaceAuthorization;
+    private final AnomalyService anomalyService;
     private final ApplicationEventPublisher events;
 
     public DocumentService(DocumentRepository documentRepository,
@@ -89,6 +94,7 @@ public class DocumentService {
                            MerchantService merchantService,
                            MerchantRepository merchantRepository,
                            SpaceAuthorization spaceAuthorization,
+                           AnomalyService anomalyService,
                            ApplicationEventPublisher events) {
         this.documentRepository = documentRepository;
         this.lineItemRepository = lineItemRepository;
@@ -99,6 +105,7 @@ public class DocumentService {
         this.merchantService = merchantService;
         this.merchantRepository = merchantRepository;
         this.spaceAuthorization = spaceAuthorization;
+        this.anomalyService = anomalyService;
         this.events = events;
     }
 
@@ -161,6 +168,13 @@ public class DocumentService {
         return docs.stream().map(this::toResponse).toList();
     }
 
+    /** Lists confirmed documents flagged as spending anomalies in a space. */
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> listAnomalies(UUID spaceId, UUID userId) {
+        spaceAuthorization.requireCanRead(spaceId, userId);
+        return documentRepository.findAnomalies(spaceId).stream().map(this::toResponse).toList();
+    }
+
     /** Fetches a single document by id (404 if unknown, 403 if not a member). */
     @Transactional(readOnly = true)
     public DocumentResponse get(UUID documentId, UUID userId) {
@@ -199,6 +213,16 @@ public class DocumentService {
         doc.setStatus(DocumentStatus.CONFIRMED);
         doc.setReviewedBy(reviewerId);
         doc.setReviewedAt(Instant.now());
+
+        // Anomaly check against the trailing average for this category (confirmed
+        // history). The verdict is stored on the document so clients can surface
+        // "higher than usual" without recomputing. See DECISIONS.md → D13.
+        AnomalyResult anomaly = anomalyService.evaluate(doc.getSpaceId(), doc.getCategoryId(),
+                doc.getAmount(), doc.getId(), doc.getDocDate());
+        Map<String, Object> extra = doc.getExtra() != null ? new HashMap<>(doc.getExtra()) : new HashMap<>();
+        extra.put("anomaly", anomaly.toMap());
+        doc.setExtra(extra);
+
         // Flush now so @UpdateTimestamp is refreshed before we rewrite the sidecar
         // and build the response.
         documentRepository.saveAndFlush(doc);

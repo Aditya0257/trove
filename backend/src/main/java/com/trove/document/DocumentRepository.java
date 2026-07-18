@@ -13,6 +13,8 @@
 package com.trove.document;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,4 +33,14 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     /** Documents whose extraction never completed (crash-recovery sweep). */
     List<Document> findByExtractionConfidenceIsNull();
+
+    /** Confirmed documents flagged as anomalous (extra.anomaly.anomaly == true). */
+    @Query(value = """
+            select * from document
+            where space_id = :spaceId
+              and status = 'confirmed'
+              and (extra -> 'anomaly' ->> 'anomaly') = 'true'
+            order by updated_at desc
+            """, nativeQuery = true)
+    List<Document> findAnomalies(@Param("spaceId") UUID spaceId);
 }

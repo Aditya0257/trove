@@ -35,8 +35,26 @@ over confirmed documents (see Spend below).
 scheduled dispatcher, and a `due` reminder auto-created when a document with a due
 date is confirmed (see Reminders below).
 
-Later phases (anomalies, search, backups, ingestion) are **not** built yet — see
-`DESIGN.md` §5.
+**Anomaly detection** is implemented (Slice 6): a confirmed bill is flagged when
+it's well above the trailing average for its category (see Anomalies below).
+
+Later phases (search, backups, ingestion) are **not** built yet — see `DESIGN.md` §5.
+
+## Anomalies
+
+When a document is confirmed, its amount is compared to the trailing average of
+prior **confirmed** documents in the same category. If it exceeds that average by
+`trove.anomaly.threshold-pct` (default 40%) — and there's at least
+`trove.anomaly.min-samples` of history — it's flagged. The verdict is stored on the
+document under `extra.anomaly` and listed via:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/anomalies" | jq
+# each flagged doc carries: extra.anomaly = { anomaly, average, deltaPct, sampleCount, ... }
+```
+
+Config: `trove.anomaly.threshold-pct`, `trove.anomaly.lookback-months`,
+`trove.anomaly.min-samples`.
 
 ## Reminders
 
