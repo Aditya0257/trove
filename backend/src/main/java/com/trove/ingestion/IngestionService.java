@@ -47,12 +47,14 @@ public class IngestionService {
 
     private final DocumentService documentService;
     private final SpaceService spaceService;
+    private final IngestTokenService ingestTokenService;
     private final IngestProperties props;
 
     public IngestionService(DocumentService documentService, SpaceService spaceService,
-                            IngestProperties props) {
+                            IngestTokenService ingestTokenService, IngestProperties props) {
         this.documentService = documentService;
         this.spaceService = spaceService;
+        this.ingestTokenService = ingestTokenService;
         this.props = props;
     }
 
@@ -65,6 +67,28 @@ public class IngestionService {
                 || !props.getSecret().equals(token)) {
             throw new UnauthorizedException("Invalid ingest token");
         }
+    }
+
+    /**
+     * Resolves which space a webhook targets: first by a per-space ingest token, else
+     * by the shared secret + an explicit spaceId (backward compatible). Throws 401 if
+     * neither matches.
+     */
+    public UUID resolveSpace(String token, UUID explicitSpaceId) {
+        if (!props.isEnabled()) {
+            throw new UnauthorizedException("Ingestion is disabled");
+        }
+        if (token != null) {
+            var bySpaceToken = ingestTokenService.findSpaceId(token);
+            if (bySpaceToken.isPresent()) {
+                return bySpaceToken.get();
+            }
+            if (props.getSecret() != null && !props.getSecret().isBlank()
+                    && props.getSecret().equals(token) && explicitSpaceId != null) {
+                return explicitSpaceId;
+            }
+        }
+        throw new UnauthorizedException("Invalid ingest token");
     }
 
     /**

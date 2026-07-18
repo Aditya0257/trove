@@ -87,6 +87,18 @@ trove:
     # TTL for presigned view/download URLs handed to clients.
     presign-ttl-seconds: ${TROVE_S3_PRESIGN_TTL:900}
 
+  mirror:
+    # Independent second-cloud copy (e.g. Backblaze B2, which is S3-compatible).
+    # Disabled until configured. B2 endpoint looks like https://s3.<region>.backblazeb2.com
+    enabled: ${TROVE_MIRROR_ENABLED:false}
+    endpoint: ${TROVE_MIRROR_ENDPOINT:}
+    region: ${TROVE_MIRROR_REGION:us-east-1}
+    access-key: ${TROVE_MIRROR_ACCESS_KEY:}
+    secret-key: ${TROVE_MIRROR_SECRET_KEY:}
+    bucket: ${TROVE_MIRROR_BUCKET:}
+    path-style-access: ${TROVE_MIRROR_PATH_STYLE:true}
+    sync-fixed-delay-ms: ${TROVE_MIRROR_SYNC_DELAY_MS:3600000}
+
   extraction:
     # Ordered provider fallback chain (DECISIONS.md → D9). The engine tries each
     # step in order and takes the first result at/above acceptance-confidence.

@@ -373,3 +373,38 @@ Format for each entry:
   today.
 - **Touches:** `CLAUDE.md` (vital docs), `DECISIONS.md` → D17.
 - **Status:** active (token); vital-doc file encryption TODO.
+
+## D19 — Second-cloud mirror to Backblaze B2 (S3-compatible), key-diff copy
+
+- **Decision:** Added a `MirrorService`/`MirrorJob` that copies every primary object
+  (files + sidecars + dumps) to an **independent second cloud** configured via
+  `trove.mirror.*`. Default target is **Backblaze B2** (S3-compatible). Copy is a
+  key-listing diff (only new/missing keys), idempotent, on-demand (`POST
+  /api/admin/mirror`, admin) + scheduled, logged to `backup_run`.
+- **Original text:** `DESIGN.md` §1/§4.3 — "mirror the R2 bucket to a second
+  provider" (previously deferred, D15).
+- **Why:** An independent-provider copy means a single provider outage or account
+  loss can't wipe the vault (core principle). **B2 is chosen** because its free tier
+  is genuinely permanent (10 GB storage + 1 GB/day egress), not a trial, and it
+  speaks the S3 API — so the mirror **reuses the same AWS S3 SDK**, only endpoint/
+  keys/bucket differ (no new storage code). Verified locally against a second MinIO
+  bucket (copied 47 objects, re-run skipped all).
+- **Touches:** `DESIGN.md` §1, §4.3, `DECISIONS.md` → D15.
+- **Status:** active (mechanism); point at B2 by setting `trove.mirror.*`.
+
+## D20 — Per-space ingest addresses (unguessable token routes to a space)
+
+- **Decision:** Each space can mint an unguessable **ingest token** (`ingest_token`
+  table, V8); the email/WhatsApp webhooks accept it and route the forwarded document
+  to that space with **no shared secret + spaceId** needed. Owner endpoints get/rotate
+  the token and render the address `trove+<token>@<domain>`. The old shared-secret +
+  spaceId path still works (backward compatible).
+- **Original text:** `DECISIONS.md` → D16 noted per-space ingest addresses as a later
+  refinement of the shared-secret webhook.
+- **Why:** A per-space address is how forward-to-file actually works in practice —
+  you give each space (household, project) its own address to forward to, and rotate
+  it if it leaks, without a central shared secret. Verified: address minting,
+  token-only ingest (202), rotation invalidating the old token (401), and
+  backward-compatible shared-secret ingest (202).
+- **Touches:** `DECISIONS.md` → D16.
+- **Status:** active.

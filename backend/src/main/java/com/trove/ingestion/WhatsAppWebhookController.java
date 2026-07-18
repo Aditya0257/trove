@@ -66,12 +66,12 @@ public class WhatsAppWebhookController {
     @PostMapping
     public ResponseEntity<DocumentResponse> ingest(
             @RequestParam(value = "token", required = false) String token,
-            @RequestParam("spaceId") UUID spaceId,
+            @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) String from,
             @RequestPart("file") MultipartFile file) throws IOException {
 
-        ingestionService.checkAuthorized(token);
-        DocumentResponse doc = ingestionService.ingest(spaceId, file.getOriginalFilename(),
+        UUID space = ingestionService.resolveSpace(token, spaceId);
+        DocumentResponse doc = ingestionService.ingest(space, file.getOriginalFilename(),
                 file.getContentType(), file.getBytes(), "whatsapp:" + (from != null ? from : "unknown"));
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(doc);
     }

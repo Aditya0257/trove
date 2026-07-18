@@ -20,10 +20,15 @@ public class IngestProperties {
 
     private boolean enabled = true;
     private String secret = "";
+    /** Domain used to render a space's ingest address (trove+<token>@<domain>). */
+    private String addressDomain = "ingest.trove.local";
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
     public String getSecret() { return secret; }
     public void setSecret(String secret) { this.secret = secret; }
+
+    public String getAddressDomain() { return addressDomain; }
+    public void setAddressDomain(String addressDomain) { this.addressDomain = addressDomain; }
 }

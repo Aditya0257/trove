@@ -49,9 +49,39 @@ route a forwarded document through the normal pipeline (see Ingestion below).
 
 **Google Drive backup** is implemented (per-owner OAuth) — see Google Drive below.
 
-Remaining later phases: 2nd-cloud mirror, per-space ingest addresses, and vital-doc
-*file* encryption (the encryption engine exists; wiring file bytes through it is a
-TODO) — see `DESIGN.md` §5 / `DECISIONS.md` D18.
+**Second-cloud mirror** (Backblaze B2, S3-compatible) and **per-space ingest
+addresses** are implemented — see below.
+
+Remaining: vital-doc *file* encryption (the AES engine exists; wiring file bytes +
+a decrypt-stream serve path through it is the next TODO — `DECISIONS.md` D18).
+
+## Second-cloud mirror (independent copy)
+
+Copies the whole vault (files + sidecars + dumps) to an independent S3-compatible
+second cloud. **Backblaze B2** is the default target (free 10 GB, permanent, S3 API)
+— the mirror reuses the same S3 code, only creds differ.
+
+```bash
+# admin: mirror now (also runs on a schedule when configured)
+curl -s -H "Authorization: Bearer $TOKEN" -X POST "$B/api/admin/mirror" | jq
+```
+
+Config (env): `TROVE_MIRROR_ENABLED=true`, `TROVE_MIRROR_ENDPOINT`
+(e.g. `https://s3.us-west-004.backblazeb2.com`), `TROVE_MIRROR_ACCESS_KEY`,
+`TROVE_MIRROR_SECRET_KEY`, `TROVE_MIRROR_BUCKET`.
+
+## Per-space ingest addresses
+
+Each space can mint an unguessable ingest token → address `trove+<token>@<domain>`.
+Forwarding to it files into that space (no shared secret needed); rotate to revoke.
+
+```bash
+# owner: get (creates on first call) / rotate the space's address
+curl -s -H "Authorization: Bearer $TOKEN" "$B/api/spaces/$SPID/ingest-address" | jq
+curl -s -H "Authorization: Bearer $TOKEN" -X POST "$B/api/spaces/$SPID/ingest-address/rotate" | jq
+# then forward with just the token (no spaceId):
+curl -s -F "file=@receipt.jpg" "$B/api/ingest/email?token=<space-token>" | jq
+```
 
 ## Google Drive backup (per-owner OAuth)
 

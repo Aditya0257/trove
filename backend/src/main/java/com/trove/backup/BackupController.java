@@ -53,6 +53,7 @@ public class BackupController {
     private final ImportService importService;
     private final RebuildService rebuildService;
     private final PgDumpJob pgDumpJob;
+    private final MirrorService mirrorService;
     private final BackupRunService backupRunService;
     private final SpaceService spaceService;
     private final CurrentUser currentUser;
@@ -60,12 +61,14 @@ public class BackupController {
 
     public BackupController(ExportService exportService, ImportService importService,
                            RebuildService rebuildService, PgDumpJob pgDumpJob,
+                           MirrorService mirrorService,
                            BackupRunService backupRunService, SpaceService spaceService,
                            CurrentUser currentUser, DevProperties dev) {
         this.exportService = exportService;
         this.importService = importService;
         this.rebuildService = rebuildService;
         this.pgDumpJob = pgDumpJob;
+        this.mirrorService = mirrorService;
         this.backupRunService = backupRunService;
         this.spaceService = spaceService;
         this.currentUser = currentUser;
@@ -104,6 +107,13 @@ public class BackupController {
     public Map<String, String> pgDump() {
         requireAdmin();
         return Map.of("key", pgDumpJob.runDump());
+    }
+
+    /** Mirror the vault to the configured second cloud now (admin only). */
+    @PostMapping("/admin/mirror")
+    public MirrorService.MirrorSummary mirror() {
+        requireAdmin();
+        return mirrorService.mirror();
     }
 
     /** Recent backup-run history (admin only). */

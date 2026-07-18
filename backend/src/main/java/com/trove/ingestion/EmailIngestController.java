@@ -46,16 +46,19 @@ public class EmailIngestController {
         this.ingestionService = ingestionService;
     }
 
-    /** Files a forwarded attachment into the target space. */
+    /**
+     * Files a forwarded attachment. `token` may be a per-space ingest token (routes
+     * to that space) or the shared secret (then spaceId is required).
+     */
     @PostMapping
     public ResponseEntity<DocumentResponse> ingest(
             @RequestParam(value = "token", required = false) String token,
-            @RequestParam("spaceId") UUID spaceId,
+            @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) String from,
             @RequestPart("file") MultipartFile file) throws IOException {
 
-        ingestionService.checkAuthorized(token);
-        DocumentResponse doc = ingestionService.ingest(spaceId, file.getOriginalFilename(),
+        UUID space = ingestionService.resolveSpace(token, spaceId);
+        DocumentResponse doc = ingestionService.ingest(space, file.getOriginalFilename(),
                 file.getContentType(), file.getBytes(), "email:" + (from != null ? from : "unknown"));
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(doc);
     }
