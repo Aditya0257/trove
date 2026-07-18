@@ -398,3 +398,12 @@ correct — a human confirms it.
 `VisionExtractionProvider` (later): send the file to a vision LLM with a prompt
 that demands the exact JSON schema above, parse it into `ExtractionResult`.
 Selected via the `extraction.provider` config property; no other code changes.
+
+> **Build note (D9):** Implemented as a provider-agnostic fallback **chain** rather
+> than a single provider. An `ExtractionEngine` walks an ordered list of
+> `{provider, model, effort}` steps (e.g. Gemini → Cloudflare Workers AI → local
+> Ollama → stub), returns the first result above a confidence threshold, and uses a
+> per-step circuit breaker to skip quota-exhausted free tiers. The interface keeps
+> the documented `extract(bytes, mime)` and adds a model/effort overload. Rationale:
+> zero-cost operation on free tiers for years, with no lock-in. See `DECISIONS.md`
+> → D9.

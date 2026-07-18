@@ -37,6 +37,8 @@ import com.trove.document.DocumentRepository;
 import com.trove.document.LineItem;
 import com.trove.document.LineItemRepository;
 import com.trove.document.SidecarFactory;
+import com.trove.extraction.engine.ExtractionEngine;
+import com.trove.extraction.engine.ExtractionOutcome;
 import com.trove.merchant.Merchant;
 import com.trove.merchant.MerchantService;
 import com.trove.storage.DocumentSidecar;
@@ -60,23 +62,20 @@ public class ExtractionWorker {
     private final StorageService storageService;
     private final CategoryService categoryService;
     private final MerchantService merchantService;
-    private final Map<String, ExtractionProvider> providers;
-    private final ExtractionProperties props;
+    private final ExtractionEngine extractionEngine;
 
     public ExtractionWorker(DocumentRepository documentRepository,
                             LineItemRepository lineItemRepository,
                             StorageService storageService,
                             CategoryService categoryService,
                             MerchantService merchantService,
-                            Map<String, ExtractionProvider> providers,
-                            ExtractionProperties props) {
+                            ExtractionEngine extractionEngine) {
         this.documentRepository = documentRepository;
         this.lineItemRepository = lineItemRepository;
         this.storageService = storageService;
         this.categoryService = categoryService;
         this.merchantService = merchantService;
-        this.providers = providers;
-        this.props = props;
+        this.extractionEngine = extractionEngine;
     }
 
     /**
@@ -95,9 +94,11 @@ public class ExtractionWorker {
             return;
         }
 
-        ExtractionProvider provider = activeProvider();
         byte[] bytes = storageService.get(doc.getStorageKey());
-        ExtractionResult result = provider.extract(bytes, doc.getMimeType());
+        // The engine walks the configured provider fallback chain and returns the
+        // first acceptable result (or a best-effort/stub result). See DECISIONS.md → D9.
+        ExtractionOutcome outcome = extractionEngine.run(bytes, doc.getMimeType());
+        ExtractionResult result = outcome.result();
 
         // Resolve category (always non-null) and merchant (optional).
         Category category = categoryService.resolve(doc.getSpaceId(), result.categoryCode());
@@ -115,7 +116,16 @@ public class ExtractionWorker {
         }
         doc.setDueDate(result.dueDate());
         doc.setRawText(result.rawText());
-        doc.setExtra(result.extra() != null ? new HashMap<>(result.extra()) : new HashMap<>());
+
+        // Record extracted extras plus provenance: which provider/model actually read
+        // this document, and whether it cleared the acceptance bar.
+        Map<String, Object> extra = result.extra() != null ? new HashMap<>(result.extra()) : new HashMap<>();
+        extra.put("extractionProvider", outcome.provider());
+        if (outcome.model() != null) {
+            extra.put("extractionModel", outcome.model());
+        }
+        extra.put("extractionAccepted", outcome.accepted());
+        doc.setExtra(extra);
         doc.setExtractionConfidence(result.confidence());
 
         documentRepository.save(doc);
@@ -135,15 +145,5 @@ public class ExtractionWorker {
         log.info("Extracted document {} → category={} merchant={} confidence={}",
                 documentId, category.getCode(),
                 merchant != null ? merchant.getCanonicalName() : "(none)", result.confidence());
-    }
-
-    /** Selects the configured provider bean ('stub' now, 'vision' later). */
-    private ExtractionProvider activeProvider() {
-        ExtractionProvider provider = providers.get(props.getProvider());
-        if (provider == null) {
-            throw new IllegalStateException("No ExtractionProvider bean named '" + props.getProvider()
-                    + "'. Available: " + providers.keySet());
-        }
-        return provider;
     }
 }

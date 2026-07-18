@@ -1,32 +1,33 @@
 /*
  * ============================================================================
- *  ExtractionProperties — extraction provider + async executor configuration
+ *  ExtractionProperties — extraction chain, executor, breaker, reconciler config
  * ============================================================================
  *
  *  Purpose
  *  -------
- *  Binds trove.extraction.*: which provider is active ('stub' | 'vision'), the
- *  bounded async pool sizing, and the reconciler sweep interval.
+ *  Binds trove.extraction.*: the ordered provider fallback chain, the acceptance
+ *  confidence threshold, the circuit-breaker settings, the bounded async pool, and
+ *  the reconciler sweep interval.
  *
  *  Business use case
  *  -----------------
- *  Extraction is the "read the document for the user" step. It must be swappable
- *  (stub now, real vision model later) and it must never lose an upload's
- *  extraction even if the host dies mid-run — the pool + reconciler settings here
- *  make that a config concern (DECISIONS.md → D3).
+ *  Extraction must run at zero cost for years by routing across free tiers and
+ *  degrading gracefully. All of that is expressed here as configuration so the
+ *  routing can change per environment without a rebuild (DECISIONS.md → D9, D3).
  *
  *  Solution architecture
  *  ---------------------
- *  - provider            → selects the ExtractionProvider bean at runtime.
+ *  - chain               → ordered {provider, model, effort} steps the engine walks.
+ *  - acceptanceConfidence → minimum confidence for a result to be accepted.
+ *  - breaker.*           → when to skip a step after quota failures, and for how long.
  *  - executor.*          → sizes the ThreadPoolTaskExecutor in AsyncConfig.
- *  - reconciler.fixedDelayMs → how often ExtractionReconciler re-sweeps for
- *                          documents left un-extracted after a crash.
+ *  - reconciler.fixedDelayMs → crash-recovery sweep cadence.
  *
  *  Reasoning & logic
  *  -----------------
- *  Defaults are modest (core=2, max=4, queue=100) because Trove serves ~50–100
- *  users on free-tier hardware — enough concurrency to stay responsive, small
- *  enough to not exhaust a tiny ARM box.
+ *  Default chain is a single 'stub' step with acceptanceConfidence 0.0, so with no
+ *  keys configured the pipeline behaves exactly like Slice 1. Add real steps (and
+ *  raise the threshold) once free-tier keys/Ollama are available.
  * ============================================================================
  */
 package com.trove.extraction;
@@ -34,21 +35,76 @@ package com.trove.extraction;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Component
 @ConfigurationProperties(prefix = "trove.extraction")
 public class ExtractionProperties {
 
-    /** Active provider bean qualifier: 'stub' now, 'vision' later. */
-    private String provider = "stub";
+    /** Ordered fallback chain. First step that yields an accepted result wins. */
+    private List<Step> chain = new ArrayList<>(List.of(Step.of("stub", null, null)));
 
+    /** Minimum confidence (0..1) for a result to be "accepted" and end the chain. */
+    private double acceptanceConfidence = 0.0;
+
+    private final Breaker breaker = new Breaker();
     private final Executor executor = new Executor();
     private final Reconciler reconciler = new Reconciler();
 
-    public String getProvider() { return provider; }
-    public void setProvider(String provider) { this.provider = provider; }
+    public List<Step> getChain() { return chain; }
+    public void setChain(List<Step> chain) { this.chain = chain; }
 
+    public double getAcceptanceConfidence() { return acceptanceConfidence; }
+    public void setAcceptanceConfidence(double acceptanceConfidence) { this.acceptanceConfidence = acceptanceConfidence; }
+
+    public Breaker getBreaker() { return breaker; }
     public Executor getExecutor() { return executor; }
     public Reconciler getReconciler() { return reconciler; }
+
+    /** One step in the fallback chain: a provider driven with a specific model/effort. */
+    public static class Step {
+        /** Provider bean name: 'gemini' | 'ollama' | 'stub' | ... */
+        private String provider;
+        /** Model id for this step (null = provider default). */
+        private String model;
+        /** Optional effort hint the provider may interpret. */
+        private String effort;
+
+        public static Step of(String provider, String model, String effort) {
+            Step s = new Step();
+            s.provider = provider;
+            s.model = model;
+            s.effort = effort;
+            return s;
+        }
+
+        /** Stable label used for logging and circuit-breaker keys, e.g. "gemini:flash". */
+        public String label() {
+            return provider + ":" + (model == null || model.isBlank() ? "default" : model);
+        }
+
+        public String getProvider() { return provider; }
+        public void setProvider(String provider) { this.provider = provider; }
+
+        public String getModel() { return model; }
+        public void setModel(String model) { this.model = model; }
+
+        public String getEffort() { return effort; }
+        public void setEffort(String effort) { this.effort = effort; }
+    }
+
+    /** Per-step circuit breaker: skip a step for a cooldown after repeated quota failures. */
+    public static class Breaker {
+        private int failureThreshold = 2;
+        private long cooldownSeconds = 300;
+
+        public int getFailureThreshold() { return failureThreshold; }
+        public void setFailureThreshold(int failureThreshold) { this.failureThreshold = failureThreshold; }
+
+        public long getCooldownSeconds() { return cooldownSeconds; }
+        public void setCooldownSeconds(long cooldownSeconds) { this.cooldownSeconds = cooldownSeconds; }
+    }
 
     /** Bounded async pool for extraction work. */
     public static class Executor {

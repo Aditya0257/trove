@@ -81,8 +81,34 @@ trove:
     presign-ttl-seconds: ${TROVE_S3_PRESIGN_TTL:900}
 
   extraction:
-    # Which ExtractionProvider bean is active: 'stub' now, 'vision' later.
-    provider: ${TROVE_EXTRACTION_PROVIDER:stub}
+    # Ordered provider fallback chain (DECISIONS.md → D9). The engine tries each
+    # step in order and takes the first result at/above acceptance-confidence.
+    # Default is stub-only, so with no keys the pipeline behaves like Slice 1.
+    # Free-tier example (uncomment + set env keys to enable real extraction):
+    #   chain:
+    #     - { provider: gemini,  model: gemini-2.0-flash }
+    #     - { provider: gemini,  model: gemini-2.0-flash-lite }
+    #     - { provider: ollama,  model: moondream }
+    #     - { provider: stub }
+    #   acceptance-confidence: 0.55
+    chain:
+      - provider: stub
+    acceptance-confidence: ${TROVE_EXTRACTION_ACCEPT_CONF:0.0}
+    breaker:
+      # After N quota failures, skip that step for the cooldown (stop hammering an
+      # exhausted free tier).
+      failure-threshold: ${TROVE_EXTRACTION_BREAKER_FAILS:2}
+      cooldown-seconds: ${TROVE_EXTRACTION_BREAKER_COOLDOWN:300}
+    providers:
+      gemini:
+        api-key: ${GEMINI_API_KEY:}
+        endpoint: ${GEMINI_ENDPOINT:https://generativelanguage.googleapis.com/v1beta}
+        default-model: ${GEMINI_MODEL:gemini-2.0-flash}
+        timeout-seconds: ${GEMINI_TIMEOUT:60}
+      ollama:
+        endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
+        default-model: ${OLLAMA_MODEL:moondream}
+        timeout-seconds: ${OLLAMA_TIMEOUT:120}
     executor:
       # Bounded async pool for extraction (DECISIONS.md → D3). CallerRunsPolicy
       # applies backpressure instead of dropping work or exhausting memory.

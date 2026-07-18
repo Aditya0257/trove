@@ -151,3 +151,31 @@ Format for each entry:
   where a reader would look.
 - **Touches:** `DESIGN.md`, `README.md`.
 - **Status:** active.
+
+## D9 — Extraction is a provider-agnostic fallback chain, free-tier first
+
+- **Decision:** Real extraction (Slice 2) is not a single provider. An
+  `ExtractionEngine` walks an ordered, configurable **chain** of `{provider, model,
+  effort}` steps and returns the first result that passes an acceptance gate
+  (confidence ≥ threshold). A per-step **circuit breaker** skips a step for a
+  cooldown after quota/rate-limit errors. The `ExtractionProvider` interface gains a
+  model/effort-aware overload (the documented `extract(bytes, mime)` stays, via a
+  default method). Providers implemented: `GeminiExtractionProvider`,
+  `OllamaExtractionProvider`, and the existing `StubExtractionProvider` (guaranteed
+  last resort). Which provider actually ran is recorded in `document.extra`.
+- **Original text:** `DESIGN.md` §6.2 — *"`VisionExtractionProvider` (later): send
+  the file to a vision LLM … Selected via the `extraction.provider` config property;
+  no other code changes."* And build order item 2: *"Real extraction provider (swap
+  the stub)."*
+- **Why:** The product must run at **zero cost** for ~100–150 users for years on
+  free tiers. No single free tier is reliable long-term (quotas expire, limits
+  change), so binding to one provider is a liability. A chain gives: free-first
+  routing (Gemini free tier → Cloudflare Workers AI → local Ollama → stub),
+  automatic failover across models *and* providers, backpressure against exhausted
+  quotas (circuit breaker), and a guaranteed-complete pipeline (stub never fails).
+  Because every result still lands in `needs_review`, a weaker fallback tier is
+  acceptable — a human confirms. This generalizes the design's single
+  `extraction.provider` switch into `extraction.chain` without changing the pipeline,
+  storage, or review code.
+- **Touches:** `DESIGN.md` §6.2.
+- **Status:** active.

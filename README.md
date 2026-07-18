@@ -19,8 +19,43 @@ Implemented, and nothing beyond it yet:
 - **List** documents (optionally by category) and **confirm** a document
   (`needs_review` → `confirmed`).
 
-Later phases (real extraction, auth/spaces, spend, reminders, anomalies, search,
-backups, ingestion) are **not** built yet — see `DESIGN.md` §5.
+**Real extraction** is wired as a **provider-agnostic fallback chain** (see
+Extraction below): the engine walks an ordered list of `{provider, model}` steps
+(e.g. Gemini → Ollama → stub), takes the first result above a confidence
+threshold, and skips quota-exhausted free tiers via a circuit breaker. With no keys
+configured it runs the stub only, so it behaves exactly like Slice 1.
+
+Later phases (auth/spaces, spend, reminders, anomalies, search, backups,
+ingestion) are **not** built yet — see `DESIGN.md` §5.
+
+## Extraction (multi-provider, free-tier first)
+
+Extraction is a chain, configured under `trove.extraction` in `application.yml`
+(and env-overridable). Each step is a `{provider, model, effort}`; the engine
+returns the first result at/above `acceptance-confidence`, and opens a per-step
+circuit breaker after repeated quota errors. Which provider read a document is
+recorded in that document's `extra` (`extractionProvider` / `extractionModel`).
+
+Providers available now: `gemini` (Google Gemini free tier), `ollama` (local, free,
+in-house base), and `stub` (guaranteed last resort). To enable real extraction:
+
+```yaml
+trove:
+  extraction:
+    acceptance-confidence: 0.55
+    chain:
+      - { provider: gemini, model: gemini-2.0-flash }
+      - { provider: gemini, model: gemini-2.0-flash-lite }
+      - { provider: ollama, model: moondream }
+      - { provider: stub }
+```
+
+- **Gemini:** set `GEMINI_API_KEY` (free key from Google AI Studio).
+- **Ollama:** run it locally and pull a vision model, e.g. `ollama pull moondream`;
+  set `OLLAMA_ENDPOINT` if not on `localhost:11434`.
+
+Adding another provider (Cloudflare Workers AI, Groq, etc.) is a new
+`ExtractionProvider` bean + a chain entry — no other code changes.
 
 ## Layout
 
