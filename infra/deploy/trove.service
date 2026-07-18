@@ -1,0 +1,25 @@
+# =============================================================================
+#  systemd unit for the Trove backend (Oracle Always-Free VM, no Docker)
+# =============================================================================
+#  Install:
+#    sudo cp trove-backend-0.1.0-SNAPSHOT.jar /opt/trove/app.jar
+#    sudo cp your-filled-.env               /etc/trove.env      (chmod 600)
+#    sudo cp trove.service /etc/systemd/system/trove.service
+#    sudo systemctl daemon-reload && sudo systemctl enable --now trove
+#    journalctl -u trove -f      # logs
+# =============================================================================
+[Unit]
+Description=Trove backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+EnvironmentFile=/etc/trove.env
+ExecStart=/usr/bin/java -jar /opt/trove/app.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

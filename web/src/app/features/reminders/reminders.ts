@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -11,6 +11,9 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
   template: `
     <div class="card">
       <h1>Reminders</h1>
+      @if (dueCount() > 0) {
+        <p class="warn">🔔 {{ dueCount() }} reminder(s) due now (on or before today).</p>
+      }
 
       <form (ngSubmit)="create()" class="inline-form">
         <label>Type
@@ -38,7 +41,7 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
           <thead><tr><th>Type</th><th>Document</th><th>Remind on</th><th>Status</th><th></th></tr></thead>
           <tbody>
             @for (r of reminders(); track r.id) {
-              <tr>
+              <tr [class.due]="isDue(r)">
                 <td>{{ r.type }}</td>
                 <td>
                   @if (r.documentId) {
@@ -46,7 +49,10 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
                   } @else { — }
                 </td>
                 <td>{{ r.remindOn }}</td>
-                <td><span class="badge" [class.confirmed]="r.status !== 'pending'">{{ r.status }}</span></td>
+                <td>
+                  @if (isDue(r)) { <span class="badge due">due now</span> }
+                  @else { <span class="badge" [class.confirmed]="r.status !== 'pending'">{{ r.status }}</span> }
+                </td>
                 <td>
                   @if (r.status !== 'dismissed') {
                     <button class="link" (click)="dismiss(r.id)">Dismiss</button>
@@ -71,6 +77,14 @@ export class Reminders {
   documentId = '';
   remindOn = '';
   error = signal<string | null>(null);
+
+  private readonly today = new Date().toISOString().slice(0, 10);
+  dueCount = computed(() => this.reminders().filter((r) => this.isDue(r)).length);
+
+  /** Pending and on/before today = the user should act on it now. */
+  isDue(r: ReminderResponse): boolean {
+    return r.status === 'pending' && r.remindOn <= this.today;
+  }
 
   constructor() {
     effect(() => {

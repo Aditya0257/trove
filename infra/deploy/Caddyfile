@@ -1,0 +1,12 @@
+# =============================================================================
+#  Caddy reverse proxy — automatic HTTPS in front of the Trove backend
+# =============================================================================
+#  Point api.yourdomain.com's DNS at the VM, then:
+#    sudo caddy run --config /etc/caddy/Caddyfile   (or run as the caddy service)
+#  Caddy fetches + renews a Let's Encrypt cert automatically. Set
+#  GOOGLE_OAUTH_REDIRECT_URI to https://api.yourdomain.com/api/integrations/google-drive/callback
+# =============================================================================
+
+api.yourdomain.com {
+    reverse_proxy localhost:8080
+}

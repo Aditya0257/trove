@@ -109,3 +109,15 @@ code { background: #f1f3f5; padding: 0.15rem 0.4rem; border-radius: 6px; font-si
 .inline-form button { margin: 0; }
 
 .space-select { width: auto; margin: 0; padding: 0.35rem 0.5rem; }
+
+.searching { font-weight: 600; }
+.dots::after {
+  content: '';
+  animation: dots 1.2s steps(4, end) infinite;
+}
+@keyframes dots {
+  0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; }
+}
+
+tr.due td { background: #fef3c7; }
+.badge.due { background: #fee2e2; color: #b42318; }
