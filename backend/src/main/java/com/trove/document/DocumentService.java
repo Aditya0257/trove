@@ -120,10 +120,13 @@ public class DocumentService {
         StoredObject stored = storageService.store(spaceId, provisional.getCode(), file);
 
         // 3) Insert the index row as needs_review (extraction_confidence stays NULL).
+        //    saveAndFlush forces the INSERT now so @CreationTimestamp/@UpdateTimestamp
+        //    are populated before we build the sidecar and response (otherwise they
+        //    would flush only at commit, leaving createdAt null in the first sidecar).
         Document doc = new Document(spaceId, uploadedBy, stored.storageKey(), stored.sidecarKey(),
                 stored.fileHash(), stored.mimeType(), stored.sizeBytes(),
                 file.getOriginalFilename(), provisional.getId());
-        documentRepository.save(doc);
+        documentRepository.saveAndFlush(doc);
 
         // 4) Write the initial sidecar so the bucket is self-describing immediately.
         DocumentSidecar sidecar = SidecarFactory.of(doc, provisional.getCode(), null);
@@ -186,7 +189,9 @@ public class DocumentService {
         doc.setStatus(DocumentStatus.CONFIRMED);
         doc.setReviewedBy(reviewerId);
         doc.setReviewedAt(Instant.now());
-        documentRepository.save(doc);
+        // Flush now so @UpdateTimestamp is refreshed before we rewrite the sidecar
+        // and build the response.
+        documentRepository.saveAndFlush(doc);
 
         // Keep the durable sidecar in step with the confirmed row.
         String categoryCode = categoryCodeOf(doc.getCategoryId());
