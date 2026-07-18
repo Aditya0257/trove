@@ -44,8 +44,31 @@ your documents (see Search below).
 **Backups + disaster recovery** are implemented (Slice 8): export/import ZIP,
 rebuild-the-DB-from-sidecars, and a pg_dump job (see Backup & recovery below).
 
-Later phases (2nd-cloud mirror, Google Drive sync, forward-to-file ingestion) are
-**not** built yet — see `DESIGN.md` §5.
+**Forward-to-file ingestion** is implemented (Slice 9): email/WhatsApp webhooks that
+route a forwarded document through the normal pipeline (see Ingestion below).
+
+Remaining later phases: 2nd-cloud mirror and Google Drive sync (need external
+accounts) — see `DESIGN.md` §5.
+
+## Ingestion (forward-to-file)
+
+Public webhooks (gated by a shared secret, `trove.ingest.secret`) that file a
+forwarded document into a space via the same upload→extract→review pipeline. The
+document is attributed to the space owner.
+
+```bash
+# Email provider posts a forwarded attachment:
+curl -s -F "file=@receipt.jpg" \
+  "$B/api/ingest/email?token=$INGEST_SECRET&spaceId=$SPID&from=alice@example.com" | jq
+
+# WhatsApp Cloud API verification handshake (GET) + inbound (POST):
+curl -s "$B/api/ingest/whatsapp?hub.mode=subscribe&hub.verify_token=$INGEST_SECRET&hub.challenge=123"
+curl -s -F "file=@receipt.jpg" "$B/api/ingest/whatsapp?token=$INGEST_SECRET&spaceId=$SPID" | jq
+```
+
+A missing/invalid token returns 401. Duplicate forwards are caught by content-hash
+dedupe (409). For production WhatsApp, the webhook receives a media id and fetches
+the bytes first, then calls the same ingestion service.
 
 ## Backup & recovery
 

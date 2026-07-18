@@ -125,6 +125,11 @@ trove:
     # Fire a document's due reminder this many days before the due date.
     lead-days: ${TROVE_REMINDER_LEAD_DAYS:3}
 
+  ingest:
+    # Shared secret gating the email/WhatsApp ingestion webhooks. Set via env in prod.
+    enabled: ${TROVE_INGEST_ENABLED:true}
+    secret: ${TROVE_INGEST_SECRET:dev-ingest-secret}
+
   anomaly:
     # Flag a bill when it exceeds the trailing category average by this fraction.
     threshold-pct: ${TROVE_ANOMALY_THRESHOLD:0.40}

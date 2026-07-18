@@ -82,6 +82,16 @@ public class SpaceService {
         return spaceRepository.findAllForUser(userId);
     }
 
+    /** The owner of a space (used to attribute forwarded/ingested documents). */
+    @Transactional(readOnly = true)
+    public UUID ownerId(UUID spaceId) {
+        return memberRepository.findBySpaceId(spaceId).stream()
+                .filter(m -> SpaceRole.OWNER.equals(m.getRole()))
+                .map(SpaceMember::getUserId)
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("No owner for space " + spaceId));
+    }
+
     /** The user's personal space id (used as the default target when none is given). */
     @Transactional(readOnly = true)
     public UUID personalSpaceId(UUID userId) {

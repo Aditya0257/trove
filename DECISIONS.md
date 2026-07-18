@@ -313,3 +313,25 @@ Format for each entry:
   add line items to the sidecar.
 - **Touches:** `DESIGN.md` §3, `DESIGN.md` §6.1 (sidecar shape).
 - **Status:** active.
+
+## D16 — Forward-to-file ingestion reuses the upload pipeline via a byte adapter
+
+- **Decision:** Slice 9 adds `/api/ingest/email` and `/api/ingest/whatsapp` (with
+  the Meta GET verification handshake). Both are **public** (permitted in
+  SecurityConfig) but gated by a **shared secret** (`trove.ingest.secret`). Forwarded
+  bytes are wrapped in a `ByteArrayMultipartFile` and pushed through the **exact same**
+  `DocumentService.upload` pipeline (dedupe, store + sidecar, async extraction,
+  needs_review). The document is attributed to the target space's owner.
+- **Original text:** `DESIGN.md` §3 `ingestion` — *"`EmailIngestController` /
+  `WhatsAppWebhookController`: accept a forwarded document and route it through the
+  same `DocumentService` pipeline."*
+- **Why:** Reusing the pipeline means forwarded documents get identical treatment
+  (dedupe, review, extraction chain) for free — no parallel code path to drift. A
+  shared secret is the minimal viable gate for public webhooks; per-space ingest
+  addresses/tokens and true sender→user mapping are later refinements. For WhatsApp,
+  media is taken inline here for a working/testable flow; a production integration
+  receives a media id and fetches the bytes first (the seam), then calls the same
+  service. Missing/invalid token → 401 (fixed after live testing showed a missing
+  required param returned 500).
+- **Touches:** `DESIGN.md` §3.
+- **Status:** active.
