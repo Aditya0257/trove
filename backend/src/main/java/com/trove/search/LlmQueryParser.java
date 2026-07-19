@@ -44,12 +44,20 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 public class LlmQueryParser {
 
     private static final Logger log = LoggerFactory.getLogger(LlmQueryParser.class);
+
+    /** Valid category codes; the LLM sometimes invents one (e.g. "bill"), which we drop. */
+    private static final Set<String> VALID_CATEGORIES =
+            Arrays.stream(ExtractionPrompt.CATEGORY_CODES.split(",\\s*"))
+                    .map(String::trim).collect(Collectors.toUnmodifiableSet());
 
     private final SearchProperties props;
     private final OllamaProperties ollama;
@@ -82,22 +90,34 @@ public class LlmQueryParser {
     }
 
     private String buildPrompt(String text) {
+        LocalDate today = LocalDate.now();
+        int year = today.getYear();
         return """
-                Convert the user's document-search request into a JSON object with these
-                OPTIONAL fields (omit any you can't infer):
-                  categoryCode: one of [%s]
-                  text: remaining free-text keywords (e.g. a merchant name)
+                Today is %s. Convert the user's document-search request into a JSON object.
+                Include ONLY fields the request clearly implies; OMIT everything else.
+                Fields:
+                  categoryCode: one of [%s]  (omit if none clearly apply)
+                  text: a merchant/brand/product keyword only (e.g. "Nike"). NEVER put
+                        filler words like "give", "this", "space", "bills", "of". Omit if none.
                   amountMin, amountMax: numbers
                   dateFrom, dateTo: "YYYY-MM-DD"
-                  sortBy: "amount" or "date"
-                  sortDir: "asc" or "desc"
-                  limit: integer
-                Rules: "expensive"/"highest"/"top" => sortBy=amount, sortDir=desc.
-                "top N" or "last N" => limit=N. "last"/"latest" => sortBy=date, sortDir=desc, limit=1.
-                Respond with ONLY the JSON object, no prose.
+                  sortBy: "amount" or "date";  sortDir: "asc" or "desc";  limit: integer
+                Date rules: a bare month name uses the CURRENT year (%d). Only set a
+                different year if the request states one. If no time is mentioned, OMIT
+                dateFrom/dateTo. NEVER guess a year.
+                Intent rules: "expensive"/"highest"/"most"/"top" => sortBy=amount, sortDir=desc.
+                "top N"/"last N" => limit=N. "last"/"latest"/"most recent" => sortBy=date,
+                sortDir=desc, limit=1.
 
+                Examples:
+                  "my last water bill" => {"categoryCode":"water","sortBy":"date","sortDir":"desc","limit":1}
+                  "top 10 expensive shopping bills" => {"categoryCode":"shopping","sortBy":"amount","sortDir":"desc","limit":10}
+                  "electricity from july" => {"categoryCode":"electricity","dateFrom":"%d-07-01","dateTo":"%d-07-31"}
+                  "all Nike purchases" => {"categoryCode":"shopping","text":"Nike"}
+
+                Respond with ONLY the JSON object, no prose.
                 Request: %s
-                """.formatted(ExtractionPrompt.CATEGORY_CODES, text);
+                """.formatted(today, ExtractionPrompt.CATEGORY_CODES, year, year, year, text);
     }
 
     private String callOllama(String prompt) throws Exception {
@@ -145,7 +165,11 @@ public class LlmQueryParser {
 
     private SearchQuery toQuery(JsonNode n) {
         SearchQuery q = new SearchQuery();
-        if (has(n, "categoryCode")) q.setCategoryCode(n.get("categoryCode").asText());
+        // Only accept a real category code; ignore hallucinations like "bill" so the
+        // query isn't filtered to a non-existent category (which would match nothing).
+        if (has(n, "categoryCode") && VALID_CATEGORIES.contains(n.get("categoryCode").asText())) {
+            q.setCategoryCode(n.get("categoryCode").asText());
+        }
         if (has(n, "text")) q.setText(n.get("text").asText());
         if (has(n, "amountMin")) q.setAmountMin(new BigDecimal(n.get("amountMin").asText()));
         if (has(n, "amountMax")) q.setAmountMax(new BigDecimal(n.get("amountMax").asText()));
