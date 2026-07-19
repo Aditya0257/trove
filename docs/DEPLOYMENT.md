@@ -67,10 +67,15 @@ run Caddy — it gets + renews a Let's Encrypt cert and proxies to `localhost:80
 (A free hostname works too, e.g. a DuckDNS subdomain.)
 
 ## 5. Web on Cloudflare Pages
-Set `API_BASE` in `web/src/app/core/config.ts` to `https://api.yourdomain.com`, then
-either connect the repo in the Cloudflare Pages dashboard (build command `ng build`,
-output dir `web/dist/trove-web/browser`, root `web`) or upload that folder. Pages
-serves it free over HTTPS.
+The API URL is read at runtime from `web/public/config.json` (no rebuild to
+repoint). Set it to your API:
+```json
+{ "apiBase": "https://api.yourdomain.com" }
+```
+Then connect the repo in the Cloudflare Pages dashboard (build command `ng build`,
+output dir `web/dist/trove-web/browser`, root `web`) or upload that folder — the
+`config.json` ships at the site root and is fetched on load. Pages serves it free
+over HTTPS.
 
 ## 6. Verify
 Open the Pages URL → register → upload → confirm; check spend/search; connect Drive.

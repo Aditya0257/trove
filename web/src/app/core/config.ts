@@ -1,5 +1,7 @@
 /**
- * API base URL. In dev this is the local backend; for a hosted build, change this
- * one constant (or wire it to an environment file) to your HTTPS API origin.
+ * API base URL, resolved at runtime from /config.json by main.ts (stored on
+ * globalThis before the app loads). Change the deployed API host by editing
+ * config.json — no rebuild required. Falls back to the local dev backend.
  */
-export const API_BASE = 'http://localhost:8080';
+export const API_BASE =
+  ((globalThis as Record<string, unknown>)['__TROVE_API_BASE'] as string) ?? 'http://localhost:8080';

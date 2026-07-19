@@ -1,0 +1,38 @@
+name: CI
+
+# Build + test the backend and web on every push / PR, so the
+# "change locally → push → redeploy" loop can't silently break.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (build + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Unit tests are self-contained (no DB/MinIO needed), so verify runs green.
+      - name: Build + test
+        run: mvn -B -ntp -f backend/pom.xml verify
+
+  web:
+    name: Web (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm --prefix web ci
+      - name: Build
+        run: npm --prefix web run build
