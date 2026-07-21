@@ -50,9 +50,12 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final SecurityNoticeHandler securityNoticeHandler;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          SecurityNoticeHandler securityNoticeHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.securityNoticeHandler = securityNoticeHandler;
     }
 
     @Bean
@@ -61,6 +64,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Filter-level 401/403 get the same two-channel notice body (D23).
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(securityNoticeHandler)
+                        .accessDeniedHandler(securityNoticeHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
@@ -88,6 +95,9 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // Expose Trove's diagnostic headers so browser JS (the Developer surface, D23)
+        // can read the per-request correlation id despite the same-origin header allowlist.
+        config.setExposedHeaders(List.of("X-Trove-Request-Id", "X-Trove-Duration-Ms"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
         return source;

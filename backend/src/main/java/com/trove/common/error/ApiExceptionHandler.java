@@ -27,6 +27,8 @@
  */
 package com.trove.common.error;
 
+import com.trove.common.notice.ApiNotice;
+import com.trove.common.notice.NoticeLevel;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,73 +49,99 @@ public class ApiExceptionHandler {
     /** Same content already stored in this space → 409 with the existing id. */
     @ExceptionHandler(DuplicateDocumentException.class)
     public ResponseEntity<ApiError> handleDuplicate(DuplicateDocumentException ex, HttpServletRequest req) {
-        return build(HttpStatus.CONFLICT, ex.getMessage(), req,
-                Map.of("existingDocumentId", ex.getExistingDocumentId()));
+        return build(HttpStatus.CONFLICT, req, ApiNotice.of(NoticeLevel.WARNING, "DUPLICATE_DOCUMENT",
+                "You've already saved this document — opening the existing one.",
+                "Content hash matched an existing document in this space; upload skipped.",
+                Map.of("existingDocumentId", ex.getExistingDocumentId())));
     }
 
     /** Unknown resource → 404. */
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(NotFoundException ex, HttpServletRequest req) {
-        return build(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
+        return build(HttpStatus.NOT_FOUND, req, ApiNotice.of(NoticeLevel.WARNING, "NOT_FOUND",
+                "We couldn't find that.",
+                safe(ex.getMessage(), "Resource not found."), null));
     }
 
     /** Authenticated but not permitted (not a member / insufficient role) → 403. */
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ApiError> handleForbidden(ForbiddenException ex, HttpServletRequest req) {
-        return build(HttpStatus.FORBIDDEN, ex.getMessage(), req, null);
+        return build(HttpStatus.FORBIDDEN, req, ApiNotice.of(NoticeLevel.WARNING, "FORBIDDEN",
+                "You don't have access to this.",
+                safe(ex.getMessage(), "Not a member, or insufficient role for this space."), null));
     }
 
     /** Bad/absent credentials → 401. */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiError> handleUnauthorized(UnauthorizedException ex, HttpServletRequest req) {
-        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req, null);
+        return build(HttpStatus.UNAUTHORIZED, req, ApiNotice.of(NoticeLevel.WARNING, "UNAUTHENTICATED",
+                "Please sign in again.",
+                "Missing or invalid credentials (JWT absent, malformed, or expired).", null));
     }
 
     /** Uniqueness/state conflict (e.g. email already registered) → 409. */
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiError> handleConflict(ConflictException ex, HttpServletRequest req) {
-        return build(HttpStatus.CONFLICT, ex.getMessage(), req, null);
+        return build(HttpStatus.CONFLICT, req, ApiNotice.of(NoticeLevel.WARNING, "CONFLICT",
+                "That conflicts with something that already exists.",
+                safe(ex.getMessage(), "Uniqueness/state conflict."), null));
     }
 
     /** Bean-validation failure on a request body → 400 with field messages. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
-        StringBuilder msg = new StringBuilder("Validation failed");
+        StringBuilder dev = new StringBuilder("Validation failed");
         ex.getBindingResult().getFieldErrors().forEach(fe ->
-                msg.append("; ").append(fe.getField()).append(": ").append(fe.getDefaultMessage()));
-        return build(HttpStatus.BAD_REQUEST, msg.toString(), req, null);
+                dev.append("; ").append(fe.getField()).append(": ").append(fe.getDefaultMessage()));
+        return build(HttpStatus.BAD_REQUEST, req, ApiNotice.of(NoticeLevel.WARNING, "VALIDATION",
+                "Some fields need attention.", dev.toString(), null));
     }
 
     /** Bad/absent arguments → 400. */
     @ExceptionHandler({IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(IllegalArgumentException ex, HttpServletRequest req) {
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, null);
+        return build(HttpStatus.BAD_REQUEST, req, ApiNotice.of(NoticeLevel.WARNING, "BAD_REQUEST",
+                "That request wasn't quite right.",
+                safe(ex.getMessage(), "Illegal argument."), null));
     }
 
     /** A required query parameter was missing → 400. */
     @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
     public ResponseEntity<ApiError> handleMissingParam(
             org.springframework.web.bind.MissingServletRequestParameterException ex, HttpServletRequest req) {
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, null);
+        return build(HttpStatus.BAD_REQUEST, req, ApiNotice.of(NoticeLevel.WARNING, "MISSING_PARAM",
+                "A required detail was missing.", safe(ex.getMessage(), "Missing request parameter."), null));
     }
 
     /** Upload exceeded the configured multipart limit → 413. */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiError> handleTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest req) {
-        return build(HttpStatus.PAYLOAD_TOO_LARGE, "Uploaded file is too large", req, null);
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, req, ApiNotice.of(NoticeLevel.WARNING, "FILE_TOO_LARGE",
+                "That file is too large to upload.", "Exceeds the configured multipart upload limit.", null));
     }
 
     /** Anything unforeseen → 500 (logged with stack trace for diagnosis). */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest req) {
         log.error("Unhandled exception on {} {}", req.getMethod(), req.getRequestURI(), ex);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error", req, null);
+        // NOTE: the raw exception message is deliberately NOT put in devNote — it can
+        // contain sensitive fragments (SQL, connection details). It stays in the server
+        // log; clients correlate via the X-Trove-Request-Id response header. We do name
+        // the exception TYPE, which is safe and useful.
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, req, ApiNotice.of(NoticeLevel.ERROR, "INTERNAL_ERROR",
+                "Something went wrong on our side — we've logged it.",
+                "Unhandled " + ex.getClass().getSimpleName()
+                        + "; see server logs (correlate by the X-Trove-Request-Id response header).", null));
     }
 
-    private ResponseEntity<ApiError> build(HttpStatus status, String message,
-                                           HttpServletRequest req, Map<String, Object> details) {
+    /** Falls back to a generic developer note when an exception carries no message. */
+    private String safe(String message, String fallback) {
+        return (message == null || message.isBlank()) ? fallback : message;
+    }
+
+    private ResponseEntity<ApiError> build(HttpStatus status, HttpServletRequest req, ApiNotice notice) {
         ApiError body = ApiError.of(status.value(), status.getReasonPhrase(),
-                message, req.getRequestURI(), details);
+                notice.userMessage(), req.getRequestURI(), notice.meta(), notice);
         return ResponseEntity.status(status).body(body);
     }
 }

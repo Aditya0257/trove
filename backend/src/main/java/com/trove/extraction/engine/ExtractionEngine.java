@@ -43,6 +43,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -73,6 +75,9 @@ public class ExtractionEngine {
         ExtractionResult best = null;
         String bestProvider = null;
         String bestModel = null;
+        // The attempt-trail feeds the Notice System's Developer surface (D23) — one
+        // entry per step, in chain order, recording what happened and how long it took.
+        List<ExtractionAttempt> attempts = new ArrayList<>();
 
         for (ExtractionProperties.Step step : props.getChain()) {
             String label = step.label();
@@ -81,24 +86,34 @@ public class ExtractionEngine {
             if (provider == null) {
                 log.warn("Extraction step '{}' skipped — no provider bean named '{}'",
                         label, step.getProvider());
+                attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                        ExtractionAttempt.SKIPPED_NO_BEAN, "no provider bean registered", null, 0));
                 continue;
             }
             if (breaker.isOpen(label, nowMillis)) {
                 log.info("Extraction step '{}' skipped — circuit breaker open", label);
+                attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                        ExtractionAttempt.SKIPPED_BREAKER, "circuit breaker open (recent failures)", null, 0));
                 continue;
             }
 
+            long startNanos = System.nanoTime();
             try {
                 ExtractionResult result = provider.extract(fileBytes, mimeType,
                         new ExtractionRequest(step.getModel(), step.getEffort()));
                 breaker.recordSuccess(label);
+                long ms = elapsedMs(startNanos);
 
                 if (result == null) {
+                    attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                            ExtractionAttempt.TRANSIENT, "provider returned no result", null, ms));
                     continue;
                 }
                 if (isAccepted(result)) {
                     log.info("Extraction step '{}' accepted (confidence={})", label, result.confidence());
-                    return new ExtractionOutcome(result, step.getProvider(), step.getModel(), true);
+                    attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                            ExtractionAttempt.ACCEPTED, "cleared the acceptance bar", pct(result), ms));
+                    return new ExtractionOutcome(result, step.getProvider(), step.getModel(), true, attempts);
                 }
                 // Not confident enough — keep as fallback if it's the best so far.
                 if (best == null || confidence(result).compareTo(confidence(best)) > 0) {
@@ -108,35 +123,60 @@ public class ExtractionEngine {
                 }
                 log.info("Extraction step '{}' below threshold (confidence={}) — trying next",
                         label, result.confidence());
+                attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                        ExtractionAttempt.BELOW_THRESHOLD, "below the acceptance bar", pct(result), ms));
 
             } catch (ExtractionException e) {
+                long ms = elapsedMs(startNanos);
                 if (e.isQuotaExhausted()) {
                     breaker.recordQuotaFailure(label, nowMillis,
                             props.getBreaker().getFailureThreshold(),
                             props.getBreaker().getCooldownSeconds());
                     log.warn("Extraction step '{}' quota-exhausted — {}", label, e.getMessage());
+                    attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                            ExtractionAttempt.QUOTA, "free daily allowance reached", null, ms));
                 } else {
                     log.warn("Extraction step '{}' failed (transient) — {}", label, e.getMessage());
+                    attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                            ExtractionAttempt.TRANSIENT, shorten(e.getMessage()), null, ms));
                 }
             } catch (Exception e) {
                 log.warn("Extraction step '{}' errored unexpectedly — {}", label, e.toString());
+                attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                        ExtractionAttempt.ERROR, shorten(e.getClass().getSimpleName()), null, elapsedMs(startNanos)));
             }
         }
 
         // Nothing cleared the bar: return the best-effort result if we have one.
         if (best != null) {
             log.info("No step cleared the acceptance bar — using best-effort result from '{}'", bestProvider);
-            return new ExtractionOutcome(best, bestProvider, bestModel, false);
+            return new ExtractionOutcome(best, bestProvider, bestModel, false, attempts);
         }
 
         // Absolute last resort: the stub never fails, so the pipeline always completes.
         ExtractionProvider stub = providers.get(STUB);
         if (stub != null) {
             log.info("No step produced a result — falling back to stub");
-            return new ExtractionOutcome(stub.extract(fileBytes, mimeType), STUB, null, false);
+            return new ExtractionOutcome(stub.extract(fileBytes, mimeType), STUB, null, false, attempts);
         }
 
         throw new IllegalStateException("Extraction chain produced no result and no 'stub' provider is available");
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
+    }
+
+    /** Confidence (0..1) as a whole percent for the trail, or null. */
+    private static Integer pct(ExtractionResult result) {
+        return result == null || result.confidence() == null
+                ? null : (int) Math.round(result.confidence().doubleValue() * 100);
+    }
+
+    /** Trim a provider message for the trail (keeps it legible; carries no secrets). */
+    private static String shorten(String s) {
+        if (s == null || s.isBlank()) return "failed";
+        return s.length() > 160 ? s.substring(0, 160) + "…" : s;
     }
 
     private boolean isAccepted(ExtractionResult result) {

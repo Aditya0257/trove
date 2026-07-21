@@ -125,6 +125,18 @@ public class ExtractionWorker {
             extra.put("extractionModel", outcome.model());
         }
         extra.put("extractionAccepted", outcome.accepted());
+        // Notice System (D23): the full chain trail + a derived two-channel notice, so
+        // web/mobile can show "auto-fill paused for today" (or "review our read") with
+        // the developer detail underneath. Rides into the sidecar → survives DB rebuild.
+        com.trove.common.notice.ApiNotice notice = outcome.toNotice();
+        java.util.Map<String, Object> meta = outcome.metaMap();
+        java.util.Map<String, Object> noticeMap = new java.util.LinkedHashMap<>();
+        noticeMap.put("level", notice.level().json());
+        noticeMap.put("code", notice.code());
+        noticeMap.put("userMessage", notice.userMessage());
+        noticeMap.put("devNote", notice.devNote());
+        meta.put("notice", noticeMap);
+        extra.put("extractionMeta", meta);
         doc.setExtra(extra);
         doc.setExtractionConfidence(result.confidence());
 
