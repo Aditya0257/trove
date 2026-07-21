@@ -435,3 +435,86 @@ Format for each entry:
   backed up out-of-band).
 - **Touches:** `CLAUDE.md` (vital docs), `DECISIONS.md` → D18.
 - **Status:** active.
+
+## D22 — Workers AI provider hardening after live verification (model, input shape, response shape, license gate)
+
+- **Decision:** Verifying the real Cloudflare Workers AI free tier end-to-end surfaced
+  four things, now fixed so the provider is genuinely swappable/correct:
+  1. **Default vision model → `@cf/meta/llama-3.2-11b-vision-instruct`** (was
+     `@cf/llava-hf/llava-1.5-7b-hf`). LLaVA-1.5-7b *hallucinated* whole documents
+     (invented an electricity bill for a grocery receipt); Llama-3.2-Vision reads
+     real receipts/bills accurately.
+  2. **Model-aware request body.** LLaVA wants a flat `{image:[uint8…], prompt}`;
+     Llama-Vision (and other instruct vision models) want the portable OpenAI-style
+     `{messages:[{content:[text, image_url(data-URI)]}]}` — the flat form returns
+     "Unable to add image…". `CloudflareExtractionProvider.buildRequestBody` branches
+     on the model name so a future swap needs no code change.
+  3. **`result.response` can be a JSON OBJECT, not a string.** In JSON/structured
+     mode both the vision model *and* the search text model return the object directly
+     under `result.response`; `.asText()` yielded `""` → "Empty model response" /
+     "No JSON in LLM response". Both `CloudflareExtractionProvider` and
+     `LlmQueryParser` now re-serialize an object/array response before parsing.
+  4. **One-time Meta license gate.** Llama models 403 with "Model Agreement" until you
+     POST `{"prompt":"agree"}` once per account (documented in `docs/DEPLOYMENT.md`).
+- **Original text:** `DECISIONS.md` → D9 (extraction chain, "Cloudflare Workers AI"),
+  D14/its successor (LLM search), `CLAUDE.md` — *"add a real vision model provider
+  behind the same interface."* Originals unchanged; this is the live-verification refinement.
+- **Why:** The brief demands providers be swappable and the human-review step never be
+  trusted blindly. Real testing proved the *plumbing* was correct but the model choice
+  and the exact Workers AI request/response contract were not — the kind of thing only
+  a live call reveals. Confidence normalization (`ExtractionResponseParser` clamps a
+  stray `confidence:100` → `1.0`) already handled the model's percentage-scale quirk.
+  Verified live against real R2 + Workers AI + B2 + Neon: extraction reads
+  "RELIANCE FRESH SUPERMARKET / 735 INR" into `needs_review`; NL search parses
+  "most expensive shopping bills" → `category=shopping, sortBy=amount desc`; B2 mirror
+  copies real objects.
+- **Also:** `.env` must be loaded **literally** (not `source`d) — an unquoted `&` in
+  the Neon URL aborts `source` mid-file and silently unsets everything after it. Guidance
+  updated in `.env.example` (matches how systemd/Docker read the file). 
+- **Touches:** `DECISIONS.md` → D9, D14; `CloudflareExtractionProvider`, `LlmQueryParser`,
+  `application.yml`, `.env.example`, `docs/DEPLOYMENT.md`.
+- **Status:** active.
+
+## D23 — The Notice System: two-channel, non-hiding feedback across API + web + mobile
+
+- **Decision:** Every meaningful outcome (errors, and async results like extraction
+  fallbacks) carries a **two-channel `notice`**, never a bare error string:
+  - `userMessage` — calm, human, actionable ("Auto-fill paused for today — add the
+    fields from your photo; everything else works").
+  - `devNote` — precise technical cause, **never any secret** (providers, counts,
+    timings, request id: yes; keys/tokens/endpoints/buckets: never).
+  - plus `level` (info|success|warning|error), `code` (stable machine code, e.g.
+    `EXTRACTION_QUOTA`, `DUPLICATE_DOCUMENT`), and a free-form `meta` map.
+  The philosophy is **dignify errors, don't hide them** — the audience is the owner +
+  friends/family, so surfacing the "why" beautifully is a feature, not a leak.
+- **Contract (backend):**
+  - `ApiNotice` record embedded in `ApiError` — every error response now includes a
+    notice built per exception type in `ApiExceptionHandler`.
+  - `extra.extractionMeta` on documents — the full chain attempt trail
+    (`[{label, provider, model, status, reason, confidencePct, latencyMs}]`), a
+    `fellBack` flag, and a derived `notice`. The flat `extractionProvider/Model/
+    Accepted` fields stay for back-compat.
+  - A servlet filter stamps `X-Trove-Request-Id` + `X-Trove-Duration-Ms` on every
+    response (and MDC for logs) so clients can correlate + show per-request timing.
+- **Surfaces (clients):**
+  - **Web:** a two-channel toast (user line + collapsible dev note) **and** a
+    "Developer" surface = clean grouped **styled console** (`%c` CSS, monospace, muted
+    palette, no emoji) per request + an in-app **Developer drawer** with recent
+    requests and an AI-usage gauge. Chosen: console **+** drawer.
+  - **Mobile (Flutter):** the same two-channel snackbar/dialog + a Developer drawer
+    screen. Built into the Flutter API client from line one (this is why Flutter is
+    built *after* this contract).
+- **Why:** One contract, both clients light up identically; the app becomes
+  legible and interactive instead of opaque. Aligns with the human-review principle
+  (when auto-fill can't run, tell the user *plainly* and let them fill it in).
+- **Honest scope:** per-request info (provider, fallback reason, latency, confidence)
+  ships now. A true **daily Neuron gauge** needs a small poll of Cloudflare's analytics
+  API (not returned per-request); it plugs into the same drawer as a fast-follow,
+  labeled "estimated" until wired exactly. Per-request **token** counts (from Workers
+  AI `result.usage`) are a cheap add planned into `extractionMeta`.
+- **Touches:** `DECISIONS.md` → D9, D22; `common/error/*`, `common/notice/*`,
+  `common/security/SecurityNoticeHandler`, `common/web` request filter, `extraction/*`;
+  Angular web (`core/notice/*`, interceptor, toast + Developer drawer); Flutter client
+  (`core/notice/*`, notice-aware `ApiClient`, toast + Developer drawer).
+- **Status:** active — implemented across backend, web, and mobile. Fast-follow: a live
+  daily-Neuron usage gauge (Cloudflare analytics poll) + per-request token counts.

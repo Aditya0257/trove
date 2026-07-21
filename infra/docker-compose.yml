@@ -66,21 +66,22 @@ services:
       - "9001:9001"   # Web console — browse the vault in a browser at http://localhost:9001
     volumes:
       - trove-miniodata:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    # No healthcheck here on purpose: the MinIO server image ships no HTTP client
+    # (`mc`/`curl`), so the earlier `mc ready` check could never pass and the bucket
+    # step hung on `service_healthy`. Readiness is handled by createbucket's retry loop.
 
-  # One-shot: create the "trove" bucket so files have a home on first run.
+  # One-shot: wait for MinIO to accept connections, then create the "trove" bucket so
+  # files have a home on first run. Self-retrying, so it never depends on tools that
+  # aren't in the MinIO server image (this is what the old healthcheck got wrong).
   createbucket:
     image: minio/mc:latest
     depends_on:
-      minio:
-        condition: service_healthy
+      - minio
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do
+        echo 'waiting for MinIO…'; sleep 2;
+      done &&
       mc mb --ignore-existing local/trove &&
       echo 'Bucket trove is ready.'
       "
