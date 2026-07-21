@@ -1,0 +1,17 @@
+# Lints for the Trove mobile client. Strict-ish, matching the backend's "explicit,
+# readable, senior" bar without being noisy.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+  errors:
+    todo: ignore
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_locals: true
+    avoid_print: true          # the DeveloperLog is the sanctioned diagnostic channel
+    require_trailing_commas: true
