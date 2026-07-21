@@ -151,7 +151,11 @@ public class LlmQueryParser {
                 .POST(HttpRequest.BodyPublishers.ofString(root.toString()))
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-        return mapper.readTree(resp.body()).path("result").path("response").asText("");
+        // Workers AI instruct models often return result.response as a JSON OBJECT
+        // (structured output), not a string; .asText() would be "". Re-serialize the
+        // object so extractJson() sees real JSON; otherwise take the plain-text reply.
+        JsonNode response = mapper.readTree(resp.body()).path("result").path("response");
+        return (response.isObject() || response.isArray()) ? response.toString() : response.asText("");
     }
 
     private JsonNode extractJson(String raw) throws Exception {

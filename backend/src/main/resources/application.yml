@@ -132,7 +132,10 @@ trove:
       cloudflare:
         account-id: ${CF_ACCOUNT_ID:}
         api-token: ${CF_API_TOKEN:}
-        default-model: ${CF_MODEL:@cf/llava-hf/llava-1.5-7b-hf}
+        # Llama 3.2 11B Vision reads real documents far better than llava-1.5-7b
+        # (which hallucinates on receipts/bills). Both are free within the daily
+        # Workers AI Neuron allowance; over-limit calls fall back to the stub.
+        default-model: ${CF_MODEL:@cf/meta/llama-3.2-11b-vision-instruct}
         timeout-seconds: ${CF_TIMEOUT:60}
       # Google Gemini — free tier is 0 on some accounts; verify before relying on it.
       gemini:

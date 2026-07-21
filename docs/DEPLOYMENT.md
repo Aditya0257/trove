@@ -34,7 +34,18 @@ SPRING_APPLICATION_JSON={"trove":{"extraction":{"acceptance-confidence":0.4,"cha
   Flyway migrates the schema on first boot.
 - **Cloudflare R2**: create bucket `trove` + an R2 API token → `TROVE_S3_*`
   (`TROVE_S3_AUTO_CREATE_BUCKET=false`).
-- **Cloudflare Workers AI**: an API token with Workers AI permission → `CF_*`.
+- **Cloudflare Workers AI**: an API token with Workers AI permission → `CF_*`. The
+  default vision model (`@cf/meta/llama-3.2-11b-vision-instruct`) and the search text
+  model (`@cf/meta/llama-3.1-8b-instruct`) are **Meta Llama models that require a
+  one-time license acceptance per account** before first use — otherwise every call
+  returns HTTP 403 "Model Agreement". Accept once with:
+  ```bash
+  curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/ai/run/@cf/meta/llama-3.2-11b-vision-instruct" \
+    -H "Authorization: Bearer $CF_API_TOKEN" -H 'Content-Type: application/json' -d '{"prompt":"agree"}'
+  # if the search model also 403s with "Model Agreement", repeat for @cf/meta/llama-3.1-8b-instruct
+  ```
+  These models are free within the daily Neuron allowance; over-limit calls just fall
+  back to the stub (extraction) or rule-based parser (search) — you are never charged.
 - **Backblaze B2**: bucket + Application Key → `TROVE_MIRROR_*`.
 - **Google**: add the HTTPS redirect URI to your OAuth client → `GOOGLE_OAUTH_*`.
 

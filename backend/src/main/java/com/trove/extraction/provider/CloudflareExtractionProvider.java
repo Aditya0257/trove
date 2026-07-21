@@ -17,14 +17,18 @@
  *  Solution architecture
  *  ---------------------
  *  Bean "cloudflare". Calls POST /accounts/{id}/ai/run/{model} with a Bearer token,
- *  sending the image as the int-array Workers AI expects for LLaVA, plus the shared
- *  prompt. Uses the shared ExtractionResponseParser. 429 → quota (opens breaker);
- *  other failures → transient (chain falls through). See DECISIONS.md → D9.
+ *  sending the image as the int-array (uint8) Workers AI vision models accept, plus
+ *  the shared prompt. Model is config-driven (CF_MODEL) — default is
+ *  llama-3.2-11b-vision-instruct, which reads documents far better than llava-1.5-7b.
+ *  Uses the shared ExtractionResponseParser. 429 → quota (opens breaker); other
+ *  failures → transient (chain falls through). See DECISIONS.md → D9.
  *
  *  Reasoning & logic
  *  -----------------
- *  LLaVA on Workers AI returns free text under result.description/response; we prompt
- *  for JSON and parse leniently. Blank creds → transient skip (not a quota outage).
+ *  Workers AI vision models return free text under result.response (llava also fills
+ *  result.description); we prompt for JSON and parse both leniently. The {image,prompt}
+ *  body is accepted by both llava and the Llama vision model, so swapping CF_MODEL needs
+ *  no code change. Blank creds → transient skip (not a quota outage).
  * ============================================================================
  */
 package com.trove.extraction.provider;
@@ -77,7 +81,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         String url = "https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s"
                 .formatted(props.getAccountId(), model);
 
-        String body = buildRequestBody(fileBytes);
+        String body = buildRequestBody(fileBytes, mimeType, model);
         HttpResponse<String> resp;
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))
@@ -102,8 +106,21 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         try {
             JsonNode root = mapper.readTree(resp.body());
             JsonNode result = root.path("result");
-            String text = result.has("description") ? result.path("description").asText()
-                    : result.path("response").asText("");
+            JsonNode response = result.path("response");
+            // Three response shapes across Workers AI vision models:
+            //   • Llama vision in JSON mode returns result.response as an OBJECT
+            //     (the structured fields directly) — .asText() would be "", so
+            //     re-serialize it back to JSON for the shared parser.
+            //   • LLaVA returns free text under result.description.
+            //   • Others return a plain string under result.response.
+            String text;
+            if (response.isObject() || response.isArray()) {
+                text = response.toString();
+            } else if (result.hasNonNull("description")) {
+                text = result.path("description").asText("");
+            } else {
+                text = response.asText("");
+            }
             return ExtractionResponseParser.parse(text, mapper);
         } catch (IllegalArgumentException e) {
             throw ExtractionException.transientError(LABEL, e.getMessage(), e);
@@ -112,16 +129,40 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         }
     }
 
-    /** Workers AI LLaVA expects the image as an array of byte values (0..255). */
-    private String buildRequestBody(byte[] fileBytes) {
+    /*
+     * Two Workers AI vision input shapes, chosen by model:
+     *   • LLaVA (@cf/llava-*) wants a flat { image:[uint8…], prompt } — it ignores
+     *     the chat "messages" schema and returns an empty response otherwise.
+     *   • Llama-3.2-Vision (and other instruct vision models) want the portable
+     *     OpenAI-style { messages:[{ content:[text, image_url(data-URI)] }] } — the
+     *     flat image[] form yields "Unable to add image…". Using the standard
+     *     content-parts schema here means a future model swap needs no code change.
+     */
+    private String buildRequestBody(byte[] fileBytes, String mimeType, String model) {
         ObjectNode root = mapper.createObjectNode();
-        ArrayNode image = root.putArray("image");
-        for (byte b : fileBytes) {
-            image.add(b & 0xFF);
+        if (model != null && model.toLowerCase().contains("llava")) {
+            ArrayNode image = root.putArray("image");
+            for (byte b : fileBytes) {
+                image.add(b & 0xFF);
+            }
+            root.put("prompt", ExtractionPrompt.INSTRUCTION);
+            root.put("max_tokens", 1024);
+            return root.toString();
         }
-        root.put("prompt", ExtractionPrompt.INSTRUCTION);
+        String dataUri = "data:" + imageMime(mimeType) + ";base64,"
+                + java.util.Base64.getEncoder().encodeToString(fileBytes);
+        ArrayNode messages = root.putArray("messages");
+        ArrayNode content = messages.addObject().put("role", "user").putArray("content");
+        content.addObject().put("type", "text").put("text", ExtractionPrompt.INSTRUCTION);
+        content.addObject().put("type", "image_url")
+                .putObject("image_url").put("url", dataUri);
         root.put("max_tokens", 1024);
         return root.toString();
+    }
+
+    /** Vision models need an image MIME; fall back to png for missing/non-image types. */
+    private String imageMime(String mimeType) {
+        return (mimeType != null && mimeType.startsWith("image/")) ? mimeType : "image/png";
     }
 
     private String truncate(String s) {
