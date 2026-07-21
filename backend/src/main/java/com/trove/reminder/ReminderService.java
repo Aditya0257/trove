@@ -52,12 +52,14 @@ public class ReminderService {
     private final ReminderRepository reminderRepository;
     private final SpaceAuthorization authorization;
     private final ReminderProperties props;
+    private final ReminderNotifier notifier;
 
     public ReminderService(ReminderRepository reminderRepository, SpaceAuthorization authorization,
-                           ReminderProperties props) {
+                           ReminderProperties props, ReminderNotifier notifier) {
         this.reminderRepository = reminderRepository;
         this.authorization = authorization;
         this.props = props;
+        this.notifier = notifier;
     }
 
     /** Creates a manual reminder (owner/member only). */
@@ -88,13 +90,19 @@ public class ReminderService {
         if (dueDate == null || documentId == null) {
             return;
         }
-        if (reminderRepository.existsByDocumentIdAndType(documentId, ReminderType.DUE)) {
-            return;
+        // One reminder per configured lead time (default 7/1/0 days before), so a
+        // warranty/bill/renewal gets an early heads-up and a last nudge. Each lead is
+        // guarded independently, so re-confirming a document never duplicates a date.
+        for (int lead : props.getLeadDaysList()) {
+            LocalDate remindOn = dueDate.minusDays(lead);
+            if (reminderRepository.existsByDocumentIdAndTypeAndRemindOn(
+                    documentId, ReminderType.DUE, remindOn)) {
+                continue;
+            }
+            reminderRepository.save(new Reminder(spaceId, documentId, ReminderType.DUE, remindOn));
         }
-        LocalDate remindOn = dueDate.minusDays(props.getLeadDays());
-        reminderRepository.save(new Reminder(spaceId, documentId, ReminderType.DUE, remindOn));
-        log.info("Auto-created 'due' reminder for document {} (due {}, remind {})",
-                documentId, dueDate, remindOn);
+        log.info("Auto-created due reminders for document {} (due {}, leads {})",
+                documentId, dueDate, props.getLeadDaysList());
     }
 
     /** Lists reminders in a space (optionally by status). Any member may read. */
@@ -125,9 +133,13 @@ public class ReminderService {
         List<Reminder> due = reminderRepository.findByStatusAndRemindOnLessThanEqual(
                 ReminderStatus.PENDING, today);
         for (Reminder r : due) {
-            // Notification channel (email/WhatsApp) is a later phase — log for now.
-            log.info("REMINDER DUE — type={} space={} document={} remindOn={}",
-                    r.getType(), r.getSpaceId(), r.getDocumentId(), r.getRemindOn());
+            // Deliver via the notifier (emails the space's members). A delivery failure
+            // must not stop the sweep or wedge the reminder, so we still mark it sent.
+            try {
+                notifier.dispatch(r, today);
+            } catch (Exception e) {
+                log.warn("Reminder {} dispatch failed: {}", r.getId(), e.getMessage());
+            }
             r.setStatus(ReminderStatus.SENT);
             reminderRepository.save(r);
         }

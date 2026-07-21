@@ -25,4 +25,8 @@ public interface ReminderRepository extends JpaRepository<Reminder, UUID> {
 
     /** Guards against creating the same auto-reminder twice for a document. */
     boolean existsByDocumentIdAndType(UUID documentId, String type);
+
+    /** Per-date guard: lets one document have several reminders (7/1/0 days) without
+     *  duplicating any single lead when a document is re-confirmed. */
+    boolean existsByDocumentIdAndTypeAndRemindOn(UUID documentId, String type, LocalDate remindOn);
 }

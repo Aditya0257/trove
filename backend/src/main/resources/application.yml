@@ -162,8 +162,19 @@ trove:
   reminder:
     # How often the scheduler scans for due reminders and dispatches them.
     scan-fixed-delay-ms: ${TROVE_REMINDER_SCAN_DELAY_MS:3600000}   # 1h
-    # Fire a document's due reminder this many days before the due date.
+    # Legacy single lead time (kept for back-compat; lead-days-list supersedes it).
     lead-days: ${TROVE_REMINDER_LEAD_DAYS:3}
+    # Days-before-due to fire reminders: a week ahead, the day before, and the day
+    # itself. Override with a comma list, e.g. TROVE_REMINDER_LEAD_DAYS_LIST=14,7,1,0
+    lead-days-list: ${TROVE_REMINDER_LEAD_DAYS_LIST:7,1,0}
+
+  # Outbound email for reminders. Blank api-key => email is skipped (reminders still
+  # fire in-app + as phone notifications). Brevo's free tier (300/day) needs no domain,
+  # only a verified sender address.
+  email:
+    api-key: ${TROVE_EMAIL_API_KEY:}
+    from-email: ${TROVE_EMAIL_FROM:}
+    from-name: ${TROVE_EMAIL_FROM_NAME:Trove}
 
   ingest:
     # Shared secret gating the email/WhatsApp ingestion webhooks. Set via env in prod.
