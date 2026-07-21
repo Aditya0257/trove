@@ -163,13 +163,18 @@ tight: a lighter vision model, or downscale images before sending.
 - ✅ Real cloud providers verified end-to-end
 - ✅ Notice System (backend + web + mobile)
 - ✅ Flutter mobile client (analyze-clean)
+- ✅ Reminders: multi-lead (7/1/0 days before due) + email delivery via Brevo (free,
+  swappable `EmailSender`, safe no-op until configured) + on-device phone notifications
+  on mobile (`flutter_local_notifications`, free). Warranty = a document whose due date
+  is its expiry, so the same path covers it. Config: `TROVE_EMAIL_*`,
+  `TROVE_REMINDER_LEAD_DAYS_LIST`.
 - ⏭️ **Deploy:** Oracle Always-Free VM + DuckDNS (`trove-sync.duckdns`) + Caddy (HTTPS) +
   Cloudflare Pages (web). Google OAuth redirect keeps `localhost` and adds the prod HTTPS
   callback; Drive owners reconnect once against the prod redirect URI. See `docs/DEPLOYMENT.md`.
 - ⏭️ CI/CD auto-deploy (`.github/workflows/ci.yml` already builds backend + web).
-- ⏭️ Optional polish: mobile reminders screen; a live daily-Neuron usage gauge (needs a
-  Cloudflare analytics poll) + per-request token counts in `extractionMeta`; a
-  `docs/API.md` section describing the notice envelope.
+- ⏭️ Optional polish: a live daily-Neuron usage gauge (needs a Cloudflare analytics
+  poll) + per-request token counts in `extractionMeta`; a `docs/API.md` section
+  describing the notice envelope.
 - 🧹 Housekeeping: 8 test documents are sitting in my real Neon/R2/B2/Drive from the
   verification pass — clear them before real use (empty the R2 bucket, then
   `POST /api/admin/rebuild`).
