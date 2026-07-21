@@ -3,10 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
 import { SpaceContext } from './core/space.context';
+import { NoticeToast } from './core/notice/notice-toast';
+import { DevDrawer } from './core/notice/dev-drawer';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule],
+  imports: [RouterOutlet, RouterLink, FormsModule, NoticeToast, DevDrawer],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
+import { NoticeService } from '../../core/notice/notice.service';
+import { noticeFrom } from '../../core/notice/notice.model';
 
 @Component({
   selector: 'app-upload',
@@ -28,6 +30,7 @@ export class Upload {
   private api = inject(ApiService);
   private router = inject(Router);
   private spaceCtx = inject(SpaceContext);
+  private notices = inject(NoticeService);
 
   file = signal<File | null>(null);
   vital = false;
@@ -47,7 +50,15 @@ export class Upload {
     this.loading.set(true);
     this.error.set(null);
     this.api.uploadDocument(f, this.vital, this.spaceCtx.currentSpaceId()).subscribe({
-      next: (doc) => this.router.navigate(['/documents', doc.id, 'review']),
+      next: (doc) => {
+        // Surface how extraction went ("we read it — review" / "auto-fill paused").
+        const meta = doc.extra?.['extractionMeta'] as Record<string, unknown> | undefined;
+        const notice = noticeFrom(meta?.['notice']);
+        if (notice) {
+          this.notices.show(notice);
+        }
+        this.router.navigate(['/documents', doc.id, 'review']);
+      },
       error: (e) => {
         this.error.set(e?.error?.message ?? 'Upload failed');
         this.loading.set(false);
