@@ -61,6 +61,12 @@ class HomeShell extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Trove'),
         actions: [
+          if (captureSpace != null)
+            IconButton(
+              tooltip: 'Reminders',
+              icon: const Icon(Icons.notifications_none),
+              onPressed: () => context.push('/reminders', extra: captureSpace.id),
+            ),
           Builder(
             builder: (context) => IconButton(
               tooltip: 'Developer',

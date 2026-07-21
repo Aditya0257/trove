@@ -63,3 +63,28 @@ lib/
 - No codegen: models use hand-written `fromJson` (no build_runner needed).
 - Errors never hide: the ApiClient toasts failures and logs every call to the
   Developer drawer with the server's `X-Trove-Request-Id`.
+
+## Reminder notifications (on-device, free)
+
+Reminders (7/1/0 days before a due/renewal/warranty date) are scheduled on-device via
+`flutter_local_notifications` — no server, no cost. After `flutter create .`, add the
+platform bits the plugin needs:
+
+**Android** (`android/app/src/main/AndroidManifest.xml`, inside `<manifest>`):
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+```
+And enable core-library desugaring in `android/app/build.gradle` (the plugin uses Java 8
+time APIs):
+```gradle
+android { compileOptions { coreLibraryDesugaringEnabled true } }
+dependencies { coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.2' }
+```
+Scheduling is **inexact** (`AndroidScheduleMode.inexactAllowWhileIdle`), so the
+restricted `SCHEDULE_EXACT_ALARM` permission is intentionally not required.
+
+**iOS** — permission is requested at runtime by `NotificationService.init()`; no
+Info.plist key is needed for local notifications. If you want alerts while the app is
+foregrounded, set the `UNUserNotificationCenter` delegate in `AppDelegate.swift` per the
+plugin's README.

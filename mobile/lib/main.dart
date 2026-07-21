@@ -26,6 +26,7 @@ import 'core/models/document.dart';
 import 'core/models/space.dart';
 import 'core/notice/notice.dart';
 import 'core/notice/notice_center.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/providers.dart';
 import 'features/auth/login_screen.dart';
 import 'features/documents/capture_screen.dart';
@@ -33,6 +34,7 @@ import 'features/documents/confirm_screen.dart';
 import 'features/documents/detail_screen.dart';
 import 'features/documents/list_screen.dart';
 import 'features/home/home_shell.dart';
+import 'features/reminders/reminders_screen.dart';
 import 'features/search/search_screen.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/notice_toast.dart';
@@ -41,6 +43,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final container = ProviderContainer();
   await container.read(authStoreProvider).restore();
+  await NotificationService.instance.init();
   runApp(UncontrolledProviderScope(container: container, child: const TroveApp()));
 }
 
@@ -90,6 +93,10 @@ class _TroveAppState extends ConsumerState<TroveApp> {
         GoRoute(
           path: '/search',
           builder: (_, state) => SearchScreen(spaceId: state.extra! as String),
+        ),
+        GoRoute(
+          path: '/reminders',
+          builder: (_, state) => RemindersScreen(spaceId: state.extra! as String),
         ),
       ],
     );
