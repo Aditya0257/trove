@@ -36,7 +36,7 @@ public final class ExtractionPrompt {
     /** Known category codes (must match the seeded taxonomy). */
     public static final String CATEGORY_CODES =
             "electricity, water, gas, internet, mobile, shopping, insurance, medical, "
-            + "travel, food, rent, subscription, tax, other";
+            + "travel, food, rent, subscription, tax, bank, other";
 
     public static final String INSTRUCTION = """
             You are a meticulous document-understanding assistant for a personal document vault.
