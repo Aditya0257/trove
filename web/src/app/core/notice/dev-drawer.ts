@@ -51,6 +51,10 @@ import { AiUsage } from '../models';
             </div>
             <div class="bar"><div class="fill you" [style.width.%]="pct(u.user.neurons, u.perUserLimitNeurons)"></div></div>
             <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens · {{ fmt(left(u.user.neurons, u.perUserLimitNeurons)) }} neurons left today</div>
+
+            <div class="gauge-foot">
+              <span class="dot"></span>Your usage updates instantly · the shared total refreshes every minute while this panel is open
+            </div>
           </div>
         }
 
@@ -192,6 +196,19 @@ import { AiUsage } from '../models';
       .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
       .fill.you { background: linear-gradient(90deg, #43b581, #2e7d5b); }
       .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
+      .gauge-foot {
+        display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px;
+        border-top: 1px solid rgba(59, 125, 221, 0.15); font-size: 10.5px; color: #8a8a8a;
+      }
+      .gauge-foot .dot {
+        width: 7px; height: 7px; border-radius: 50%; background: #43b581; flex: none;
+        box-shadow: 0 0 0 0 rgba(67, 181, 129, 0.6); animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(67, 181, 129, 0.5); }
+        70% { box-shadow: 0 0 0 5px rgba(67, 181, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(67, 181, 129, 0); }
+      }
       /* Green = what got persisted (distinct from blue = AI cost). Groups the stored
          record into its own tinted card so it's obvious what landed in the database. */
       .db-panel {
@@ -220,14 +237,29 @@ export class DevDrawer {
   protected open = signal(false);
   protected usage = signal<AiUsage | null>(null);
 
+  /** How often the open drawer re-polls for the app-wide (global) figure. */
+  private static readonly POLL_MS = 60_000;
+
   constructor() {
-    // Refresh the usage gauge when the drawer opens and after any new logged call.
+    // Your own usage updates the instant you trigger AI: refresh on every real logged
+    // call (the interceptor deliberately doesn't log the usage poll itself, so this
+    // can't feed back into a loop).
     effect(() => {
-      const n = this.entries().length; // track: new calls should refresh usage
+      const n = this.entries().length; // track: a new call should refresh the gauge
       if (this.open()) {
         void n;
         this.fetchUsage();
       }
+    });
+
+    // The global bar moves when OTHER users consume AI, which no local event can tell
+    // us about — so poll lightly, but ONLY while the drawer is open (the poll stops the
+    // moment it closes). Two indexed SELECTs at 60s is negligible even for all users at
+    // once; no websocket needed at this scale.
+    effect((onCleanup) => {
+      if (!this.open()) return;
+      const id = setInterval(() => this.fetchUsage(), DevDrawer.POLL_MS);
+      onCleanup(() => clearInterval(id));
     });
   }
 
