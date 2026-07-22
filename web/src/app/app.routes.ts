@@ -26,6 +26,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/mail/mail').then((m) => m.Mail),
   },
   {
+    path: 'mail/:bundleId',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/mail/mail-detail').then((m) => m.MailDetail),
+  },
+  {
     path: 'search',
     canActivate: [authGuard],
     loadComponent: () => import('./features/search/search').then((m) => m.Search),

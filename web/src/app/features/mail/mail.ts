@@ -81,6 +81,10 @@ interface MailEntry {
           <label>Subject / what it's about
             <input name="subject" [(ngModel)]="subject" placeholder="e.g. Income tax paid, FY 2025-26" />
           </label>
+          <label>Notes / description (optional)
+            <textarea name="desc" [(ngModel)]="description" rows="2"
+              placeholder="Anything to remember or find this by later"></textarea>
+          </label>
           <label class="checkbox">
             <input type="checkbox" name="vital" [(ngModel)]="vital" /> Sensitive: encrypt at rest
           </label>
@@ -97,7 +101,7 @@ interface MailEntry {
       @else {
         <div class="entries">
           @for (e of entries(); track e.bundleId) {
-            <a class="entry" [routerLink]="['/documents', e.docs[0].id, 'review']">
+            <a class="entry" [routerLink]="['/mail', e.bundleId]">
               <div class="entry-thumbs">
                 @for (d of e.docs; track d.id) {
                   <img [src]="thumb(d)" alt="screenshot" />
@@ -158,6 +162,7 @@ export class Mail {
   account = '';
   subject = '';
   emailDate = '';
+  description = '';
   vital = false;
   saving = signal(false);
   done = signal(0);
@@ -270,6 +275,7 @@ export class Mail {
             mailSubject: this.subject,
             mailDate: this.emailDate,
             mailBundleId: bundleId,
+            notes: this.description || undefined,
           },
         };
         await firstValueFrom(this.api.confirmDocument(doc.id, body));
@@ -284,6 +290,7 @@ export class Mail {
     this.account = '';
     this.subject = '';
     this.emailDate = '';
+    this.description = '';
     this.vital = false;
     this.saving.set(false);
     this.showAdd.set(false);
