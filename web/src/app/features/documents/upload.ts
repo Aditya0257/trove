@@ -50,7 +50,16 @@ interface Queued {
         <div class="thumbs">
           @for (item of queue(); track item.url) {
             <div class="thumb">
-              <img [src]="item.url" alt="pending upload" />
+              @if (isImage(item)) {
+                <img [src]="item.url" alt="pending upload" />
+              } @else {
+                <!-- PDFs and other non-images can't render as an <img>; show a file card
+                     instead of a broken-image icon. -->
+                <div class="filecard" [title]="item.file.name">
+                  <span class="ext">{{ ext(item) }}</span>
+                  <span class="fname">{{ item.file.name }}</span>
+                </div>
+              }
               <button class="rm" (click)="remove(item)" [disabled]="loading()" aria-label="Remove">×</button>
             </div>
           }
@@ -88,6 +97,19 @@ interface Queued {
       .thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
       .thumb { position: relative; width: 84px; height: 84px; }
       .thumb img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e2e2; }
+      .thumb .filecard {
+        box-sizing: border-box; width: 84px; height: 84px; border-radius: 8px; border: 1px solid #e2e2e2;
+        background: #f4f6f6; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 5px; padding: 6px; text-align: center;
+      }
+      .filecard .ext {
+        font: 700 12px/1 monospace; color: #c0392b; background: #fff;
+        border: 1px solid #eadada; border-radius: 4px; padding: 3px 7px;
+      }
+      .filecard .fname {
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 9.5px; color: #667;
+      }
       .thumb .rm {
         position: absolute; top: -7px; right: -7px;
         box-sizing: border-box; width: 20px; height: 20px; min-width: 0; padding: 0;
@@ -142,7 +164,9 @@ export class Upload {
   onDrop(e: DragEvent): void {
     e.preventDefault();
     this.dragging.set(false);
-    const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'));
+    const files = Array.from(e.dataTransfer?.files ?? []).filter(
+      (f) => f.type.startsWith('image/') || f.type === 'application/pdf',
+    );
     this.add(files);
   }
 
@@ -150,6 +174,18 @@ export class Upload {
     const input = e.target as HTMLInputElement;
     this.add(Array.from(input.files ?? []));
     input.value = ''; // allow re-picking the same file
+  }
+
+  /** Only images can be previewed as an <img>; everything else gets a file card. */
+  isImage(item: Queued): boolean {
+    return item.file.type.startsWith('image/');
+  }
+
+  /** Short type badge for the file card (PDF, or the extension, else FILE). */
+  ext(item: Queued): string {
+    if (item.file.type === 'application/pdf') return 'PDF';
+    const dot = item.file.name.lastIndexOf('.');
+    return dot >= 0 ? item.file.name.slice(dot + 1).toUpperCase().slice(0, 4) : 'FILE';
   }
 
   private add(files: File[]): void {
