@@ -19,18 +19,18 @@ import { NoticeService } from '../../core/notice/notice.service';
         </div>
 
         @if (reading()) {
-          <p class="muted">Reading the document — the fields below will fill in automatically…</p>
+          <p class="muted">Reading the document. The fields below will fill in automatically…</p>
         } @else if (failedRead()) {
           <div class="ai-note failed">
-            <b>We couldn't read this one automatically.</b> No worries — just fill in the
-            details below (it takes a few seconds). The fields are blank on purpose so
+            <b>We couldn't read this one automatically.</b> No worries: just fill in the
+            details below (it takes a few seconds). The fields are blank on purpose, so
             there's nothing wrong to delete.
             @if (readReason()) { <span class="muted"> · {{ readReason() }}</span> }
           </div>
         } @else {
           <div class="ai-note">
             <b>Please double-check these.</b> The details below were read from your document
-            automatically and can be wrong — a misread amount, date or name happens. Confirm
+            automatically and can be wrong (a misread amount, date or name happens). Confirm
             each value; you can edit anything now, or change it later.
             @if (confidencePct() !== '—') {
               <span class="muted"> · read confidence {{ confidencePct() }}</span>
@@ -38,34 +38,49 @@ import { NoticeService } from '../../core/notice/notice.service';
           </div>
         }
         @if (anomaly()) {
-          <p class="warn">This looks higher than usual for its category — worth a second look.</p>
+          <p class="warn">This looks higher than usual for its category. Worth a second look.</p>
         }
+        @if (uploadedOn()) { <p class="uploaded">Added to Trove on {{ uploadedOn() }}</p> }
 
         <button class="view-file" type="button" (click)="openFile()">View original file</button>
 
         <form (ngSubmit)="confirm()">
-          <label>Category
+          <label>
+            <span class="lbl">Category <span class="tip" tabindex="0">i<span class="bubble">{{ tips.category }}</span></span></span>
             <select name="category" [(ngModel)]="form.category">
               <option value="" disabled>Choose a category…</option>
               @for (c of categories(); track c.code) { <option [value]="c.code">{{ c.label }}</option> }
             </select>
-            <small class="help">Pick the category that fits — it drives spend tracking &amp; reminders.</small>
           </label>
-          <label>Merchant
+          <label>
+            <span class="lbl">Merchant <span class="tip" tabindex="0">i<span class="bubble">{{ tips.merchant }}</span></span></span>
             <input name="merchant" [(ngModel)]="form.merchant" placeholder="e.g. Reliance Fresh, Airtel, Acko" />
           </label>
           <div class="row">
-            <label>Amount
+            <label>
+              <span class="lbl">Amount <span class="tip" tabindex="0">i<span class="bubble">{{ tips.amount }}</span></span></span>
               <input type="number" step="0.01" name="amount" [(ngModel)]="form.amount" placeholder="0.00" />
             </label>
-            <label>Currency
+            <label>
+              <span class="lbl">Currency <span class="tip" tabindex="0">i<span class="bubble">{{ tips.currency }}</span></span></span>
               <input name="currency" [(ngModel)]="form.currency" placeholder="INR" />
             </label>
           </div>
           <div class="row">
-            <label>Document date <input type="date" name="docDate" [(ngModel)]="form.docDate" /></label>
-            <label>Due date <input type="date" name="dueDate" [(ngModel)]="form.dueDate" /></label>
+            <label>
+              <span class="lbl">Document date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.docDate }}</span></span></span>
+              <input type="date" name="docDate" [(ngModel)]="form.docDate" />
+            </label>
+            <label>
+              <span class="lbl">Due date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.dueDate }}</span></span></span>
+              <input type="date" name="dueDate" [(ngModel)]="form.dueDate" />
+            </label>
           </div>
+          <label>
+            <span class="lbl">Notes (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
+            <textarea name="notes" [(ngModel)]="form.notes" rows="2"
+              placeholder="Anything you want to remember or find this by later, e.g. Bhopal Indore highway toll"></textarea>
+          </label>
           <label class="checkbox">
             <input type="checkbox" name="vital" [(ngModel)]="form.vital" />
             Vital / sensitive (encrypt at rest)
@@ -98,6 +113,23 @@ import { NoticeService } from '../../core/notice/notice.service';
         border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
       }
       .view-file:hover { background: rgba(47, 111, 106, 0.08); }
+      .uploaded { color: #8a8a8a; font-size: 12px; margin: 2px 0 14px; }
+      .lbl { display: inline-flex; align-items: center; }
+      .tip {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
+        background: #dfe6e5; color: #2f6f6a; font-size: 11px; font-weight: 700;
+        font-style: normal; cursor: help; position: relative; outline: none;
+      }
+      .tip .bubble {
+        visibility: hidden; opacity: 0; position: absolute; bottom: 150%; left: 50%;
+        transform: translateX(-50%); width: 230px; background: #222; color: #fff;
+        padding: 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 400;
+        line-height: 1.4; z-index: 20; transition: opacity 120ms;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); pointer-events: none;
+      }
+      .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
+      textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; padding: 8px; }
     `,
   ],
 })
@@ -121,7 +153,19 @@ export class Review {
     currency: 'INR',
     docDate: '',
     dueDate: '',
+    notes: '',
     vital: false,
+  };
+
+  /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
+  readonly tips = {
+    category: 'The kind of document (electricity, shopping, insurance, and so on). It drives spend tracking, reminders and search.',
+    merchant: 'Who issued it: the store, biller or company printed on the document.',
+    amount: 'The total amount on the document. Digits only, no currency symbol.',
+    currency: 'Currency code, for example INR or USD.',
+    docDate: 'The date printed on the document itself (the invoice, bill or receipt date).',
+    dueDate: 'When a payment or renewal is due, if any. Reminders fire a few days before this date.',
+    notes: 'Anything extra you want to remember or find this by later, in your own words.',
   };
 
   ngOnInit(): void {
@@ -193,6 +237,12 @@ export class Review {
     });
   }
 
+  /** When the document was added to Trove (the upload timestamp, stored automatically). */
+  uploadedOn(): string {
+    const at = this.doc()?.createdAt;
+    return at ? new Date(at).toLocaleString('en-GB', { hour12: false }) : '';
+  }
+
   private fillForm(doc: DocumentResponse): void {
     this.form = {
       category: doc.category ?? '',
@@ -201,6 +251,7 @@ export class Review {
       currency: doc.currency ?? 'INR',
       docDate: doc.docDate ?? '',
       dueDate: doc.dueDate ?? '',
+      notes: (doc.extra?.['notes'] as string) ?? '',
       vital: doc.vital,
     };
   }
@@ -208,6 +259,8 @@ export class Review {
   confirm(): void {
     this.saving.set(true);
     this.error.set(null);
+    // Preserve existing extra (extraction trail, anomaly) and add the user's note.
+    const extra = { ...(this.doc()?.extra ?? {}), notes: this.form.notes || undefined };
     const body: ConfirmRequest = {
       category: this.form.category || undefined,
       merchant: this.form.merchant || undefined,
@@ -216,6 +269,7 @@ export class Review {
       docDate: this.form.docDate || undefined,
       dueDate: this.form.dueDate || undefined,
       vital: this.form.vital,
+      extra,
     };
     this.api.confirmDocument(this.id, body).subscribe({
       next: () => {
