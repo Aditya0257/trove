@@ -18,7 +18,7 @@ import { Category, DocumentResponse } from '../../core/models';
 
       <div class="cats">
         <button type="button" class="chip" [class.on]="category === ''" (click)="setCategory('')">All</button>
-        @for (c of categories(); track c.code) {
+        @for (c of visibleCategories(); track c.code) {
           <button type="button" class="chip" [class.on]="category === c.code" (click)="setCategory(c.code)">
             {{ c.label }}
           </button>
@@ -26,7 +26,7 @@ import { Category, DocumentResponse } from '../../core/models';
       </div>
 
       @if (loading()) { <p class="muted">Loading…</p> }
-      @else if (docs().length === 0) {
+      @else if (visibleDocs().length === 0) {
         <p class="muted">
           No documents{{ category ? ' in this category' : '' }} yet.
           <a routerLink="/upload">Snap or paste your first</a>.
@@ -66,7 +66,7 @@ import { Category, DocumentResponse } from '../../core/models';
               <button type="button" [disabled]="page() >= totalPages() - 1" (click)="page.set(page() + 1)">Next ›</button>
             </div>
           }
-          <span class="muted total">{{ docs().length }} document(s)</span>
+          <span class="muted total">{{ visibleDocs().length }} document(s)</span>
         </div>
       }
     </div>
@@ -81,7 +81,7 @@ import { Category, DocumentResponse } from '../../core/models';
       .chip.on { background: #2f6f6a; color: #fff; border-color: #2f6f6a; }
       td { vertical-align: middle; }
       .del {
-        border: 1px solid rgba(192, 57, 43, 0.4); background: transparent; color: #c0392b;
+        margin: 0; border: 1px solid rgba(192, 57, 43, 0.4); background: transparent; color: #c0392b;
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: rgba(192, 57, 43, 0.08); }
@@ -109,6 +109,11 @@ export class DocList {
   category = '';
   loading = signal(false);
 
+  /** Emails have their own home in the Mail section, so they're kept out of Documents
+   *  entirely — no "Email" filter chip, and never listed under "All". */
+  visibleCategories = computed(() => this.categories().filter((c) => c.code !== 'email'));
+  visibleDocs = computed(() => this.docs().filter((d) => d.category !== 'email'));
+
   /** Page size (0 = show All, so browser find works on the full list). */
   pageSize = signal(25);
   page = signal(0);
@@ -116,7 +121,7 @@ export class DocList {
   /** The slice of documents shown on the current page. */
   pagedDocs = computed(() => {
     const size = this.pageSize();
-    const all = this.docs();
+    const all = this.visibleDocs();
     if (size === 0) return all;
     const start = this.page() * size;
     return all.slice(start, start + size);
@@ -124,7 +129,7 @@ export class DocList {
 
   totalPages = computed(() => {
     const size = this.pageSize();
-    return size === 0 ? 1 : Math.max(1, Math.ceil(this.docs().length / size));
+    return size === 0 ? 1 : Math.max(1, Math.ceil(this.visibleDocs().length / size));
   });
 
   private notices = inject(NoticeService);

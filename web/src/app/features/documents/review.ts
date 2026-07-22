@@ -257,6 +257,14 @@ export class Review {
 
   private loadAndPoll(attempt: number): void {
     this.api.getDocument(this.id).subscribe((doc) => {
+      // Emails live in the Mail section with their own fields (account, subject, topic).
+      // If we land here for one (e.g. via search or a stale link), send it to the Mail
+      // detail view rather than showing the generic bill form.
+      if (doc.category === 'email') {
+        const bundleId = (doc.extra?.['mailBundleId'] as string) || doc.id;
+        this.router.navigate(['/mail', bundleId], { replaceUrl: true });
+        return;
+      }
       this.doc.set(doc);
       if (doc.extractionConfidence == null && doc.status === 'needs_review' && attempt < 12) {
         this.reading.set(true);
