@@ -72,6 +72,15 @@ google:
 
 # ── Trove-specific configuration ─────────────────────────────────────────────
 trove:
+  ai:
+    # Shared Cloudflare Workers AI free allowance (neurons/day) — the whole app draws on
+    # one account, so this ceiling is global. Neurons (not tokens) are the billed unit.
+    daily-neuron-limit: ${TROVE_AI_DAILY_NEURON_LIMIT:10000}
+    # Per-user slice of that allowance. Caps any one user (default 20%) so a single heavy
+    # uploader can't drain the day for everyone; over it, their uploads still file via the
+    # free stub reader. Set 0-or-above; keep it below the global limit.
+    per-user-neuron-limit: ${TROVE_AI_PER_USER_NEURON_LIMIT:2000}
+
   storage:
     # S3-compatible endpoint. Local MinIO by default; set to the R2 endpoint in prod.
     endpoint: ${TROVE_S3_ENDPOINT:http://localhost:9000}

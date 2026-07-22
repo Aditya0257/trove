@@ -45,12 +45,12 @@ import { AiUsage } from '../models';
 
             <div class="gauge-row two">
               <span>Your usage today
-                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today — a subset of the global total above.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today — a subset of the global total above. Each user is capped at {{ fmt(u.perUserLimitNeurons) }} neurons/day so one person can't drain the shared budget; over it, uploads still file via the free reader.</span></span>
               </span>
-              <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.limitNeurons) }} neurons</span>
+              <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.perUserLimitNeurons) }} neurons</span>
             </div>
-            <div class="bar"><div class="fill you" [style.width.%]="pct(u.user.neurons, u.limitNeurons)"></div></div>
-            <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens</div>
+            <div class="bar"><div class="fill you" [style.width.%]="pct(u.user.neurons, u.perUserLimitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens · {{ fmt(left(u.user.neurons, u.perUserLimitNeurons)) }} neurons left today</div>
           </div>
         }
 

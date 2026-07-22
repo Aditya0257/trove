@@ -46,6 +46,7 @@ public record ExtractionAttempt(
     public static final String ERROR = "ERROR";
     public static final String SKIPPED_NO_BEAN = "SKIPPED_NO_BEAN";
     public static final String SKIPPED_BREAKER = "SKIPPED_BREAKER";
+    public static final String SKIPPED_BUDGET = "SKIPPED_BUDGET";
 
     /** Plain, ordered, JSON-friendly view for the sidecar + client Developer surfaces. */
     public Map<String, Object> toMap() {

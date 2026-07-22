@@ -82,6 +82,13 @@ public class LlmQueryParser {
         if (!props.getLlm().isEnabled() || text == null || text.isBlank()) {
             return Optional.empty();
         }
+        // Respect the daily AI budget: when the shared or per-user allowance is spent,
+        // skip the LLM and let SearchService fall back to the free rule-based parser.
+        String block = usage.blockReason(userId);
+        if (block != null) {
+            log.info("Search LLM skipped — {} — falling back to rules", block);
+            return Optional.empty();
+        }
         try {
             String json = "cloudflare".equalsIgnoreCase(props.getLlm().getProvider())
                     ? callCloudflare(buildPrompt(text), userId)

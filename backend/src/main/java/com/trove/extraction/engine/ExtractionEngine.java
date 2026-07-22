@@ -65,13 +65,27 @@ public class ExtractionEngine {
         this.breaker = breaker;
     }
 
-    /** Runs the chain using the current wall clock. */
+    /** Runs the chain using the current wall clock, AI allowed. */
     public ExtractionOutcome run(byte[] fileBytes, String mimeType) {
-        return run(fileBytes, mimeType, System.currentTimeMillis());
+        return run(fileBytes, mimeType, System.currentTimeMillis(), true);
+    }
+
+    /**
+     * Runs the chain with the current wall clock. When {@code aiAllowed} is false the
+     * daily AI budget is spent (globally or for this user), so every billed provider is
+     * skipped and only the free stub runs — the pipeline still completes, nothing is billed.
+     */
+    public ExtractionOutcome run(byte[] fileBytes, String mimeType, boolean aiAllowed) {
+        return run(fileBytes, mimeType, System.currentTimeMillis(), aiAllowed);
     }
 
     /** Runs the chain at a specific time (time is injected so cooldowns are testable). */
     public ExtractionOutcome run(byte[] fileBytes, String mimeType, long nowMillis) {
+        return run(fileBytes, mimeType, nowMillis, true);
+    }
+
+    /** Runs the chain at a specific time, honoring the daily AI budget gate. */
+    public ExtractionOutcome run(byte[] fileBytes, String mimeType, long nowMillis, boolean aiAllowed) {
         ExtractionResult best = null;
         String bestProvider = null;
         String bestModel = null;
@@ -94,6 +108,15 @@ public class ExtractionEngine {
                 log.info("Extraction step '{}' skipped — circuit breaker open", label);
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                         ExtractionAttempt.SKIPPED_BREAKER, "circuit breaker open (recent failures)", null, 0, null, null));
+                continue;
+            }
+            // Daily AI budget gate: when the shared or per-user neuron allowance is spent,
+            // skip every billed provider and let the free stub finish the pipeline. The
+            // stub itself is never gated (it costs nothing).
+            if (!aiAllowed && !STUB.equals(step.getProvider())) {
+                log.info("Extraction step '{}' skipped — daily AI budget reached", label);
+                attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
+                        ExtractionAttempt.SKIPPED_BUDGET, "daily AI budget reached — using the free reader", null, 0, null, null));
                 continue;
             }
 

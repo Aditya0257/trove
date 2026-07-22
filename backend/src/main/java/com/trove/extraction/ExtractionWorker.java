@@ -107,9 +107,16 @@ public class ExtractionWorker {
         }
 
         byte[] bytes = storageService.get(doc.getStorageKey());
+        // Gate billed extraction on the daily AI budget (shared ceiling + this user's
+        // slice). When it's spent, the engine skips the paid providers and the free stub
+        // reads the document instead — the upload still lands in needs_review.
+        String block = aiUsage.blockReason(doc.getUploadedBy());
+        if (block != null) {
+            log.info("AI extraction budget reached for document {} — {}", documentId, block);
+        }
         // The engine walks the configured provider fallback chain and returns the
         // first acceptable result (or a best-effort/stub result). See DECISIONS.md → D9.
-        ExtractionOutcome outcome = extractionEngine.run(bytes, doc.getMimeType());
+        ExtractionOutcome outcome = extractionEngine.run(bytes, doc.getMimeType(), block == null);
         ExtractionResult result = outcome.result();
 
         // Bill the AI usage to the uploader + the app-wide total (shared Workers AI account).

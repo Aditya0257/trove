@@ -26,6 +26,7 @@
  */
 package com.trove.extraction;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -36,16 +37,52 @@ import java.util.UUID;
 @Component
 public class AiUsageTracker {
 
-    /** Cloudflare Workers AI free allowance, shared by the whole app. */
-    public static final int DAILY_NEURON_LIMIT = 10_000;
-
     /** The aggregate ("all users") row is stored under this sentinel user id. */
     private static final UUID GLOBAL = new UUID(0L, 0L);
 
     private final JdbcTemplate jdbc;
 
-    public AiUsageTracker(JdbcTemplate jdbc) {
+    /** Cloudflare Workers AI free allowance, shared by the whole app (neurons/day). */
+    private final int dailyNeuronLimit;
+
+    /**
+     * Per-user slice of the shared allowance. Caps any single user so one heavy
+     * uploader can't drain the day's budget for everyone else (default 20%).
+     */
+    private final int perUserNeuronLimit;
+
+    public AiUsageTracker(JdbcTemplate jdbc,
+                          @Value("${trove.ai.daily-neuron-limit:10000}") int dailyNeuronLimit,
+                          @Value("${trove.ai.per-user-neuron-limit:2000}") int perUserNeuronLimit) {
         this.jdbc = jdbc;
+        this.dailyNeuronLimit = dailyNeuronLimit;
+        this.perUserNeuronLimit = perUserNeuronLimit;
+    }
+
+    public int dailyNeuronLimit() {
+        return dailyNeuronLimit;
+    }
+
+    public int perUserNeuronLimit() {
+        return perUserNeuronLimit;
+    }
+
+    /**
+     * Null if this user may make an AI call right now; otherwise a short, human reason
+     * it's blocked. Checked before any real (billed) provider runs — the global ceiling
+     * first, then the caller's own slice. Extraction still completes via the stub.
+     */
+    public String blockReason(UUID userId) {
+        if (globalToday().neurons() >= dailyNeuronLimit) {
+            return "The app's shared AI budget for today is used up (" + dailyNeuronLimit
+                    + " neurons). It resets at 00:00 UTC.";
+        }
+        if (userId != null && !GLOBAL.equals(userId)
+                && userToday(userId).neurons() >= perUserNeuronLimit) {
+            return "You've reached your daily AI limit (" + perUserNeuronLimit
+                    + " neurons). It resets at 00:00 UTC.";
+        }
+        return null;
     }
 
     /** Record one AI call's cost against both the global total and the user's slice. */

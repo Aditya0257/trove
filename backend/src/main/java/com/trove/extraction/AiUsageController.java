@@ -34,7 +34,8 @@ public class AiUsageController {
         AiUsageTracker.Usage global = usage.globalToday();
         AiUsageTracker.Usage mine = usage.userToday(currentUser.requireUserId());
         return new UsageResponse(
-                AiUsageTracker.DAILY_NEURON_LIMIT,
+                usage.dailyNeuronLimit(),
+                usage.perUserNeuronLimit(),
                 new UsageDto(round(global.neurons()), global.tokens()),
                 new UsageDto(round(mine.neurons()), mine.tokens()));
     }
@@ -43,7 +44,7 @@ public class AiUsageController {
         return Math.round(n * 100.0) / 100.0;
     }
 
-    public record UsageResponse(int limitNeurons, UsageDto global, UsageDto user) {
+    public record UsageResponse(int limitNeurons, int perUserLimitNeurons, UsageDto global, UsageDto user) {
     }
 
     public record UsageDto(double neurons, long tokens) {
