@@ -85,7 +85,7 @@ interface MailEntry {
             <input type="checkbox" name="vital" [(ngModel)]="vital" /> Sensitive: encrypt at rest
           </label>
 
-          @if (saving()) { <p class="muted">Saving {{ done() + 1 }} of {{ total() }}…</p> }
+          @if (saving()) { <p class="muted">Reading &amp; filing {{ done() + 1 }} of {{ total() }}…</p> }
           <button type="button" (click)="save()" [disabled]="!canSave()">
             {{ saving() ? 'Saving…' : 'Save email' }}
           </button>
@@ -254,7 +254,10 @@ export class Mail {
 
     for (const item of items) {
       try {
-        const doc = await firstValueFrom(this.api.uploadDocument(item.file, this.vital, spaceId));
+        const uploaded = await firstValueFrom(this.api.uploadDocument(item.file, this.vital, spaceId));
+        // Wait for the async extractor to finish BEFORE confirming — otherwise its
+        // delayed write races the confirm and clobbers the email category + metadata.
+        const doc = await this.waitExtracted(uploaded.id);
         const body: ConfirmRequest = {
           category: 'email',
           docDate: this.emailDate || undefined,
@@ -284,6 +287,17 @@ export class Mail {
     this.showAdd.set(false);
     this.notices.show({ level: 'success', code: 'MAIL_SAVED', userMessage: 'Email filed to your vault.' });
     this.load();
+  }
+
+  /** Polls a document until its extraction has settled (confidence set), so a later
+   *  confirm can't be overwritten by the async extractor. Gives up after ~30s. */
+  private async waitExtracted(id: string) {
+    for (let i = 0; i < 20; i++) {
+      const doc = await firstValueFrom(this.api.getDocument(id));
+      if (doc.extractionConfidence != null) return doc;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    return firstValueFrom(this.api.getDocument(id));
   }
 
   private load(): void {
