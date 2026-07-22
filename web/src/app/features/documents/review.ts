@@ -18,14 +18,20 @@ import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
         </div>
 
         @if (reading()) {
-          <p class="muted">📖 Reading the document… fields will fill in automatically.</p>
+          <p class="muted">Reading the document — the fields below will fill in automatically…</p>
         } @else {
-          <p class="muted">
-            Read by <b>{{ provider() }}</b>, confidence {{ confidencePct() }}. Check the
-            values below — nothing is trusted until you confirm.
-          </p>
+          <div class="ai-note">
+            <b>Please double-check these.</b> The details below were read from your document
+            automatically and can be wrong — a misread amount, date or name happens. Confirm
+            each value; you can edit anything now, or change it later.
+            @if (confidencePct() !== '—') {
+              <span class="muted"> · read confidence {{ confidencePct() }}</span>
+            }
+          </div>
         }
-        @if (anomaly()) { <p class="warn">⚠️ This looks higher than usual for its category.</p> }
+        @if (anomaly()) {
+          <p class="warn">This looks higher than usual for its category — worth a second look.</p>
+        }
 
         <p><button class="link" type="button" (click)="openFile()">View original file →</button></p>
 
@@ -50,12 +56,26 @@ import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
           </label>
           @if (error()) { <p class="error">{{ error() }}</p> }
           <button type="submit" [disabled]="saving()">
-            {{ saving() ? 'Confirming…' : 'Confirm' }}
+            {{ saving() ? 'Saving…' : confirmLabel() }}
           </button>
         </form>
       </div>
     }
   `,
+  styles: [
+    `
+      .ai-note {
+        background: rgba(184, 134, 11, 0.1);
+        border-left: 3px solid #b8860b;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 4px 0 12px;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .warn { color: #8a5a00; }
+    `,
+  ],
 })
 export class Review {
   private api = inject(ApiService);
@@ -85,8 +105,9 @@ export class Review {
     this.loadAndPoll(0);
   }
 
-  provider(): string {
-    return (this.doc()?.extra?.['extractionProvider'] as string) ?? 'the extractor';
+  /** "Confirm" the first time; "Save changes" when re-editing an already-confirmed doc. */
+  confirmLabel(): string {
+    return this.doc()?.status === 'confirmed' ? 'Save changes' : 'Confirm';
   }
 
   confidencePct(): string {

@@ -1,30 +1,99 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
 import { noticeFrom } from '../../core/notice/notice.model';
 
+/** A queued image awaiting upload, with a preview URL to revoke later. */
+interface Queued {
+  file: File;
+  url: string;
+}
+
+/**
+ * Upload screen. Three ways in — paste a screenshot (Cmd/Ctrl+V), drag images onto
+ * the drop zone, or the file picker — and several at once. Each queued image shows a
+ * thumbnail; uploading pushes them through the read pipeline one by one. A single
+ * upload goes straight to its review; a batch lands on the documents list where each
+ * needs-review item is one tap away.
+ */
 @Component({
   selector: 'app-upload',
   imports: [FormsModule],
   template: `
     <div class="card">
-      <h1>Upload a document</h1>
-      <p class="muted">Snap or pick a bill, receipt, policy or ID. Trove stores it and
-        reads it; you'll confirm the details next.</p>
-      <input type="file" (change)="onFile($event)" accept="image/*,application/pdf" />
+      <h1>Add documents</h1>
+      <p class="muted">
+        Paste a screenshot ({{ pasteHint }}), drop images here, or choose files — a bill,
+        receipt, policy or ID. Trove stores and reads each one; you'll confirm the details next.
+      </p>
+
+      <div
+        class="dropzone"
+        [class.drag]="dragging()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="dragging.set(false)"
+        (drop)="onDrop($event)"
+        tabindex="0"
+      >
+        <span class="hint">Paste ({{ pasteHint }}) or drop images</span>
+        <label class="filebtn">
+          Choose files
+          <input type="file" (change)="onPick($event)" accept="image/*,application/pdf" multiple hidden />
+        </label>
+      </div>
+
+      @if (queue().length) {
+        <div class="thumbs">
+          @for (item of queue(); track item.url) {
+            <div class="thumb">
+              <img [src]="item.url" alt="pending upload" />
+              <button class="rm" (click)="remove(item)" [disabled]="loading()" aria-label="Remove">×</button>
+            </div>
+          }
+        </div>
+      }
+
       <label class="checkbox">
-        <input type="checkbox" name="vital" [(ngModel)]="vital" />
-        This is a vital/sensitive document (passport, ID, policy) — encrypt it at rest
+        <input type="checkbox" name="vital" [(ngModel)]="vital" [disabled]="loading()" />
+        These are vital/sensitive (passport, ID, policy) — encrypt at rest
       </label>
+
+      @if (loading()) {
+        <p class="muted">Uploading {{ done() + 1 }} of {{ total() }}…</p>
+      }
       @if (error()) { <p class="error">{{ error() }}</p> }
-      <button (click)="upload()" [disabled]="!file() || loading()">
-        {{ loading() ? 'Uploading…' : 'Upload' }}
+
+      <button (click)="upload()" [disabled]="!queue().length || loading()">
+        {{ uploadLabel() }}
       </button>
     </div>
   `,
+  styles: [
+    `
+      .dropzone {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        border: 2px dashed rgba(47, 111, 106, 0.4); border-radius: 12px;
+        padding: 22px 18px; margin: 8px 0 4px; transition: background 120ms, border-color 120ms;
+      }
+      .dropzone.drag { border-color: #2f6f6a; background: rgba(47, 111, 106, 0.06); }
+      .dropzone .hint { color: #667; }
+      .filebtn {
+        cursor: pointer; background: rgba(47, 111, 106, 0.1); color: #2f6f6a;
+        border-radius: 8px; padding: 8px 14px; font-weight: 600; white-space: nowrap;
+      }
+      .thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+      .thumb { position: relative; width: 84px; height: 84px; }
+      .thumb img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e2e2; }
+      .thumb .rm {
+        position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%;
+        border: 0; background: #c0392b; color: #fff; cursor: pointer; line-height: 1; font-size: 14px;
+      }
+    `,
+  ],
 })
 export class Upload {
   private api = inject(ApiService);
@@ -32,37 +101,117 @@ export class Upload {
   private spaceCtx = inject(SpaceContext);
   private notices = inject(NoticeService);
 
-  file = signal<File | null>(null);
   vital = false;
+  queue = signal<Queued[]>([]);
   loading = signal(false);
+  done = signal(0);
+  total = signal(0);
   error = signal<string | null>(null);
 
-  onFile(e: Event): void {
-    const input = e.target as HTMLInputElement;
-    this.file.set(input.files?.[0] ?? null);
+  /** Show the right modifier per OS (⌘ on Mac, Ctrl elsewhere). */
+  readonly pasteHint = /mac|iphone|ipad/i.test(navigator.userAgent) ? '⌘V' : 'Ctrl+V';
+
+  uploadLabel(): string {
+    if (this.loading()) return 'Uploading…';
+    const n = this.queue().length;
+    return n > 1 ? `Upload ${n} documents` : 'Upload';
   }
 
-  upload(): void {
-    const f = this.file();
-    if (!f) {
-      return;
+  // --- intake: paste / drop / pick ---------------------------------------
+
+  @HostListener('document:paste', ['$event'])
+  onPaste(e: ClipboardEvent): void {
+    const imgs = imagesFrom(e.clipboardData?.items);
+    if (imgs.length) {
+      e.preventDefault();
+      this.add(imgs);
     }
+  }
+
+  onDragOver(e: DragEvent): void {
+    e.preventDefault();
+    this.dragging.set(true);
+  }
+  dragging = signal(false);
+
+  onDrop(e: DragEvent): void {
+    e.preventDefault();
+    this.dragging.set(false);
+    const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'));
+    this.add(files);
+  }
+
+  onPick(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    this.add(Array.from(input.files ?? []));
+    input.value = ''; // allow re-picking the same file
+  }
+
+  private add(files: File[]): void {
+    if (!files.length) return;
+    const additions = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    this.queue.update((q) => [...q, ...additions]);
+  }
+
+  remove(item: Queued): void {
+    URL.revokeObjectURL(item.url);
+    this.queue.update((q) => q.filter((x) => x !== item));
+  }
+
+  // --- upload ------------------------------------------------------------
+
+  async upload(): Promise<void> {
+    const items = this.queue();
+    if (!items.length) return;
     this.loading.set(true);
     this.error.set(null);
-    this.api.uploadDocument(f, this.vital, this.spaceCtx.currentSpaceId()).subscribe({
-      next: (doc) => {
-        // Surface how extraction went ("we read it — review" / "auto-fill paused").
+    this.done.set(0);
+    this.total.set(items.length);
+
+    const spaceId = this.spaceCtx.currentSpaceId();
+    const ids: string[] = [];
+    for (const item of items) {
+      try {
+        const doc = await firstValueFrom(this.api.uploadDocument(item.file, this.vital, spaceId));
         const meta = doc.extra?.['extractionMeta'] as Record<string, unknown> | undefined;
         const notice = noticeFrom(meta?.['notice']);
         if (notice) {
           this.notices.show(notice);
         }
-        this.router.navigate(['/documents', doc.id, 'review']);
-      },
-      error: (e) => {
-        this.error.set(e?.error?.message ?? 'Upload failed');
-        this.loading.set(false);
-      },
-    });
+        ids.push(doc.id);
+      } catch {
+        // failure already surfaced as a toast by the notice interceptor
+      }
+      this.done.update((d) => d + 1);
+    }
+
+    items.forEach((i) => URL.revokeObjectURL(i.url));
+    this.queue.set([]);
+    this.loading.set(false);
+
+    if (ids.length === 1) {
+      this.router.navigate(['/documents', ids[0], 'review']);
+    } else if (ids.length > 1) {
+      this.notices.show({
+        level: 'success',
+        code: 'UPLOADED',
+        userMessage: `${ids.length} documents uploaded — review each below.`,
+      });
+      this.router.navigate(['/documents']);
+    } else {
+      this.error.set('Nothing uploaded — please try again.');
+    }
   }
+}
+
+/** Extracts image files from a paste's DataTransferItemList. */
+function imagesFrom(items: DataTransferItemList | undefined): File[] {
+  const out: File[] = [];
+  for (const item of Array.from(items ?? [])) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const f = item.getAsFile();
+      if (f) out.push(f);
+    }
+  }
+  return out;
 }
