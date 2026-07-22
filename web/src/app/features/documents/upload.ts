@@ -184,8 +184,19 @@ export class Upload {
           this.notices.show(notice);
         }
         ids.push(doc.id);
-      } catch {
-        // failure already surfaced as a toast by the notice interceptor
+      } catch (e: unknown) {
+        // A duplicate (409) means this exact file is already in the vault — open the
+        // existing document rather than dead-ending. Its id rides in the error body.
+        const err = e as {
+          status?: number;
+          error?: { details?: Record<string, unknown>; notice?: { meta?: Record<string, unknown> } };
+        };
+        const existing = (err?.error?.details?.['existingDocumentId'] ??
+          err?.error?.notice?.meta?.['existingDocumentId']) as string | undefined;
+        if (err?.status === 409 && existing) {
+          ids.push(existing);
+        }
+        // other failures are already surfaced as a toast by the notice interceptor
       }
       this.done.update((d) => d + 1);
     }
