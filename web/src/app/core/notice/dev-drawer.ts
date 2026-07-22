@@ -90,12 +90,18 @@ import { AiUsage } from '../models';
                   <div class="trail" [attr.data-status]="a['status']">{{ a['provider'] }} · {{ a['status'] }}<!--
                     -->{{ a['confidencePct'] != null ? ' · ' + a['confidencePct'] + '%' : '' }} · {{ a['latencyMs'] }}ms<!--
                     -->{{ a['tokens'] != null ? ' · ' + a['tokens'] + ' tok' : '' }}<!--
+                    -->{{ a['neurons'] != null ? ' · ' + a['neurons'] + ' neurons' : '' }}<!--
                     -->{{ a['reason'] ? ' · ' + a['reason'] : '' }}</div>
                 }
               }
               @if (e.extracted) {
-                <div class="trail-title">stored in DB (extracted JSON)</div>
-                <pre class="json">{{ pretty(e.extracted) }}</pre>
+                <div class="db-panel">
+                  <div class="db-head">
+                    <span class="db-badge">DB</span>
+                    <span>Saved to Postgres (Neon) — the extracted record</span>
+                  </div>
+                  <pre class="json">{{ pretty(e.extracted) }}</pre>
+                </div>
               }
             </div>
           </details>
@@ -186,9 +192,23 @@ import { AiUsage } from '../models';
       .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
       .fill.you { background: linear-gradient(90deg, #43b581, #2e7d5b); }
       .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
+      /* Green = what got persisted (distinct from blue = AI cost). Groups the stored
+         record into its own tinted card so it's obvious what landed in the database. */
+      .db-panel {
+        margin: 8px 0 2px; padding: 8px 9px; border-radius: 10px;
+        background: rgba(46, 125, 91, 0.07); border: 1px solid rgba(46, 125, 91, 0.22);
+      }
+      .db-head {
+        display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+        font-size: 12px; font-weight: 600; color: #2e7d5b;
+      }
+      .db-badge {
+        background: #2e7d5b; color: #fff; border-radius: 5px; padding: 1px 6px;
+        font-size: 10px; font-weight: 700; font-family: monospace;
+      }
       .json {
         background: #0f172a; color: #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;
-        line-height: 1.45; overflow-x: auto; white-space: pre; margin: 4px 0;
+        line-height: 1.45; overflow-x: auto; white-space: pre; margin: 0;
       }
     `,
   ],
