@@ -11,6 +11,8 @@ export interface DevLogEntry {
   requestId?: string | null;
   notice?: Notice | null;
   extractionMeta?: Record<string, unknown> | null;
+  /** The key fields extracted + stored for a document response (the "JSON in the DB"). */
+  extracted?: Record<string, unknown> | null;
 }
 
 /**
@@ -24,17 +26,49 @@ export interface DevLogEntry {
 @Injectable({ providedIn: 'root' })
 export class DevLogService {
   private static readonly CAPACITY = 100;
+  /** Soft daily token budget shown in the gauge. Cloudflare's free tier is billed in
+   *  neurons, not tokens, so this is a display budget to visualise consumption, not a
+   *  hard limit. Tune to taste. */
+  readonly tokenBudget = 100_000;
+
   private readonly _entries = signal<DevLogEntry[]>([]);
+  private readonly _tokensToday = signal(0);
 
   readonly entries = this._entries.asReadonly();
+  /** AI tokens observed on this device today (accumulates across reloads, resets daily). */
+  readonly tokensToday = this._tokensToday.asReadonly();
+
+  constructor() {
+    this._tokensToday.set(Number(localStorage.getItem(this.tokenKey()) ?? 0));
+  }
 
   add(entry: DevLogEntry): void {
     this._entries.update((list) => [entry, ...list].slice(0, DevLogService.CAPACITY));
+    this.accrueTokens(entry);
     this.toConsole(entry);
   }
 
   clear(): void {
     this._entries.set([]);
+  }
+
+  private tokenKey(): string {
+    return 'trove.tokens.' + new Date().toISOString().slice(0, 10);
+  }
+
+  /** Sum an entry's AI tokens and roll them into today's running total. */
+  private accrueTokens(entry: DevLogEntry): void {
+    const attempts = entry.extractionMeta?.['attempts'];
+    if (!Array.isArray(attempts)) return;
+    let tok = 0;
+    for (const a of attempts) {
+      const t = (a as Record<string, unknown>)['tokens'];
+      if (typeof t === 'number') tok += t;
+    }
+    if (tok <= 0) return;
+    const total = this._tokensToday() + tok;
+    this._tokensToday.set(total);
+    localStorage.setItem(this.tokenKey(), String(total));
   }
 
   /** Grouped, styled console output — legible at a glance, expandable for detail. */

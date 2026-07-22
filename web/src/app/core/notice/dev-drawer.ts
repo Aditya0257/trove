@@ -30,6 +30,17 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
           <button class="link" (click)="open.set(false)">Close</button>
         </header>
 
+        @if (log.tokensToday() > 0) {
+          <div class="gauge">
+            <div class="gauge-top">
+              <span>AI tokens today <span class="muted">(this device)</span></span>
+              <span class="gauge-nums">{{ fmt(log.tokensToday()) }} / {{ fmt(log.tokenBudget) }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="tokenPct()"></div></div>
+            <div class="gauge-sub">{{ fmt(remaining()) }} left</div>
+          </div>
+        }
+
         @if (!shown().length) {
           <p class="empty">{{ errorsOnly() ? 'No errors. All good.' : 'No requests yet.' }}</p>
         }
@@ -68,6 +79,10 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
                     -->{{ a['tokens'] != null ? ' · ' + a['tokens'] + ' tok' : '' }}<!--
                     -->{{ a['reason'] ? ' · ' + a['reason'] : '' }}</div>
                 }
+              }
+              @if (e.extracted) {
+                <div class="trail-title">stored in DB (extracted JSON)</div>
+                <pre class="json">{{ pretty(e.extracted) }}</pre>
               }
             </div>
           </details>
@@ -132,6 +147,19 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
       .kv code { font-family: monospace; }
       .trail-title { color: #8a8a8a; font-weight: 700; margin: 6px 0 2px; }
       .trail { font-family: monospace; font-size: 12px; }
+      .gauge {
+        background: rgba(59, 125, 221, 0.06); border: 1px solid rgba(59, 125, 221, 0.2);
+        border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+      }
+      .gauge-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+      .gauge-nums { font-family: monospace; font-weight: 700; color: #2c5aa0; }
+      .bar { height: 8px; background: rgba(59, 125, 221, 0.15); border-radius: 999px; overflow: hidden; }
+      .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
+      .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
+      .json {
+        background: #0f172a; color: #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;
+        line-height: 1.45; overflow-x: auto; white-space: pre; margin: 4px 0;
+      }
     `,
   ],
 })
@@ -209,4 +237,10 @@ export class DevDrawer {
     }
     return seen ? sum : null;
   }
+
+  protected fmt = (n: number) => n.toLocaleString('en-US');
+  protected tokenPct = () =>
+    Math.min(100, Math.round((this.log.tokensToday() / this.log.tokenBudget) * 100));
+  protected remaining = () => Math.max(0, this.log.tokenBudget - this.log.tokensToday());
+  protected pretty = (o: unknown) => JSON.stringify(o, null, 2);
 }
