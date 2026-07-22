@@ -62,9 +62,10 @@ import { Category, DocumentResponse } from '../../core/models';
         border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
       }
       .chip.on { background: #2f6f6a; color: #fff; border-color: #2f6f6a; }
+      td { vertical-align: middle; }
       .del {
         border: 1px solid rgba(192, 57, 43, 0.4); background: transparent; color: #c0392b;
-        border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer;
+        border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: rgba(192, 57, 43, 0.08); }
     `,
