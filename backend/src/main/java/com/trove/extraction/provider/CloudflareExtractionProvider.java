@@ -121,7 +121,20 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
             } else {
                 text = response.asText("");
             }
-            return ExtractionResponseParser.parse(text, mapper);
+            ExtractionResult parsed = ExtractionResponseParser.parse(text, mapper);
+            // Stash Workers AI's token usage so the engine can surface the AI cost in the
+            // Developer drawer (result.usage.total_tokens). Neurons aren't returned per
+            // request — a daily total needs Cloudflare's analytics API (a later add).
+            int tokens = result.path("usage").path("total_tokens").asInt(0);
+            if (tokens > 0) {
+                java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(
+                        parsed.extra() != null ? parsed.extra() : java.util.Map.of());
+                extra.put("aiTokens", tokens);
+                parsed = new ExtractionResult(parsed.categoryCode(), parsed.merchantName(),
+                        parsed.docDate(), parsed.amount(), parsed.currency(), parsed.dueDate(),
+                        parsed.lineItems(), parsed.rawText(), extra, parsed.confidence());
+            }
+            return parsed;
         } catch (IllegalArgumentException e) {
             throw ExtractionException.transientError(LABEL, e.getMessage(), e);
         } catch (Exception e) {
@@ -157,6 +170,9 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         content.addObject().put("type", "image_url")
                 .putObject("image_url").put("url", dataUri);
         root.put("max_tokens", 1024);
+        // Force valid JSON output. Without this the vision model intermittently replies
+        // in prose ("No JSON object found"), which sent real receipts to the stub.
+        root.putObject("response_format").put("type", "json_object");
         return root.toString();
     }
 

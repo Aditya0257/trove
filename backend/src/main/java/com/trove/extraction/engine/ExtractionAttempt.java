@@ -35,7 +35,8 @@ public record ExtractionAttempt(
         String status,       // one of the STATUS_* constants
         String reason,       // short, human, no secrets
         Integer confidencePct,
-        long latencyMs
+        long latencyMs,
+        Integer tokens       // AI tokens billed for this attempt, if the provider reports it
 ) {
     public static final String ACCEPTED = "ACCEPTED";
     public static final String BELOW_THRESHOLD = "BELOW_THRESHOLD";
@@ -55,6 +56,7 @@ public record ExtractionAttempt(
         m.put("reason", reason);
         m.put("confidencePct", confidencePct);
         m.put("latencyMs", latencyMs);
+        m.put("tokens", tokens);
         return m;
     }
 }
