@@ -29,6 +29,8 @@ package com.trove.extraction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -85,7 +87,14 @@ public class AiUsageTracker {
         return null;
     }
 
-    /** Record one AI call's cost against both the global total and the user's slice. */
+    /**
+     * Record one AI call's cost against both the global total and the user's slice.
+     * Runs in its OWN transaction (REQUIRES_NEW): the caller may be a read-only
+     * transaction (e.g. search) where this INSERT would otherwise fail and poison the
+     * surrounding transaction. It's also the right semantics — neurons consumed are
+     * consumed, and stay recorded even if the surrounding request later fails.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(UUID userId, double neurons, long tokens) {
         if (neurons <= 0 && tokens <= 0) {
             return;
