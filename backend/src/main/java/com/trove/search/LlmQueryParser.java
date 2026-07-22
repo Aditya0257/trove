@@ -63,14 +63,17 @@ public class LlmQueryParser {
     private final OllamaProperties ollama;
     private final CloudflareProperties cloudflare;
     private final ObjectMapper mapper;
+    private final com.trove.extraction.AiUsageTracker usage;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public LlmQueryParser(SearchProperties props, OllamaProperties ollama,
-                          CloudflareProperties cloudflare, ObjectMapper mapper) {
+                          CloudflareProperties cloudflare, ObjectMapper mapper,
+                          com.trove.extraction.AiUsageTracker usage) {
         this.props = props;
         this.ollama = ollama;
         this.cloudflare = cloudflare;
         this.mapper = mapper;
+        this.usage = usage;
     }
 
     /** Parses the query with the configured LLM, or empty to fall back to rules. */
@@ -151,10 +154,15 @@ public class LlmQueryParser {
                 .POST(HttpRequest.BodyPublishers.ofString(root.toString()))
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+        JsonNode respJson = mapper.readTree(resp.body());
+        int tok = respJson.path("result").path("usage").path("total_tokens").asInt(0);
+        if (tok > 0) {
+            usage.add(tok); // search LLM also draws on the shared daily allowance
+        }
         // Workers AI instruct models often return result.response as a JSON OBJECT
         // (structured output), not a string; .asText() would be "". Re-serialize the
         // object so extractJson() sees real JSON; otherwise take the plain-text reply.
-        JsonNode response = mapper.readTree(resp.body()).path("result").path("response");
+        JsonNode response = respJson.path("result").path("response");
         return (response.isObject() || response.isArray()) ? response.toString() : response.asText("");
     }
 

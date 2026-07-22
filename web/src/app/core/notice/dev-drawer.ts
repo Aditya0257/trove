@@ -33,7 +33,7 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
         @if (log.tokensToday() > 0) {
           <div class="gauge">
             <div class="gauge-top">
-              <span>AI tokens today <span class="muted">(this device)</span></span>
+              <span>AI tokens today <span class="muted">(all users, shared account)</span></span>
               <span class="gauge-nums">{{ fmt(log.tokensToday()) }} / {{ fmt(log.tokenBudget) }}</span>
             </div>
             <div class="bar"><div class="fill" [style.width.%]="tokenPct()"></div></div>

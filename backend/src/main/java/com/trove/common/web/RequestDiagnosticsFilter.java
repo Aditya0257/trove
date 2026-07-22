@@ -51,7 +51,14 @@ public class RequestDiagnosticsFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ID_HEADER = "X-Trove-Request-Id";
     public static final String DURATION_HEADER = "X-Trove-Duration-Ms";
+    public static final String AI_TOKENS_HEADER = "X-Trove-Ai-Tokens-Today";
     public static final String MDC_KEY = "requestId";
+
+    private final com.trove.extraction.AiUsageTracker aiUsage;
+
+    public RequestDiagnosticsFilter(com.trove.extraction.AiUsageTracker aiUsage) {
+        this.aiUsage = aiUsage;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -60,8 +67,10 @@ public class RequestDiagnosticsFilter extends OncePerRequestFilter {
         if (requestId == null || requestId.isBlank()) {
             requestId = UUID.randomUUID().toString().substring(0, 8);
         }
-        // Set before the chain so the id is present even if the response commits mid-handler.
+        // Set before the chain so these are present even if the response commits mid-handler.
         response.setHeader(REQUEST_ID_HEADER, requestId);
+        // App-wide AI tokens spent today (shared Workers AI account) for the dev gauge.
+        response.setHeader(AI_TOKENS_HEADER, Long.toString(aiUsage.tokensToday()));
         MDC.put(MDC_KEY, requestId);
         long start = System.nanoTime();
         try {

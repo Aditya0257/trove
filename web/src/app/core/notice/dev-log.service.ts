@@ -35,40 +35,24 @@ export class DevLogService {
   private readonly _tokensToday = signal(0);
 
   readonly entries = this._entries.asReadonly();
-  /** AI tokens observed on this device today (accumulates across reloads, resets daily). */
+  /** App-wide AI tokens spent today, reported by the backend (shared Workers AI
+   *  account). Set from the X-Trove-Ai-Tokens-Today response header on every call. */
   readonly tokensToday = this._tokensToday.asReadonly();
-
-  constructor() {
-    this._tokensToday.set(Number(localStorage.getItem(this.tokenKey()) ?? 0));
-  }
 
   add(entry: DevLogEntry): void {
     this._entries.update((list) => [entry, ...list].slice(0, DevLogService.CAPACITY));
-    this.accrueTokens(entry);
     this.toConsole(entry);
+  }
+
+  /** Update the global daily token total from the backend's header. */
+  setTokensToday(total: number): void {
+    if (Number.isFinite(total) && total >= 0) {
+      this._tokensToday.set(total);
+    }
   }
 
   clear(): void {
     this._entries.set([]);
-  }
-
-  private tokenKey(): string {
-    return 'trove.tokens.' + new Date().toISOString().slice(0, 10);
-  }
-
-  /** Sum an entry's AI tokens and roll them into today's running total. */
-  private accrueTokens(entry: DevLogEntry): void {
-    const attempts = entry.extractionMeta?.['attempts'];
-    if (!Array.isArray(attempts)) return;
-    let tok = 0;
-    for (const a of attempts) {
-      const t = (a as Record<string, unknown>)['tokens'];
-      if (typeof t === 'number') tok += t;
-    }
-    if (tok <= 0) return;
-    const total = this._tokensToday() + tok;
-    this._tokensToday.set(total);
-    localStorage.setItem(this.tokenKey(), String(total));
   }
 
   /** Grouped, styled console output — legible at a glance, expandable for detail. */

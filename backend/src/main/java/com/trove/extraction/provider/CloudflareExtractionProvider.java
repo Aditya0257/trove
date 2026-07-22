@@ -58,11 +58,14 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
 
     private final CloudflareProperties props;
     private final ObjectMapper mapper;
+    private final com.trove.extraction.AiUsageTracker usage;
     private final HttpClient http;
 
-    public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper) {
+    public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper,
+                                        com.trove.extraction.AiUsageTracker usage) {
         this.props = props;
         this.mapper = mapper;
+        this.usage = usage;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
@@ -127,6 +130,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
             // request — a daily total needs Cloudflare's analytics API (a later add).
             int tokens = result.path("usage").path("total_tokens").asInt(0);
             if (tokens > 0) {
+                usage.add(tokens); // roll into the app-wide daily total
                 java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(
                         parsed.extra() != null ? parsed.extra() : java.util.Map.of());
                 extra.put("aiTokens", tokens);
