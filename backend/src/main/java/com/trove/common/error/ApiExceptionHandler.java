@@ -50,7 +50,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DuplicateDocumentException.class)
     public ResponseEntity<ApiError> handleDuplicate(DuplicateDocumentException ex, HttpServletRequest req) {
         return build(HttpStatus.CONFLICT, req, ApiNotice.of(NoticeLevel.WARNING, "DUPLICATE_DOCUMENT",
-                "You've already saved this document — opening the existing one.",
+                "You've already saved this document. Opening the existing one.",
                 "Content hash matched an existing document in this space; upload skipped.",
                 Map.of("existingDocumentId", ex.getExistingDocumentId())));
     }
@@ -129,7 +129,7 @@ public class ApiExceptionHandler {
         // log; clients correlate via the X-Trove-Request-Id response header. We do name
         // the exception TYPE, which is safe and useful.
         return build(HttpStatus.INTERNAL_SERVER_ERROR, req, ApiNotice.of(NoticeLevel.ERROR, "INTERNAL_ERROR",
-                "Something went wrong on our side — we've logged it.",
+                "Something went wrong on our side. We've logged it.",
                 "Unhandled " + ex.getClass().getSimpleName()
                         + "; see server logs (correlate by the X-Trove-Request-Id response header).", null));
     }

@@ -80,7 +80,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                     ? ListView(children: [
                         const SizedBox(height: 80),
                         Center(
-                          child: Text('No documents yet — tap Add to scan one.',
+                          child: Text('No documents yet. Tap Add to scan one.',
                               style: TextStyle(color: scheme.onSurfaceVariant),),
                         ),
                       ],)

@@ -200,11 +200,11 @@ export class Upload {
       this.notices.show({
         level: 'success',
         code: 'UPLOADED',
-        userMessage: `${ids.length} documents uploaded — review each below.`,
+        userMessage: `${ids.length} documents uploaded. Review each one below.`,
       });
       this.router.navigate(['/documents']);
     } else {
-      this.error.set('Nothing uploaded — please try again.');
+      this.error.set('Nothing uploaded. Please try again.');
     }
   }
 }

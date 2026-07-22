@@ -91,7 +91,7 @@ class NotificationService {
       if (!when.isAfter(now)) continue;
       await _plugin.zonedSchedule(
         r.id.hashCode & 0x7fffffff,
-        'Trove — ${r.label.toLowerCase()} coming up',
+        'Trove: ${r.label.toLowerCase()} coming up',
         'A ${r.label.toLowerCase()} needs your attention. Open Trove to review.',
         when,
         _details,

@@ -68,7 +68,7 @@ function noticeFromError(err: HttpErrorResponse): Notice {
     return {
       level: 'warning',
       code: 'OFFLINE',
-      userMessage: "Can't reach Trove right now — check your connection and try again.",
+      userMessage: "Can't reach Trove right now. Check your connection and try again.",
       devNote: `Network error / CORS / server unreachable (status 0) for ${err.url ?? 'request'}.`,
     };
   }

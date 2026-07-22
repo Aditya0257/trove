@@ -12,7 +12,7 @@ import { SearchResult } from '../../core/models';
   template: `
     <div class="card">
       <h1>Search</h1>
-      <p class="muted">Search in plain English — tap an example or type your own:</p>
+      <p class="muted">Search in plain English. Tap an example or type your own:</p>
       <div class="examples">
         @for (ex of examples; track ex) {
           <button type="button" class="chip" (click)="runExample(ex)" [disabled]="loading()">{{ ex }}</button>
@@ -32,7 +32,7 @@ import { SearchResult } from '../../core/models';
           Interpreted → category: <b>{{ interpreted(r, 'categoryCode') }}</b>,
           sort: {{ interpreted(r, 'sortBy') }} {{ interpreted(r, 'sortDir') }},
           range: {{ interpreted(r, 'dateFrom') }} … {{ interpreted(r, 'dateTo') }},
-          text: <b>{{ interpreted(r, 'text') }}</b> — {{ r.count }} result(s)
+          text: <b>{{ interpreted(r, 'text') }}</b> · {{ r.count }} result(s)
         </p>
         @if (r.results.length) {
           <table>

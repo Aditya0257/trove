@@ -31,7 +31,7 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
         </header>
 
         @if (!shown().length) {
-          <p class="empty">{{ errorsOnly() ? 'No errors — all good.' : 'No requests yet.' }}</p>
+          <p class="empty">{{ errorsOnly() ? 'No errors. All good.' : 'No requests yet.' }}</p>
         }
 
         @for (e of shown(); track e.at) {

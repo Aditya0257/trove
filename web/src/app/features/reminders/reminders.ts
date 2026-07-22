@@ -25,7 +25,7 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
         </label>
         <label>For document (optional)
           <select name="documentId" [(ngModel)]="documentId">
-            <option value="">— none —</option>
+            <option value="">(none)</option>
             @for (d of documents(); track d.id) {
               <option [value]="d.id">{{ d.originalFilename || d.id }}{{ d.merchant ? ' · ' + d.merchant : '' }}</option>
             }

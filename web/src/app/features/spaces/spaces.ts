@@ -59,7 +59,7 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
           <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
           @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
         } @else {
-          <p class="muted">Not connected — back this space up to the owner's Google Drive.</p>
+          <p class="muted">Not connected. Back this space up to the owner's Google Drive.</p>
           <button (click)="connect()">Connect Google Drive</button>
         }
       } @else { <p class="muted">{{ driveError() || 'Loading…' }}</p> }

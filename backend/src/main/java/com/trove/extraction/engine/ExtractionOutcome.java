@@ -72,23 +72,23 @@ public record ExtractionOutcome(
         if (fellBackToStub()) {
             if (anyQuota()) {
                 return ApiNotice.of(NoticeLevel.WARNING, "EXTRACTION_QUOTA",
-                        "Auto-fill is paused for today — add the details from your photo. "
-                                + "Everything else works normally.",
+                        "Auto-fill is paused for today. Add the details from your photo; "
+                                + "everything else works normally.",
                         "AI extraction chain exhausted its free daily allowance (quota); "
                                 + "fell back to stub → the document is in needs_review.");
             }
             return ApiNotice.of(NoticeLevel.WARNING, "EXTRACTION_FALLBACK",
-                    "We couldn't read this one automatically — please add the details from your photo.",
+                    "We couldn't read this one automatically. Please add the details from your photo.",
                     "No provider produced a usable read; fell back to stub → needs_review.");
         }
         if (!accepted) {
             return ApiNotice.of(NoticeLevel.WARNING, "EXTRACTION_LOW_CONFIDENCE",
-                    "We took our best guess at the details — please double-check them.",
+                    "We took our best guess at the details. Please double-check them.",
                     "Best-effort result from " + provider
                             + (pct != null ? " (confidence " + pct + "%, below the acceptance bar)." : "."));
         }
         return ApiNotice.of(NoticeLevel.SUCCESS, "EXTRACTION_OK",
-                "We read your document and pre-filled the details — please review before confirming.",
+                "We read your document and pre-filled the details. Please review before confirming.",
                 "Accepted from " + provider + (pct != null ? " at " + pct + "% confidence." : "."));
     }
 

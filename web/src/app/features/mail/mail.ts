@@ -38,8 +38,8 @@ interface MailEntry {
           {{ showAdd() ? 'Close' : '＋ Add email screenshots' }}
         </button>
       </div>
-      <p class="muted">Screenshot the important bits of an email and keep them findable —
-        which account, the subject, the date.</p>
+      <p class="muted">Screenshot the important bits of an email and keep them findable
+        by account, subject and date.</p>
 
       @if (showAdd()) {
         <div class="add">
@@ -79,10 +79,10 @@ interface MailEntry {
             <label>Email date <input type="date" name="mdate" [(ngModel)]="emailDate" /></label>
           </div>
           <label>Subject / what it's about
-            <input name="subject" [(ngModel)]="subject" placeholder="e.g. Income tax paid — FY 2025-26" />
+            <input name="subject" [(ngModel)]="subject" placeholder="e.g. Income tax paid, FY 2025-26" />
           </label>
           <label class="checkbox">
-            <input type="checkbox" name="vital" [(ngModel)]="vital" /> Sensitive — encrypt at rest
+            <input type="checkbox" name="vital" [(ngModel)]="vital" /> Sensitive: encrypt at rest
           </label>
 
           @if (saving()) { <p class="muted">Saving {{ done() + 1 }} of {{ total() }}…</p> }

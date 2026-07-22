@@ -145,14 +145,14 @@ class ApiClient {
         return Notice.local(
           level: NoticeLevel.warning,
           code: 'TIMEOUT',
-          userMessage: 'That took too long — check your connection and try again.',
+          userMessage: 'That took too long. Check your connection and try again.',
           devNote: 'Dio ${err.type.name} against ${err.requestOptions.uri}.',
         );
       case DioExceptionType.connectionError:
         return Notice.local(
           level: NoticeLevel.warning,
           code: 'OFFLINE',
-          userMessage: "Can't reach Trove right now — you appear to be offline.",
+          userMessage: "Can't reach Trove right now. You appear to be offline.",
           devNote: 'Connection error to ${AppConfig.apiBase}.',
         );
       default:

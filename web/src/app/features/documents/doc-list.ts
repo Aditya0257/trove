@@ -27,8 +27,8 @@ import { Category, DocumentResponse } from '../../core/models';
       @if (loading()) { <p class="muted">Loading…</p> }
       @else if (docs().length === 0) {
         <p class="muted">
-          No documents{{ category ? ' in this category' : '' }} yet —
-          <a routerLink="/upload">snap or paste your first</a>.
+          No documents{{ category ? ' in this category' : '' }} yet.
+          <a routerLink="/upload">Snap or paste your first</a>.
         </p>
       }
       @else {
