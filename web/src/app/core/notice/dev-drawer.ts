@@ -35,11 +35,12 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
         }
 
         @for (e of shown(); track e.at) {
-          <details class="entry" [class.err]="!ok(e)">
+          <details class="entry" [class.err]="!ok(e)" [class.ai]="isAi(e)">
             <summary>
               <div class="line1">
                 <span class="time">{{ time(e.at) }}</span>
                 <span class="method">{{ e.method }}</span>
+                @if (aiTokens(e) != null) { <span class="ai-chip">AI · {{ aiTokens(e) }} tok</span> }
                 <span class="grow"></span>
                 @if (fellBack(e)) { <span class="fallback">fell back</span> }
                 <span class="status" [attr.data-ok]="ok(e)">{{ e.status || 'ERR' }}</span>
@@ -64,6 +65,7 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
                 @for (a of attempts(e); track $index) {
                   <div class="trail" [attr.data-status]="a['status']">{{ a['provider'] }} · {{ a['status'] }}<!--
                     -->{{ a['confidencePct'] != null ? ' · ' + a['confidencePct'] + '%' : '' }} · {{ a['latencyMs'] }}ms<!--
+                    -->{{ a['tokens'] != null ? ' · ' + a['tokens'] + ' tok' : '' }}<!--
                     -->{{ a['reason'] ? ' · ' + a['reason'] : '' }}</div>
                 }
               }
@@ -98,6 +100,11 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
       .link.active { background: rgba(192, 57, 43, 0.12); color: #c0392b; border-radius: 6px; font-weight: 600; }
       .empty { color: #8a8a8a; padding: 8px 0; }
       .entry.err { background: rgba(192, 57, 43, 0.05); }
+      .entry.ai { border-left: 3px solid #3b7ddd; background: rgba(59, 125, 221, 0.06); padding-left: 9px; }
+      .ai-chip {
+        background: rgba(59, 125, 221, 0.14); color: #2c5aa0; border-radius: 5px;
+        padding: 1px 7px; font-size: 11px; font-weight: 700; font-family: monospace;
+      }
       .fallback {
         background: rgba(184, 134, 11, 0.16); color: #8a5a00; border-radius: 5px;
         padding: 1px 7px; font-size: 11px; font-weight: 700; font-family: monospace;
@@ -154,7 +161,7 @@ export class DevDrawer {
     if (p === '/api/spaces') return M('Your spaces', 'Loading your spaces', 'personal + shared spaces you belong to', 'who can see which documents');
     if (p === '/api/categories') return M('Categories', 'Loading categories', 'global + space category taxonomy', 'how the vault is organised');
     if (p === '/api/search') return M('Search', 'Finding your documents', 'NL query → LLM/rule parse → filtered query', 'plain-English retrieval');
-    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', 'multipart → object storage + sidecar JSON; async extraction queued', 'an item enters the source-of-truth vault');
+    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', 'multipart → Cloudflare R2 object + sidecar JSON; async extraction queued (B2 mirror is a separate scheduled job)', 'an item enters the source-of-truth vault');
     if (p === '/api/documents' && m === 'GET') return M('List documents', 'Loading your documents', 'reads the rebuildable DB index', 'browse the vault');
     if (/^\/api\/documents\/[^/]+\/confirm$/.test(p)) return M('Confirm a document', 'Saving your reviewed details', 'human-review → status=confirmed; fires reminders + anomaly check', 'nothing is trusted until a human confirms');
     if (/^\/api\/documents\/[^/]+\/content$/.test(p)) return M('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes (no presigned URL)', 'sensitive PII stays encrypted at rest');
@@ -182,5 +189,24 @@ export class DevDrawer {
   /** True when this response's document fell back to the stub (AI read failed). */
   protected fellBack(e: DevLogEntry): boolean {
     return e.extractionMeta?.['fellBack'] === true;
+  }
+
+  /** True when AI was consumed on this call (it carries an extraction trail). */
+  protected isAi(e: DevLogEntry): boolean {
+    return !!e.extractionMeta;
+  }
+
+  /** Total AI tokens billed across this call's extraction attempts, or null if none. */
+  protected aiTokens(e: DevLogEntry): number | null {
+    let sum = 0;
+    let seen = false;
+    for (const a of this.attempts(e)) {
+      const t = a['tokens'];
+      if (typeof t === 'number') {
+        sum += t;
+        seen = true;
+      }
+    }
+    return seen ? sum : null;
   }
 }
