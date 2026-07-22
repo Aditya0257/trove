@@ -89,9 +89,14 @@ interface Queued {
       .thumb { position: relative; width: 84px; height: 84px; }
       .thumb img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e2e2; }
       .thumb .rm {
-        position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%;
-        border: 0; background: #c0392b; color: #fff; cursor: pointer; line-height: 1; font-size: 14px;
+        position: absolute; top: -7px; right: -7px;
+        box-sizing: border-box; width: 20px; height: 20px; min-width: 0; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 2px solid #fff; border-radius: 50%; background: #c0392b; color: #fff;
+        font-size: 12px; line-height: 1; cursor: pointer; -webkit-appearance: none; appearance: none;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       }
+      .thumb .rm:hover { background: #a53125; }
     `,
   ],
 })

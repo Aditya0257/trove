@@ -12,7 +12,12 @@ import { SearchResult } from '../../core/models';
   template: `
     <div class="card">
       <h1>Search</h1>
-      <p class="muted">Try: "my last water bill", "all Nike purchases", "top 10 expensive shopping bills".</p>
+      <p class="muted">Search in plain English — tap an example or type your own:</p>
+      <div class="examples">
+        @for (ex of examples; track ex) {
+          <button type="button" class="chip" (click)="runExample(ex)" [disabled]="loading()">{{ ex }}</button>
+        }
+      </div>
       <form (ngSubmit)="run()">
         <div class="row">
           <input name="q" [(ngModel)]="q" placeholder="Search your documents…" style="flex:1" />
@@ -21,7 +26,7 @@ import { SearchResult } from '../../core/models';
       </form>
 
       @if (loading()) {
-        <p class="muted searching">🔎 {{ status() }}<span class="dots"></span></p>
+        <p class="muted searching">{{ status() }}<span class="dots"></span></p>
       } @else if (result(); as r) {
         <p class="muted">
           Interpreted → category: <b>{{ interpreted(r, 'categoryCode') }}</b>,
@@ -48,10 +53,28 @@ import { SearchResult } from '../../core/models';
       }
     </div>
   `,
+  styles: [
+    `
+      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+      .chip {
+        border: 1px solid rgba(47, 111, 106, 0.35); background: rgba(47, 111, 106, 0.06);
+        color: #2f6f6a; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+      }
+      .chip:hover { background: rgba(47, 111, 106, 0.12); }
+      .chip:disabled { opacity: 0.5; cursor: default; }
+    `,
+  ],
 })
 export class Search implements OnDestroy {
   private api = inject(ApiService);
   private spaceCtx = inject(SpaceContext);
+
+  readonly examples = [
+    'my last water bill',
+    'most expensive shopping',
+    'all Nike purchases',
+    'electricity from July',
+  ];
 
   q = '';
   result = signal<SearchResult | null>(null);
@@ -65,6 +88,11 @@ export class Search implements OnDestroy {
     'Ranking the best matches…',
     'Almost there…',
   ];
+
+  runExample(example: string): void {
+    this.q = example;
+    this.run();
+  }
 
   run(): void {
     if (!this.q.trim()) return;

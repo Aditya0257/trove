@@ -1,5 +1,4 @@
 import { Component, effect, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
@@ -8,7 +7,7 @@ import { Category, DocumentResponse } from '../../core/models';
 
 @Component({
   selector: 'app-doc-list',
-  imports: [FormsModule, RouterLink, MoneyPipe],
+  imports: [RouterLink, MoneyPipe],
   template: `
     <div class="card">
       <div class="row-between">
@@ -16,15 +15,22 @@ import { Category, DocumentResponse } from '../../core/models';
         <a routerLink="/upload" class="button">＋ Upload</a>
       </div>
 
-      <label>Filter by category
-        <select [(ngModel)]="category" (ngModelChange)="load()">
-          <option value="">All</option>
-          @for (c of categories(); track c.code) { <option [value]="c.code">{{ c.label }}</option> }
-        </select>
-      </label>
+      <div class="cats">
+        <button type="button" class="chip" [class.on]="category === ''" (click)="setCategory('')">All</button>
+        @for (c of categories(); track c.code) {
+          <button type="button" class="chip" [class.on]="category === c.code" (click)="setCategory(c.code)">
+            {{ c.label }}
+          </button>
+        }
+      </div>
 
       @if (loading()) { <p class="muted">Loading…</p> }
-      @else if (docs().length === 0) { <p class="muted">No documents{{ category ? ' in this category' : '' }} yet.</p> }
+      @else if (docs().length === 0) {
+        <p class="muted">
+          No documents{{ category ? ' in this category' : '' }} yet —
+          <a routerLink="/upload">snap or paste your first</a>.
+        </p>
+      }
       @else {
         <table>
           <thead>
@@ -46,6 +52,16 @@ import { Category, DocumentResponse } from '../../core/models';
       }
     </div>
   `,
+  styles: [
+    `
+      .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+      .chip {
+        border: 1px solid rgba(47, 111, 106, 0.35); background: transparent; color: #2f6f6a;
+        border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
+      }
+      .chip.on { background: #2f6f6a; color: #fff; border-color: #2f6f6a; }
+    `,
+  ],
 })
 export class DocList {
   private api = inject(ApiService);
@@ -55,6 +71,11 @@ export class DocList {
   docs = signal<DocumentResponse[]>([]);
   category = '';
   loading = signal(false);
+
+  setCategory(code: string): void {
+    this.category = code;
+    this.load();
+  }
 
   constructor() {
     // Reload documents (and categories) whenever the selected space changes.

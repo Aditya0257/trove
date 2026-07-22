@@ -40,6 +40,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     'Sorting the results…',
   ];
 
+  static const _examples = [
+    'my last water bill',
+    'most expensive shopping',
+    'all Nike purchases',
+  ];
+
   final _q = TextEditingController();
   bool _busy = false;
   Timer? _ticker;
@@ -134,6 +140,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
             if (!_busy && _interpreted != null) _interpretedChips(scheme),
+            if (!_busy && _results == null) _exampleChips(),
             const SizedBox(height: 8),
             Expanded(child: _resultsView(scheme)),
           ],
@@ -141,6 +148,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
     );
   }
+
+  Widget _exampleChips() => Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final ex in _examples)
+              ActionChip(
+                label: Text(ex),
+                onPressed: () {
+                  _q.text = ex;
+                  _search();
+                },
+              ),
+          ],
+        ),
+      );
 
   Widget _interpretedChips(ColorScheme scheme) {
     final i = _interpreted!;

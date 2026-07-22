@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
+import { NoticeService } from '../../core/notice/notice.service';
 
 @Component({
   selector: 'app-review',
@@ -81,6 +82,7 @@ export class Review {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private notices = inject(NoticeService);
 
   private id = '';
   doc = signal<DocumentResponse | null>(null);
@@ -178,7 +180,14 @@ export class Review {
       vital: this.form.vital,
     };
     this.api.confirmDocument(this.id, body).subscribe({
-      next: () => this.router.navigate(['/documents']),
+      next: () => {
+        this.notices.show({
+          level: 'success',
+          code: 'CONFIRMED',
+          userMessage: 'Saved to your vault.',
+        });
+        this.router.navigate(['/documents']);
+      },
       error: (e) => {
         this.error.set(e?.error?.message ?? 'Confirm failed');
         this.saving.set(false);
