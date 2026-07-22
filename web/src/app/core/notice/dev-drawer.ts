@@ -30,14 +30,22 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
           <button class="link" (click)="open.set(false)">Close</button>
         </header>
 
-        @if (log.tokensToday() > 0) {
+        @if (log.tokensToday() > 0 || deviceTokens() > 0) {
           <div class="gauge">
-            <div class="gauge-top">
-              <span>AI tokens today <span class="muted">(all users, shared account)</span></span>
+            <div class="gauge-row">
+              <span>All users today
+                <span class="tip" tabindex="0">i<span class="bubble">Total AI tokens spent across everyone on the one shared Workers AI account today. This is what counts toward the free daily allowance.</span></span>
+              </span>
               <span class="gauge-nums">{{ fmt(log.tokensToday()) }} / {{ fmt(log.tokenBudget) }}</span>
             </div>
             <div class="bar"><div class="fill" [style.width.%]="tokenPct()"></div></div>
-            <div class="gauge-sub">{{ fmt(remaining()) }} left</div>
+            <div class="gauge-row sub">
+              <span>This device
+                <span class="tip" tabindex="0">i<span class="bubble">AI tokens used by your requests in this browser session — a subset of the global total above.</span></span>
+              </span>
+              <span>{{ fmt(deviceTokens()) }} tok</span>
+            </div>
+            <div class="gauge-sub">{{ fmt(remaining()) }} left in the display budget</div>
           </div>
         }
 
@@ -151,8 +159,22 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
         background: rgba(59, 125, 221, 0.06); border: 1px solid rgba(59, 125, 221, 0.2);
         border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
       }
-      .gauge-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+      .gauge-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 6px; }
+      .gauge-row.sub { margin: 8px 0 2px; color: #555; }
+      .gauge-row.sub span:last-child { font-family: monospace; font-weight: 600; }
       .gauge-nums { font-family: monospace; font-weight: 700; color: #2c5aa0; }
+      .tip {
+        display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px;
+        margin-left: 4px; border-radius: 50%; background: #dfe6e5; color: #2c5aa0; font-size: 10px;
+        font-weight: 700; cursor: help; position: relative; outline: none;
+      }
+      .tip .bubble {
+        visibility: hidden; opacity: 0; position: absolute; bottom: 155%; left: 0; width: 220px;
+        background: #222; color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 11px;
+        font-weight: 400; line-height: 1.4; z-index: 30; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        pointer-events: none;
+      }
+      .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
       .bar { height: 8px; background: rgba(59, 125, 221, 0.15); border-radius: 999px; overflow: hidden; }
       .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
       .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
@@ -243,4 +265,9 @@ export class DevDrawer {
     Math.min(100, Math.round((this.log.tokensToday() / this.log.tokenBudget) * 100));
   protected remaining = () => Math.max(0, this.log.tokenBudget - this.log.tokensToday());
   protected pretty = (o: unknown) => JSON.stringify(o, null, 2);
+
+  /** Tokens used by this browser session (sum of what the drawer has logged). */
+  protected deviceTokens(): number {
+    return this.entries().reduce((sum, e) => sum + (this.aiTokens(e) ?? 0), 0);
+  }
 }
