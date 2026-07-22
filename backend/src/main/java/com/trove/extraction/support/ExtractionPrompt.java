@@ -41,8 +41,14 @@ public final class ExtractionPrompt {
     public static final String INSTRUCTION = """
             You are a meticulous document-understanding assistant for a personal document vault.
             Read the attached document (a bill, receipt, invoice, policy, ticket, or ID) and extract
-            its key fields. Respond with a SINGLE JSON object and NOTHING else — no markdown, no code
-            fences, no commentary.
+            its key fields. The image is often a PHOTO taken by hand — it may be at an angle, held in
+            fingers, on a cluttered surface, folded, faint (thermal paper), or slightly blurred. Read
+            whatever you can regardless; ignore fingers, background and glare.
+
+            Respond with a SINGLE JSON object and NOTHING else — no markdown, no code fences, no prose,
+            no apology. Do NOT write sentences like "I'm sorry" or "I cannot read this". Even if the
+            image is unclear, you MUST still output the JSON object: set unreadable fields to null and
+            lower "confidence" accordingly. The JSON object is the ONLY acceptable output.
 
             Use exactly this JSON shape (use null when a field is not present):
             {

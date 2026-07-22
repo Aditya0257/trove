@@ -21,14 +21,17 @@
  *
  *  Design
  *  ------
- *  Values follow DESIGN.md §6.2: category 'shopping', a sample merchant, today's
- *  date, a small amount, one line item, rawText "STUB EXTRACTION", confidence 0.5.
- *  Confidence 0.5 keeps the document firmly in needs_review — a human must confirm.
+ *  Returns an EMPTY result — category 'uncategorized', all fields null, confidence 0.
+ *  As the chain's last resort it fires only when every real provider failed, so it
+ *  must NOT invent values: prefilling a fake merchant/amount would force the user to
+ *  delete wrong data. Empty + uncategorized + confidence 0 signals "couldn't read —
+ *  please fill it in", and the review screen shows placeholders, not junk.
  *
  *  Reasoning & logic
  *  -----------------
- *  Deterministic output makes the flow testable and reproducible. It reads nothing
- *  from the bytes on purpose — it is a placeholder for real OCR.
+ *  Deterministic and reads nothing from the bytes on purpose — it is the safety net
+ *  that keeps the pipeline completing (never leaves a document un-processed) while
+ *  being honest that no automatic reading happened.
  * ============================================================================
  */
 package com.trove.extraction;
@@ -36,8 +39,6 @@ package com.trove.extraction;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -47,16 +48,16 @@ public class StubExtractionProvider implements ExtractionProvider {
     @Override
     public ExtractionResult extract(byte[] fileBytes, String mimeType) {
         return new ExtractionResult(
-                "shopping",
-                "Sample Store",
-                LocalDate.now(ZoneOffset.UTC),
-                new BigDecimal("499.00"),
-                "INR",
-                null,
-                List.of(new LineItemDto("Sample item", new BigDecimal("1"), new BigDecimal("499.00"))),
-                "STUB EXTRACTION",
-                Map.of("note", "stub extraction — replace with a real provider later"),
-                new BigDecimal("0.500")
+                "uncategorized",  // don't guess a category
+                null,             // merchant — user fills in
+                null,             // docDate
+                null,             // amount
+                null,             // currency
+                null,             // dueDate
+                List.of(),        // no line items
+                null,             // rawText — nothing was read
+                Map.of("note", "Automatic reading unavailable — fields left blank for you to fill."),
+                BigDecimal.ZERO   // confidence 0 → clearly "not read"
         );
     }
 }
