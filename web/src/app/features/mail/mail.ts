@@ -97,12 +97,10 @@ interface MailEntry {
       @else {
         <div class="entries">
           @for (e of entries(); track e.bundleId) {
-            <div class="entry">
+            <a class="entry" [routerLink]="['/documents', e.docs[0].id, 'review']">
               <div class="entry-thumbs">
                 @for (d of e.docs; track d.id) {
-                  <a [routerLink]="['/documents', d.id, 'review']">
-                    <img [src]="thumb(d)" alt="screenshot" />
-                  </a>
+                  <img [src]="thumb(d)" alt="screenshot" />
                 }
               </div>
               <div class="entry-meta">
@@ -110,7 +108,7 @@ interface MailEntry {
                 <span class="tag">{{ e.account || '-' }}</span>
                 <span class="muted">{{ e.date || '' }} · {{ e.docs.length }} screenshot(s)</span>
               </div>
-            </div>
+            </a>
           }
         </div>
       }
@@ -135,7 +133,11 @@ interface MailEntry {
         line-height: 1; cursor: pointer; appearance: none;
       }
       .entries { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-      .entry { display: flex; gap: 14px; padding: 12px; border: 1px solid #eee; border-radius: 12px; }
+      .entry {
+        display: flex; gap: 14px; padding: 12px; border: 1px solid #eee; border-radius: 12px;
+        text-decoration: none; color: inherit; cursor: pointer; transition: background 120ms, border-color 120ms;
+      }
+      .entry:hover { background: rgba(47, 111, 106, 0.05); border-color: rgba(47, 111, 106, 0.35); }
       .entry-thumbs { display: flex; gap: 6px; }
       .entry-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e2e2; }
       .entry-meta { display: flex; flex-direction: column; gap: 4px; }

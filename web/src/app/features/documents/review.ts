@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -13,6 +14,7 @@ import { NoticeService } from '../../core/notice/notice.service';
       <div class="card"><p class="muted">Loading…</p></div>
     } @else {
       <div class="card">
+        <button class="back" type="button" (click)="back()">← Back</button>
         <div class="row-between">
           <h1>Review &amp; confirm</h1>
           <span class="badge" [class.confirmed]="doc()!.status === 'confirmed'">{{ doc()!.status }}</span>
@@ -20,22 +22,26 @@ import { NoticeService } from '../../core/notice/notice.service';
 
         @if (reading()) {
           <p class="muted">Reading the document. The fields below will fill in automatically…</p>
-        } @else if (failedRead()) {
-          <div class="ai-note failed">
-            <b>We couldn't read this one automatically.</b> No worries: just fill in the
-            details below (it takes a few seconds). The fields are blank on purpose, so
-            there's nothing wrong to delete.
-            @if (readReason()) { <span class="muted"> · {{ readReason() }}</span> }
-          </div>
+        } @else if (needsReview()) {
+          @if (failedRead()) {
+            <div class="ai-note failed">
+              <b>We couldn't read this one automatically.</b> No worries: just fill in the
+              details below (it takes a few seconds). The fields are blank on purpose, so
+              there's nothing wrong to delete.
+              @if (readReason()) { <span class="muted"> · {{ readReason() }}</span> }
+            </div>
+          } @else {
+            <div class="ai-note">
+              <b>Please double-check these.</b> The details below were read from your document
+              automatically and can be wrong (a misread amount, date or name happens). Confirm
+              each value; you can edit anything now, or change it later.
+              @if (confidencePct() !== '-') {
+                <span class="muted"> · read confidence {{ confidencePct() }}</span>
+              }
+            </div>
+          }
         } @else {
-          <div class="ai-note">
-            <b>Please double-check these.</b> The details below were read from your document
-            automatically and can be wrong (a misread amount, date or name happens). Confirm
-            each value; you can edit anything now, or change it later.
-            @if (confidencePct() !== '-') {
-              <span class="muted"> · read confidence {{ confidencePct() }}</span>
-            }
-          </div>
+          <p class="muted">You've reviewed and saved this document. Edit any field and Save changes to update it.</p>
         }
         @if (anomaly()) {
           <p class="warn">This looks higher than usual for its category. Worth a second look.</p>
@@ -86,12 +92,13 @@ import { NoticeService } from '../../core/notice/notice.service';
             Vital / sensitive (encrypt at rest)
           </label>
           @if (error()) { <p class="error">{{ error() }}</p> }
-          <button type="submit" [disabled]="saving()">
-            {{ saving() ? 'Saving…' : confirmLabel() }}
-          </button>
+          <div class="actions">
+            <button type="submit" [disabled]="saving()">
+              {{ saving() ? 'Saving…' : confirmLabel() }}
+            </button>
+            <button type="button" class="btn-del" (click)="remove()">Delete</button>
+          </div>
         </form>
-
-        <button class="del-doc" type="button" (click)="remove()">Delete this document</button>
       </div>
     }
   `,
@@ -132,10 +139,17 @@ import { NoticeService } from '../../core/notice/notice.service';
       }
       .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
       textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; padding: 8px; }
-      .del-doc {
-        margin-top: 18px; border: 0; background: transparent; color: #c0392b;
-        cursor: pointer; font-size: 13px; text-decoration: underline;
+      .back {
+        border: 0; background: transparent; color: #2f6f6a; cursor: pointer;
+        font-size: 13px; padding: 0; margin-bottom: 10px;
       }
+      .back:hover { text-decoration: underline; }
+      .actions { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
+      .btn-del {
+        border: 1px solid rgba(192, 57, 43, 0.5); background: transparent; color: #c0392b;
+        border-radius: 8px; padding: 9px 18px; font-size: 14px; cursor: pointer;
+      }
+      .btn-del:hover { background: rgba(192, 57, 43, 0.08); }
     `,
   ],
 })
@@ -144,6 +158,17 @@ export class Review {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private notices = inject(NoticeService);
+  private location = inject(Location);
+
+  /** Still awaiting the human's first confirmation (drives the read notices). */
+  needsReview(): boolean {
+    return this.doc()?.status === 'needs_review';
+  }
+
+  /** Go back to wherever we came from (the document list or Mail). */
+  back(): void {
+    this.location.back();
+  }
 
   private id = '';
   doc = signal<DocumentResponse | null>(null);
