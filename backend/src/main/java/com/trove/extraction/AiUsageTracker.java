@@ -134,25 +134,4 @@ public class AiUsageTracker {
     /** A day's usage figures. */
     public record Usage(double neurons, long tokens) {
     }
-
-    /**
-     * Convert a call's token counts to neurons using the model's published rates
-     * (neurons per million tokens). Falls back to a middle estimate for unknown models.
-     */
-    public static double neuronsFor(String model, long promptTokens, long completionTokens) {
-        String m = model == null ? "" : model.toLowerCase();
-        double inRate;
-        double outRate;
-        if (m.contains("llama-3.2-11b-vision")) {
-            inRate = 4_410;
-            outRate = 61_493;
-        } else if (m.contains("llama-3.1-8b")) {
-            inRate = 25_608;
-            outRate = 75_147;
-        } else {
-            inRate = 10_000; // conservative fallback for an unmapped model
-            outRate = 60_000;
-        }
-        return promptTokens / 1_000_000.0 * inRate + completionTokens / 1_000_000.0 * outRate;
-    }
 }

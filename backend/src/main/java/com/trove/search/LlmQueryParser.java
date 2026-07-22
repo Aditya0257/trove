@@ -64,16 +64,19 @@ public class LlmQueryParser {
     private final CloudflareProperties cloudflare;
     private final ObjectMapper mapper;
     private final com.trove.extraction.AiUsageTracker usage;
+    private final com.trove.extraction.NeuronRateService neuronRates;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public LlmQueryParser(SearchProperties props, OllamaProperties ollama,
                           CloudflareProperties cloudflare, ObjectMapper mapper,
-                          com.trove.extraction.AiUsageTracker usage) {
+                          com.trove.extraction.AiUsageTracker usage,
+                          com.trove.extraction.NeuronRateService neuronRates) {
         this.props = props;
         this.ollama = ollama;
         this.cloudflare = cloudflare;
         this.mapper = mapper;
         this.usage = usage;
+        this.neuronRates = neuronRates;
     }
 
     /** Parses the query with the configured LLM, or empty to fall back to rules.
@@ -170,7 +173,7 @@ public class LlmQueryParser {
         long totalTokens = u.path("total_tokens").asLong(promptTokens + completionTokens);
         if (totalTokens > 0) {
             // search LLM also draws on the shared daily allowance — bill it to the user
-            usage.record(userId, com.trove.extraction.AiUsageTracker.neuronsFor(model, promptTokens, completionTokens), totalTokens);
+            usage.record(userId, neuronRates.neuronsFor(model, promptTokens, completionTokens), totalTokens);
         }
         // Workers AI instruct models often return result.response as a JSON OBJECT
         // (structured output), not a string; .asText() would be "". Re-serialize the

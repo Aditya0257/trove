@@ -80,6 +80,10 @@ trove:
     # uploader can't drain the day for everyone; over it, their uploads still file via the
     # free stub reader. Set 0-or-above; keep it below the global limit.
     per-user-neuron-limit: ${TROVE_AI_PER_USER_NEURON_LIMIT:2000}
+    # Cloudflare's neuron price (USD per 1,000 neurons). Used to convert the models API's
+    # USD-per-token pricing into neurons/token so the token→neuron rates auto-refresh.
+    # Rarely changes; NeuronRateService falls back to baked-in rates if the fetch fails.
+    neuron-usd-per-thousand: ${TROVE_AI_NEURON_USD_PER_K:0.011}
 
   storage:
     # S3-compatible endpoint. Local MinIO by default; set to the R2 endpoint in prod.

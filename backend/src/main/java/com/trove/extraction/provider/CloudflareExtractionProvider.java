@@ -58,11 +58,14 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
 
     private final CloudflareProperties props;
     private final ObjectMapper mapper;
+    private final com.trove.extraction.NeuronRateService neuronRates;
     private final HttpClient http;
 
-    public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper) {
+    public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper,
+                                        com.trove.extraction.NeuronRateService neuronRates) {
         this.props = props;
         this.mapper = mapper;
+        this.neuronRates = neuronRates;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
@@ -132,7 +135,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
             long completionTokens = u.path("completion_tokens").asLong(0);
             long totalTokens = u.path("total_tokens").asLong(promptTokens + completionTokens);
             if (totalTokens > 0) {
-                double neurons = com.trove.extraction.AiUsageTracker.neuronsFor(model, promptTokens, completionTokens);
+                double neurons = neuronRates.neuronsFor(model, promptTokens, completionTokens);
                 java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(
                         parsed.extra() != null ? parsed.extra() : java.util.Map.of());
                 extra.put("aiTokens", totalTokens);
