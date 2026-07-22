@@ -187,6 +187,10 @@ interface MailEntry {
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); pointer-events: none;
       }
       .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
+      textarea {
+        display: block; width: 100%; box-sizing: border-box; resize: vertical;
+        font-family: inherit; padding: 8px; margin-top: 2px;
+      }
     `,
   ],
 })
