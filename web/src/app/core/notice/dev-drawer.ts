@@ -167,7 +167,12 @@ import { AiUsage } from '../models';
       .detail { padding: 6px 0 4px 4px; font-size: 12px; }
       .kv { display: flex; gap: 8px; margin: 2px 0; }
       .kv > span:first-child { width: 46px; color: #8a8a8a; font-weight: 700; }
-      .kv code { font-family: monospace; }
+      /* Pin code chips to the detail text size — the global code rule (0.85rem) renders
+         larger than the 12px detail and looks out of place here. */
+      .kv code {
+        font-family: monospace; font-size: 11.5px; background: rgba(0, 0, 0, 0.05);
+        padding: 1px 6px; border-radius: 5px; word-break: break-all;
+      }
       .trail-title { color: #8a8a8a; font-weight: 700; margin: 6px 0 2px; }
       .trail { font-family: monospace; font-size: 12px; }
       .gauge {
