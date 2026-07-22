@@ -37,20 +37,28 @@ import { DocumentResponse } from '../../core/models';
 
         <form (ngSubmit)="save()">
           <label>
-            <span class="lbl">Account</span>
+            <span class="lbl">Account <span class="tip" tabindex="0">i<span class="bubble">{{ tips.account }}</span></span></span>
             <input name="account" [(ngModel)]="form.account" list="mailAccounts" placeholder="Personal / Office" />
             <datalist id="mailAccounts"><option value="Personal"></option><option value="Office"></option></datalist>
           </label>
           <label>
-            <span class="lbl">Subject</span>
-            <input name="subject" [(ngModel)]="form.subject" placeholder="What the email is about" />
+            <span class="lbl">Email address (inbox) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.address }}</span></span></span>
+            <input name="address" type="email" [(ngModel)]="form.address" placeholder="e.g. you@work.com" />
           </label>
           <label>
-            <span class="lbl">Email date</span>
+            <span class="lbl">Topic / sender <span class="tip" tabindex="0">i<span class="bubble">{{ tips.topic }}</span></span></span>
+            <input name="topic" [(ngModel)]="form.topic" placeholder="e.g. Plum Insurance, HDFC Bank, Amazon" />
+          </label>
+          <label>
+            <span class="lbl">Subject <span class="tip" tabindex="0">i<span class="bubble">{{ tips.subject }}</span></span></span>
+            <input name="subject" [(ngModel)]="form.subject" placeholder="Exact subject line of the email" />
+          </label>
+          <label>
+            <span class="lbl">Email date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.date }}</span></span></span>
             <input type="date" name="mdate" [(ngModel)]="form.date" />
           </label>
           <label>
-            <span class="lbl">Notes / description (optional)</span>
+            <span class="lbl">Notes / description (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
             <textarea name="notes" [(ngModel)]="form.notes" rows="2"
               placeholder="Anything to remember or find this by later"></textarea>
           </label>
@@ -71,7 +79,22 @@ import { DocumentResponse } from '../../core/models';
       .shot img { display: block; width: 120px; height: 120px; object-fit: cover; }
       .shot:hover { border-color: #2f6f6a; }
       .small { font-size: 12px; }
-      .lbl { display: block; margin-bottom: 2px; }
+      .lbl { display: inline-flex; align-items: center; margin-bottom: 2px; }
+      /* Salesforce-style field help: a round "i" that reveals a bubble on hover/focus. */
+      .tip {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
+        background: #dfe6e5; color: #2f6f6a; font-size: 11px; font-weight: 700;
+        font-style: normal; cursor: help; position: relative; outline: none;
+      }
+      .tip .bubble {
+        visibility: hidden; opacity: 0; position: absolute; bottom: 150%; left: 50%;
+        transform: translateX(-50%); width: 240px; background: #222; color: #fff;
+        padding: 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 400;
+        line-height: 1.4; z-index: 20; transition: opacity 120ms;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); pointer-events: none;
+      }
+      .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
       textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; padding: 8px; }
       .actions { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
       .btn-del {
@@ -94,7 +117,17 @@ export class MailDetail {
   docs = signal<DocumentResponse[]>([]);
   loading = signal(true);
   saving = signal(false);
-  form = { account: '', subject: '', date: '', notes: '' };
+  form = { account: '', address: '', topic: '', subject: '', date: '', notes: '' };
+
+  /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
+  readonly tips = {
+    account: 'A short label to group your inboxes, like Personal or Office.',
+    address: "The email address whose inbox this is in, e.g. you@work.com — so you know exactly which inbox to open and search later.",
+    topic: 'The stable thing this is about (e.g. Plum Insurance). Groups emails together even when their subject lines change over time.',
+    subject: "The exact subject line, copied as-is. Prefer the exact text — you can paste it straight into that inbox's search to find the original email later.",
+    date: 'The date the email arrived (as shown in your inbox).',
+    notes: 'Anything extra you want to remember or find this by later, in your own words.',
+  };
 
   ngOnInit(): void {
     this.bundleId = this.route.snapshot.paramMap.get('bundleId') ?? '';
@@ -107,6 +140,8 @@ export class MailDetail {
           const e = first.extra ?? {};
           this.form = {
             account: (e['mailAccount'] as string) ?? '',
+            address: (e['mailAddress'] as string) ?? '',
+            topic: (e['mailTopic'] as string) ?? '',
             subject: (e['mailSubject'] as string) ?? '',
             date: (e['mailDate'] as string) ?? first.docDate ?? '',
             notes: (e['notes'] as string) ?? '',
@@ -147,6 +182,8 @@ export class MailDetail {
       const extra = {
         ...(d.extra ?? {}),
         mailAccount: this.form.account,
+        mailAddress: this.form.address,
+        mailTopic: this.form.topic,
         mailSubject: this.form.subject,
         mailDate: this.form.date,
         notes: this.form.notes || undefined,

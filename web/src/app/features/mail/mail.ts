@@ -10,8 +10,10 @@ import { ConfirmRequest, DocumentResponse } from '../../core/models';
 /** One email = one or more screenshots sharing a bundle id, plus its metadata. */
 interface MailEntry {
   bundleId: string;
+  topic: string;
   subject: string;
   account: string;
+  address: string;
   date: string;
   docs: DocumentResponse[];
 }
@@ -68,7 +70,8 @@ interface MailEntry {
           }
 
           <div class="row">
-            <label>Account
+            <label>
+              <span class="lbl">Account <span class="tip" tabindex="0">i<span class="bubble">{{ tips.account }}</span></span></span>
               <input name="account" [(ngModel)]="account" list="mailAccounts" placeholder="Personal / Office" />
               <datalist id="mailAccounts">
                 <option value="Personal"></option>
@@ -76,12 +79,32 @@ interface MailEntry {
                 @for (a of knownAccounts(); track a) { <option [value]="a"></option> }
               </datalist>
             </label>
-            <label>Email date <input type="date" name="mdate" [(ngModel)]="emailDate" /></label>
+            <label>
+              <span class="lbl">Email date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.date }}</span></span></span>
+              <input type="date" name="mdate" [(ngModel)]="emailDate" />
+            </label>
           </div>
-          <label>Subject / what it's about
-            <input name="subject" [(ngModel)]="subject" placeholder="e.g. Income tax paid, FY 2025-26" />
+          <label>
+            <span class="lbl">Email address (inbox) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.address }}</span></span></span>
+            <input name="address" type="email" [(ngModel)]="address" list="mailAddresses" placeholder="e.g. you@work.com" />
+            <datalist id="mailAddresses">
+              @for (a of knownAddresses(); track a) { <option [value]="a"></option> }
+            </datalist>
           </label>
-          <label>Notes / description (optional)
+          <label>
+            <span class="lbl">Topic / sender <span class="tip" tabindex="0">i<span class="bubble">{{ tips.topic }}</span></span></span>
+            <input name="topic" [(ngModel)]="topic" list="mailTopics"
+              placeholder="e.g. Plum Insurance, HDFC Bank, Amazon" />
+            <datalist id="mailTopics">
+              @for (t of knownTopics(); track t) { <option [value]="t"></option> }
+            </datalist>
+          </label>
+          <label>
+            <span class="lbl">Subject <span class="tip" tabindex="0">i<span class="bubble">{{ tips.subject }}</span></span></span>
+            <input name="subject" [(ngModel)]="subject" placeholder="Exact subject line — e.g. 🎉 Your Health Benefits Are Ready" />
+          </label>
+          <label>
+            <span class="lbl">Notes / description (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
             <textarea name="desc" [(ngModel)]="description" rows="2"
               placeholder="Anything to remember or find this by later"></textarea>
           </label>
@@ -108,9 +131,10 @@ interface MailEntry {
                 }
               </div>
               <div class="entry-meta">
-                <b>{{ e.subject || 'Email' }}</b>
+                <b>{{ e.topic || e.subject || 'Email' }}</b>
+                @if (e.topic && e.subject) { <span class="subj">{{ e.subject }}</span> }
                 <span class="tag">{{ e.account || '-' }}</span>
-                <span class="muted">{{ e.date || '' }} · {{ e.docs.length }} screenshot(s)</span>
+                <span class="muted">{{ e.address ? e.address + ' · ' : '' }}{{ e.date || '' }} · {{ e.docs.length }} screenshot(s)</span>
               </div>
             </a>
           }
@@ -145,7 +169,24 @@ interface MailEntry {
       .entry-thumbs { display: flex; gap: 6px; }
       .entry-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e2e2; }
       .entry-meta { display: flex; flex-direction: column; gap: 4px; }
+      .subj { color: #444; font-size: 13px; }
       .tag { align-self: flex-start; background: rgba(47, 111, 106, 0.12); color: #2f6f6a; border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+      /* Salesforce-style field help: a round "i" that reveals a bubble on hover/focus. */
+      .lbl { display: inline-flex; align-items: center; }
+      .tip {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
+        background: #dfe6e5; color: #2f6f6a; font-size: 11px; font-weight: 700;
+        font-style: normal; cursor: help; position: relative; outline: none;
+      }
+      .tip .bubble {
+        visibility: hidden; opacity: 0; position: absolute; bottom: 150%; left: 50%;
+        transform: translateX(-50%); width: 240px; background: #222; color: #fff;
+        padding: 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 400;
+        line-height: 1.4; z-index: 20; transition: opacity 120ms;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); pointer-events: none;
+      }
+      .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
     `,
   ],
 })
@@ -160,6 +201,8 @@ export class Mail {
   dragging = signal(false);
   queue = signal<{ file: File; url: string }[]>([]);
   account = '';
+  address = '';
+  topic = '';
   subject = '';
   emailDate = '';
   description = '';
@@ -179,8 +222,10 @@ export class Mail {
       const bundleId = (extra['mailBundleId'] as string) || d.id;
       const entry = groups.get(bundleId) ?? {
         bundleId,
+        topic: (extra['mailTopic'] as string) ?? '',
         subject: (extra['mailSubject'] as string) ?? '',
         account: (extra['mailAccount'] as string) ?? '',
+        address: (extra['mailAddress'] as string) ?? '',
         date: (extra['mailDate'] as string) ?? d.docDate ?? '',
         docs: [],
       };
@@ -193,6 +238,24 @@ export class Mail {
   knownAccounts = computed<string[]>(() =>
     [...new Set(this.entries().map((e) => e.account).filter((a) => !!a))],
   );
+
+  knownTopics = computed<string[]>(() =>
+    [...new Set(this.entries().map((e) => e.topic).filter((t) => !!t))],
+  );
+
+  knownAddresses = computed<string[]>(() =>
+    [...new Set(this.entries().map((e) => e.address).filter((a) => !!a))],
+  );
+
+  /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
+  readonly tips = {
+    account: 'A short label to group your inboxes, like Personal or Office.',
+    address: "The email address whose inbox this is in, e.g. you@work.com — so you know exactly which inbox to open and search later.",
+    topic: 'The stable thing this is about (e.g. Plum Insurance). Groups emails together even when their subject lines change over time.',
+    subject: "The exact subject line, copied as-is. Prefer the exact text — you can paste it straight into that inbox's search to find the original email later.",
+    date: 'The date the email arrived (as shown in your inbox).',
+    notes: 'Anything extra you want to remember or find this by later, in your own words.',
+  };
 
   constructor() {
     effect(() => {
@@ -272,6 +335,8 @@ export class Mail {
           extra: {
             ...(doc.extra ?? {}),
             mailAccount: this.account,
+            mailAddress: this.address,
+            mailTopic: this.topic,
             mailSubject: this.subject,
             mailDate: this.emailDate,
             mailBundleId: bundleId,
@@ -288,6 +353,8 @@ export class Mail {
     items.forEach((i) => URL.revokeObjectURL(i.url));
     this.queue.set([]);
     this.account = '';
+    this.address = '';
+    this.topic = '';
     this.subject = '';
     this.emailDate = '';
     this.description = '';
