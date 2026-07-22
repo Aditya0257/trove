@@ -64,7 +64,7 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
                 @for (a of attempts(e); track $index) {
                   <div class="trail" [attr.data-status]="a['status']">{{ a['provider'] }} · {{ a['status'] }}<!--
                     -->{{ a['confidencePct'] != null ? ' · ' + a['confidencePct'] + '%' : '' }} · {{ a['latencyMs'] }}ms<!--
-                    -->{{ a['reason'] ? ' — ' + a['reason'] : '' }}</div>
+                    -->{{ a['reason'] ? ' · ' + a['reason'] : '' }}</div>
                 }
               }
             </div>
@@ -163,7 +163,7 @@ export class DevDrawer {
     if (/^\/api\/reminders\/[^/]+\/dismiss$/.test(p)) return M('Dismiss reminder', 'Dismissing a reminder', 'mark reminder dismissed', 'user acknowledged it');
     if (p.startsWith('/api/spend')) return M('Spend analytics', 'Loading your spend', 'aggregate confirmed documents by category/month', 'understand where money goes');
     if (p.startsWith('/api/integrations/google-drive')) return M('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-navigable third copy of the data');
-    return M('API request', 'Working…', `${m} ${p}`, '—');
+    return M('API request', 'Working…', `${m} ${p}`, '-');
   }
 
   /** Entries honoring the errors-only filter. */

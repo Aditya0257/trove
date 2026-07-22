@@ -14,7 +14,7 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
         <label>New shared space <input name="newName" [(ngModel)]="newName" placeholder="e.g. Household" /></label>
         <button type="submit" [disabled]="!newName.trim()">Create</button>
       </form>
-      <p class="muted">Current space: <b>{{ spaceCtx.current()?.name || '—' }}</b>
+      <p class="muted">Current space: <b>{{ spaceCtx.current()?.name || '-' }}</b>
         ({{ spaceCtx.current()?.kind }}). Switch spaces from the top-right selector.</p>
     </div>
 
@@ -114,7 +114,7 @@ export class Spaces {
     });
     this.api.driveStatus(sid).subscribe({
       next: (d) => this.drive.set(d),
-      error: (e) => { this.drive.set(null); this.driveError.set(e?.error?.message ?? '—'); },
+      error: (e) => { this.drive.set(null); this.driveError.set(e?.error?.message ?? '-'); },
     });
   }
 

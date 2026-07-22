@@ -38,7 +38,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
             }
           </tbody>
         </table>
-      } @else { <p class="muted">—</p> }
+      } @else { <p class="muted">Nothing to show yet.</p> }
 
       <h3>Flagged as unusual</h3>
       @if (anomalies().length) {

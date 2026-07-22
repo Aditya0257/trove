@@ -27,7 +27,7 @@ interface Queued {
     <div class="card">
       <h1>Add documents</h1>
       <p class="muted">
-        Paste a screenshot ({{ pasteHint }}), drop images here, or choose files — a bill,
+        Paste a screenshot ({{ pasteHint }}), drop images here, or choose files: a bill,
         receipt, policy or ID. Trove stores and reads each one; you'll confirm the details next.
       </p>
 
@@ -59,7 +59,7 @@ interface Queued {
 
       <label class="checkbox">
         <input type="checkbox" name="vital" [(ngModel)]="vital" [disabled]="loading()" />
-        These are vital/sensitive (passport, ID, policy) — encrypt at rest
+        These are vital/sensitive (passport, ID, policy). Encrypt at rest
       </label>
 
       @if (loading()) {

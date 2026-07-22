@@ -46,7 +46,7 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
                 <td>
                   @if (r.documentId) {
                     <a [routerLink]="['/documents', r.documentId, 'review']">{{ docName(r.documentId) }}</a>
-                  } @else { — }
+                  } @else { <span class="muted">-</span> }
                 </td>
                 <td>{{ r.remindOn }}</td>
                 <td>

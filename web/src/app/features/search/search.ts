@@ -41,10 +41,10 @@ import { SearchResult } from '../../core/models';
               @for (d of r.results; track d.id) {
                 <tr>
                   <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
-                  <td>{{ d.category || '—' }}</td>
-                  <td>{{ d.merchant || '—' }}</td>
+                  <td>{{ d.category || '-' }}</td>
+                  <td>{{ d.merchant || '-' }}</td>
                   <td>{{ d.amount | money: d.currency }}</td>
-                  <td>{{ d.docDate || '—' }}</td>
+                  <td>{{ d.docDate || '-' }}</td>
                 </tr>
               }
             </tbody>
@@ -131,6 +131,6 @@ export class Search implements OnDestroy {
 
   interpreted(r: SearchResult, key: string): string {
     const v = r.interpreted?.[key];
-    return v == null || v === '' ? '—' : String(v);
+    return v == null || v === '' ? '-' : String(v);
   }
 }

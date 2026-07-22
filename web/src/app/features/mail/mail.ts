@@ -107,7 +107,7 @@ interface MailEntry {
               </div>
               <div class="entry-meta">
                 <b>{{ e.subject || 'Email' }}</b>
-                <span class="tag">{{ e.account || '—' }}</span>
+                <span class="tag">{{ e.account || '-' }}</span>
                 <span class="muted">{{ e.date || '' }} · {{ e.docs.length }} screenshot(s)</span>
               </div>
             </div>

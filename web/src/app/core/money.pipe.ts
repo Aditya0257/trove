@@ -8,7 +8,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 export class MoneyPipe implements PipeTransform {
   transform(value: number | null | undefined, currency: string | null | undefined = 'INR'): string {
     if (value == null) {
-      return '—';
+      return '-';
     }
     const code = currency && currency.trim() ? currency : 'INR';
     try {

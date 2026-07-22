@@ -209,7 +209,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
         onTap: onTap,
         child: InputDecorator(
           decoration: InputDecoration(labelText: label),
-          child: Text(value != null ? _iso(value)! : '—'),
+          child: Text(value != null ? _iso(value)! : '-'),
         ),
       );
 }
