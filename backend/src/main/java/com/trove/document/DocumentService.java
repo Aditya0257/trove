@@ -237,6 +237,39 @@ public class DocumentService {
     }
 
     /**
+     * Deletes a document: its line items, the stored file + sidecar in object storage,
+     * and the index row. Requires write access to the space.
+     *
+     * Note on the core principle: this removes the LIVE copy (R2 + DB). The scheduled
+     * mirror is one-way/additive, so a copy may still exist in the second cloud and in
+     * Drive until those are separately pruned — which also means an accidental delete
+     * remains recoverable. A full purge across all tiers is a deliberate, separate op.
+     */
+    @Transactional
+    public void delete(UUID documentId, UUID userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanWrite(doc.getSpaceId(), userId);
+
+        lineItemRepository.deleteByDocumentId(documentId);
+        deleteQuietly(doc.getStorageKey());
+        if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
+            deleteQuietly(doc.getSidecarKey());
+        }
+        documentRepository.delete(doc);
+        log.info("Deleted document {} from space {}", documentId, doc.getSpaceId());
+    }
+
+    /** Best-effort object delete: a storage hiccup shouldn't block removing the row. */
+    private void deleteQuietly(String storageKey) {
+        try {
+            storageService.delete(storageKey);
+        } catch (Exception e) {
+            log.warn("Could not delete object {} (removing index row anyway): {}", storageKey, e.getMessage());
+        }
+    }
+
+    /**
      * Confirms a document: applies any reviewer edits, sets status=confirmed +
      * reviewer/at, and rewrites the sidecar. This is the human-in-the-loop gate.
      */

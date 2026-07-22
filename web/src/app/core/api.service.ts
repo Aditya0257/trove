@@ -45,6 +45,9 @@ export class ApiService {
   confirmDocument(id: string, body: ConfirmRequest) {
     return this.http.post<DocumentResponse>(`${API_BASE}/api/documents/${id}/confirm`, body);
   }
+  deleteDocument(id: string) {
+    return this.http.delete<void>(`${API_BASE}/api/documents/${id}`);
+  }
   fileUrl(doc: DocumentResponse): string | null {
     if (!doc.fileUrl) return null;
     return doc.fileUrl.startsWith('http') ? doc.fileUrl : `${API_BASE}${doc.fileUrl}`;

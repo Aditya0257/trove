@@ -32,7 +32,7 @@ import { NoticeService } from '../../core/notice/notice.service';
             <b>Please double-check these.</b> The details below were read from your document
             automatically and can be wrong (a misread amount, date or name happens). Confirm
             each value; you can edit anything now, or change it later.
-            @if (confidencePct() !== '—') {
+            @if (confidencePct() !== '-') {
               <span class="muted"> · read confidence {{ confidencePct() }}</span>
             }
           </div>
@@ -90,6 +90,8 @@ import { NoticeService } from '../../core/notice/notice.service';
             {{ saving() ? 'Saving…' : confirmLabel() }}
           </button>
         </form>
+
+        <button class="del-doc" type="button" (click)="remove()">Delete this document</button>
       </div>
     }
   `,
@@ -130,6 +132,10 @@ import { NoticeService } from '../../core/notice/notice.service';
       }
       .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
       textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; padding: 8px; }
+      .del-doc {
+        margin-top: 18px; border: 0; background: transparent; color: #c0392b;
+        cursor: pointer; font-size: 13px; text-decoration: underline;
+      }
     `,
   ],
 })
@@ -181,7 +187,7 @@ export class Review {
 
   confidencePct(): string {
     const c = this.doc()?.extractionConfidence;
-    return c != null ? `${Math.round(c * 100)}%` : '—';
+    return c != null ? `${Math.round(c * 100)}%` : '-';
   }
 
   private extractionMeta(): Record<string, unknown> {
@@ -254,6 +260,21 @@ export class Review {
       notes: (doc.extra?.['notes'] as string) ?? '',
       vital: doc.vital,
     };
+  }
+
+  remove(): void {
+    const d = this.doc();
+    if (!d) return;
+    const name = d.merchant || d.originalFilename || 'this document';
+    if (!confirm(`Delete "${name}"? This removes it from your vault.`)) {
+      return;
+    }
+    this.api.deleteDocument(d.id).subscribe({
+      next: () => {
+        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Document deleted.' });
+        this.router.navigate(['/documents']);
+      },
+    });
   }
 
   confirm(): void {
