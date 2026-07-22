@@ -27,8 +27,10 @@ interface Queued {
     <div class="card">
       <h1>Add documents</h1>
       <p class="muted">
-        Paste a screenshot ({{ pasteHint }}), drop images here, or choose files: a bill,
-        receipt, policy or ID. Trove stores and reads each one; you'll confirm the details next.
+        Paste a screenshot ({{ pasteHint }}), drop images, or choose files — a bill,
+        receipt, policy or ID. <b>Images are read automatically</b> and you just confirm the
+        details next. PDFs and other non-image files are stored safely, but aren't auto-read
+        yet — you'll fill in their details yourself.
       </p>
 
       <div
@@ -64,6 +66,10 @@ interface Queued {
             </div>
           }
         </div>
+        @if (hasNonImage()) {
+          <p class="note">ℹ Non-image files (PDF, etc.) are stored but not auto-read — you'll
+            enter their details manually on the review screen.</p>
+        }
       }
 
       <label class="checkbox">
@@ -119,6 +125,10 @@ interface Queued {
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       }
       .thumb .rm:hover { background: #a53125; }
+      .note {
+        margin: 4px 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 12.5px;
+        color: #8a5a00; background: rgba(184, 134, 11, 0.1); border: 1px solid rgba(184, 134, 11, 0.25);
+      }
     `,
   ],
 })
@@ -179,6 +189,11 @@ export class Upload {
   /** Only images can be previewed as an <img>; everything else gets a file card. */
   isImage(item: Queued): boolean {
     return item.file.type.startsWith('image/');
+  }
+
+  /** True if the queue holds any non-image (PDF, etc.) that won't be auto-read. */
+  hasNonImage(): boolean {
+    return this.queue().some((item) => !this.isImage(item));
   }
 
   /** Short type badge for the file card (PDF, or the extension, else FILE). */
