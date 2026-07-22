@@ -16,9 +16,15 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
   const devlog = inject(DevLogService);
   const start = performance.now();
 
+  // The drawer polls /api/ai-usage to refresh its gauge; logging that call would add a
+  // trail entry, which retriggers the refresh, which polls again — an infinite loop that
+  // floods the backend. Background polls are also just noise in the trail, so skip both
+  // the log entry and any error toast for them.
+  const isBackgroundPoll = req.url.includes('/api/ai-usage');
+
   return next(req).pipe(
     tap((event) => {
-      if (event instanceof HttpResponse) {
+      if (event instanceof HttpResponse && !isBackgroundPoll) {
         devlog.add({
           at: Date.now(),
           method: req.method,
@@ -33,16 +39,18 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
     }),
     catchError((err: HttpErrorResponse) => {
       const notice = noticeFromError(err);
-      devlog.add({
-        at: Date.now(),
-        method: req.method,
-        url: req.urlWithParams,
-        status: err.status,
-        durationMs: Math.round(performance.now() - start),
-        requestId: err.headers?.get('X-Trove-Request-Id'),
-        notice,
-      });
-      notices.show(notice);
+      if (!isBackgroundPoll) {
+        devlog.add({
+          at: Date.now(),
+          method: req.method,
+          url: req.urlWithParams,
+          status: err.status,
+          durationMs: Math.round(performance.now() - start),
+          requestId: err.headers?.get('X-Trove-Request-Id'),
+          notice,
+        });
+        notices.show(notice);
+      }
       return throwError(() => err);
     }),
   );

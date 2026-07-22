@@ -88,10 +88,13 @@ import { Category, DocumentResponse } from '../../core/models';
       .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
       .pager select { padding: 6px 8px; border-radius: 8px; }
       .pages { display: flex; align-items: center; gap: 10px; }
+      /* Override the global brand button (light text on brand fill): these are neutral
+         nav buttons on a white row, so give them a dark label + no stray top margin. */
       .pages button {
-        border: 1px solid var(--line, #ddd); background: transparent; border-radius: 8px;
-        padding: 5px 12px; cursor: pointer; font-size: 13px;
+        margin: 0; border: 1px solid var(--line, #ccc); background: #fff; color: #2f6f6a;
+        border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
       }
+      .pages button:hover:not(:disabled) { background: rgba(47, 111, 106, 0.08); }
       .pages button:disabled { opacity: 0.4; cursor: default; }
       .pager .total { margin-left: auto; font-size: 13px; }
     `,
