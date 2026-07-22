@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
@@ -38,7 +38,7 @@ import { Category, DocumentResponse } from '../../core/models';
             <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
-            @for (d of docs(); track d.id) {
+            @for (d of pagedDocs(); track d.id) {
               <tr>
                 <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
                 <td>{{ d.category || '-' }}</td>
@@ -51,6 +51,23 @@ import { Category, DocumentResponse } from '../../core/models';
             }
           </tbody>
         </table>
+
+        <div class="pager">
+          <select (change)="setPageSize($any($event.target).value)">
+            <option value="25" [selected]="pageSize() === 25">25 per page</option>
+            <option value="50" [selected]="pageSize() === 50">50 per page</option>
+            <option value="100" [selected]="pageSize() === 100">100 per page</option>
+            <option value="0" [selected]="pageSize() === 0">All (for Ctrl/⌘+F)</option>
+          </select>
+          @if (pageSize() !== 0 && totalPages() > 1) {
+            <div class="pages">
+              <button type="button" [disabled]="page() === 0" (click)="page.set(page() - 1)">‹ Prev</button>
+              <span>Page {{ page() + 1 }} of {{ totalPages() }}</span>
+              <button type="button" [disabled]="page() >= totalPages() - 1" (click)="page.set(page() + 1)">Next ›</button>
+            </div>
+          }
+          <span class="muted total">{{ docs().length }} document(s)</span>
+        </div>
       }
     </div>
   `,
@@ -68,6 +85,15 @@ import { Category, DocumentResponse } from '../../core/models';
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: rgba(192, 57, 43, 0.08); }
+      .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+      .pager select { padding: 6px 8px; border-radius: 8px; }
+      .pages { display: flex; align-items: center; gap: 10px; }
+      .pages button {
+        border: 1px solid var(--line, #ddd); background: transparent; border-radius: 8px;
+        padding: 5px 12px; cursor: pointer; font-size: 13px;
+      }
+      .pages button:disabled { opacity: 0.4; cursor: default; }
+      .pager .total { margin-left: auto; font-size: 13px; }
     `,
   ],
 })
@@ -80,10 +106,34 @@ export class DocList {
   category = '';
   loading = signal(false);
 
+  /** Page size (0 = show All, so browser find works on the full list). */
+  pageSize = signal(25);
+  page = signal(0);
+
+  /** The slice of documents shown on the current page. */
+  pagedDocs = computed(() => {
+    const size = this.pageSize();
+    const all = this.docs();
+    if (size === 0) return all;
+    const start = this.page() * size;
+    return all.slice(start, start + size);
+  });
+
+  totalPages = computed(() => {
+    const size = this.pageSize();
+    return size === 0 ? 1 : Math.max(1, Math.ceil(this.docs().length / size));
+  });
+
   private notices = inject(NoticeService);
+
+  setPageSize(value: string): void {
+    this.pageSize.set(Number(value));
+    this.page.set(0);
+  }
 
   setCategory(code: string): void {
     this.category = code;
+    this.page.set(0);
     this.load();
   }
 

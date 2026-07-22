@@ -28,6 +28,9 @@ body {
   padding: 0.75rem 1.25rem;
   background: var(--card);
   border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 .topbar .brand { font-weight: 700; text-decoration: none; color: var(--ink); font-size: 1.1rem; }
 .topbar nav { display: flex; gap: 1rem; }
