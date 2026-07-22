@@ -20,6 +20,13 @@ import { NoticeService } from '../../core/notice/notice.service';
 
         @if (reading()) {
           <p class="muted">Reading the document — the fields below will fill in automatically…</p>
+        } @else if (failedRead()) {
+          <div class="ai-note failed">
+            <b>We couldn't read this one automatically.</b> No worries — just fill in the
+            details below (it takes a few seconds). The fields are blank on purpose so
+            there's nothing wrong to delete.
+            @if (readReason()) { <span class="muted"> · {{ readReason() }}</span> }
+          </div>
         } @else {
           <div class="ai-note">
             <b>Please double-check these.</b> The details below were read from your document
@@ -34,18 +41,26 @@ import { NoticeService } from '../../core/notice/notice.service';
           <p class="warn">This looks higher than usual for its category — worth a second look.</p>
         }
 
-        <p><button class="link" type="button" (click)="openFile()">View original file →</button></p>
+        <button class="view-file" type="button" (click)="openFile()">View original file</button>
 
         <form (ngSubmit)="confirm()">
           <label>Category
             <select name="category" [(ngModel)]="form.category">
+              <option value="" disabled>Choose a category…</option>
               @for (c of categories(); track c.code) { <option [value]="c.code">{{ c.label }}</option> }
             </select>
+            <small class="help">Pick the category that fits — it drives spend tracking &amp; reminders.</small>
           </label>
-          <label>Merchant <input name="merchant" [(ngModel)]="form.merchant" /></label>
+          <label>Merchant
+            <input name="merchant" [(ngModel)]="form.merchant" placeholder="e.g. Reliance Fresh, Airtel, Acko" />
+          </label>
           <div class="row">
-            <label>Amount <input type="number" step="0.01" name="amount" [(ngModel)]="form.amount" /></label>
-            <label>Currency <input name="currency" [(ngModel)]="form.currency" /></label>
+            <label>Amount
+              <input type="number" step="0.01" name="amount" [(ngModel)]="form.amount" placeholder="0.00" />
+            </label>
+            <label>Currency
+              <input name="currency" [(ngModel)]="form.currency" placeholder="INR" />
+            </label>
           </div>
           <div class="row">
             <label>Document date <input type="date" name="docDate" [(ngModel)]="form.docDate" /></label>
@@ -75,6 +90,14 @@ import { NoticeService } from '../../core/notice/notice.service';
         line-height: 1.45;
       }
       .warn { color: #8a5a00; }
+      .ai-note.failed { background: rgba(192, 57, 43, 0.08); border-left-color: #c0392b; }
+      .help { display: block; margin-top: 4px; color: #8a8a8a; font-size: 12px; }
+      .view-file {
+        display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 16px;
+        border: 1px solid rgba(47, 111, 106, 0.4); background: transparent; color: #2f6f6a;
+        border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+      }
+      .view-file:hover { background: rgba(47, 111, 106, 0.08); }
     `,
   ],
 })
@@ -115,6 +138,21 @@ export class Review {
   confidencePct(): string {
     const c = this.doc()?.extractionConfidence;
     return c != null ? `${Math.round(c * 100)}%` : '—';
+  }
+
+  private extractionMeta(): Record<string, unknown> {
+    return (this.doc()?.extra?.['extractionMeta'] as Record<string, unknown>) ?? {};
+  }
+
+  /** True when nothing was really read — fell back to the stub, or confidence 0. */
+  failedRead(): boolean {
+    return this.extractionMeta()['fellBack'] === true || this.doc()?.extractionConfidence === 0;
+  }
+
+  /** A short, human reason for a failed read (from the extraction notice), if any. */
+  readReason(): string {
+    const notice = this.extractionMeta()['notice'] as { devNote?: string } | undefined;
+    return notice?.devNote ?? '';
   }
 
   anomaly(): boolean {
