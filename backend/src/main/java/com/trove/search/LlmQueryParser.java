@@ -76,14 +76,15 @@ public class LlmQueryParser {
         this.usage = usage;
     }
 
-    /** Parses the query with the configured LLM, or empty to fall back to rules. */
-    public Optional<SearchQuery> parse(String text) {
+    /** Parses the query with the configured LLM, or empty to fall back to rules.
+     *  {@code userId} is billed for any AI tokens/neurons the parse consumes. */
+    public Optional<SearchQuery> parse(String text, java.util.UUID userId) {
         if (!props.getLlm().isEnabled() || text == null || text.isBlank()) {
             return Optional.empty();
         }
         try {
             String json = "cloudflare".equalsIgnoreCase(props.getLlm().getProvider())
-                    ? callCloudflare(buildPrompt(text))
+                    ? callCloudflare(buildPrompt(text), userId)
                     : callOllama(buildPrompt(text));
             return Optional.of(toQuery(extractJson(json)));
         } catch (Exception e) {
@@ -140,9 +141,10 @@ public class LlmQueryParser {
         return mapper.readTree(resp.body()).path("response").asText("");
     }
 
-    private String callCloudflare(String prompt) throws Exception {
+    private String callCloudflare(String prompt, java.util.UUID userId) throws Exception {
+        String model = props.getLlm().getModel();
         String url = "https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s"
-                .formatted(cloudflare.getAccountId(), props.getLlm().getModel());
+                .formatted(cloudflare.getAccountId(), model);
         var root = mapper.createObjectNode();
         root.put("temperature", 0);   // deterministic parsing
         var messages = root.putArray("messages");
@@ -155,9 +157,13 @@ public class LlmQueryParser {
                 .build();
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         JsonNode respJson = mapper.readTree(resp.body());
-        int tok = respJson.path("result").path("usage").path("total_tokens").asInt(0);
-        if (tok > 0) {
-            usage.add(tok); // search LLM also draws on the shared daily allowance
+        JsonNode u = respJson.path("result").path("usage");
+        long promptTokens = u.path("prompt_tokens").asLong(0);
+        long completionTokens = u.path("completion_tokens").asLong(0);
+        long totalTokens = u.path("total_tokens").asLong(promptTokens + completionTokens);
+        if (totalTokens > 0) {
+            // search LLM also draws on the shared daily allowance — bill it to the user
+            usage.record(userId, com.trove.extraction.AiUsageTracker.neuronsFor(model, promptTokens, completionTokens), totalTokens);
         }
         // Workers AI instruct models often return result.response as a JSON OBJECT
         // (structured output), not a string; .asText() would be "". Re-serialize the

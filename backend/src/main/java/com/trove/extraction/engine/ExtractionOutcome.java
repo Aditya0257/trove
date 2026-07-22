@@ -92,6 +92,18 @@ public record ExtractionOutcome(
                 "Accepted from " + provider + (pct != null ? " at " + pct + "% confidence." : "."));
     }
 
+    /** Total AI tokens across all attempts that reported them. */
+    public long totalTokens() {
+        return attempts == null ? 0
+                : attempts.stream().filter(a -> a.tokens() != null).mapToLong(ExtractionAttempt::tokens).sum();
+    }
+
+    /** Total AI neurons across all attempts that reported them. */
+    public double totalNeurons() {
+        return attempts == null ? 0
+                : attempts.stream().filter(a -> a.neurons() != null).mapToDouble(ExtractionAttempt::neurons).sum();
+    }
+
     /** Plain JSON-friendly view stored under document.extra.extractionMeta. */
     public Map<String, Object> metaMap() {
         Map<String, Object> m = new LinkedHashMap<>();

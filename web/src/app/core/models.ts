@@ -124,3 +124,10 @@ export interface SearchResult {
   results: DocumentResponse[];
 }
 
+/** Today's AI consumption: the shared neuron limit, the app-wide total, and yours. */
+export interface AiUsage {
+  limitNeurons: number;
+  global: { neurons: number; tokens: number };
+  user: { neurons: number; tokens: number };
+}
+

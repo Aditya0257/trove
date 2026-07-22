@@ -26,29 +26,13 @@ export interface DevLogEntry {
 @Injectable({ providedIn: 'root' })
 export class DevLogService {
   private static readonly CAPACITY = 100;
-  /** Soft daily token budget shown in the gauge. Cloudflare's free tier is billed in
-   *  neurons, not tokens, so this is a display budget to visualise consumption, not a
-   *  hard limit. Tune to taste. */
-  readonly tokenBudget = 100_000;
 
   private readonly _entries = signal<DevLogEntry[]>([]);
-  private readonly _tokensToday = signal(0);
-
   readonly entries = this._entries.asReadonly();
-  /** App-wide AI tokens spent today, reported by the backend (shared Workers AI
-   *  account). Set from the X-Trove-Ai-Tokens-Today response header on every call. */
-  readonly tokensToday = this._tokensToday.asReadonly();
 
   add(entry: DevLogEntry): void {
     this._entries.update((list) => [entry, ...list].slice(0, DevLogService.CAPACITY));
     this.toConsole(entry);
-  }
-
-  /** Update the global daily token total from the backend's header. */
-  setTokensToday(total: number): void {
-    if (Number.isFinite(total) && total >= 0) {
-      this._tokensToday.set(total);
-    }
   }
 
   clear(): void {

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { API_BASE } from './config';
 import {
+  AiUsage,
   Category,
   CategorySpend,
   ConfirmRequest,
@@ -47,6 +48,10 @@ export class ApiService {
   }
   deleteDocument(id: string) {
     return this.http.delete<void>(`${API_BASE}/api/documents/${id}`);
+  }
+
+  aiUsage() {
+    return this.http.get<AiUsage>(`${API_BASE}/api/ai-usage`);
   }
   fileUrl(doc: DocumentResponse): string | null {
     if (!doc.fileUrl) return null;

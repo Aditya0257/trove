@@ -36,7 +36,8 @@ public record ExtractionAttempt(
         String reason,       // short, human, no secrets
         Integer confidencePct,
         long latencyMs,
-        Integer tokens       // AI tokens billed for this attempt, if the provider reports it
+        Integer tokens,      // AI tokens billed for this attempt, if the provider reports it
+        Double neurons       // AI neurons (Cloudflare's billed unit) for this attempt
 ) {
     public static final String ACCEPTED = "ACCEPTED";
     public static final String BELOW_THRESHOLD = "BELOW_THRESHOLD";
@@ -57,6 +58,7 @@ public record ExtractionAttempt(
         m.put("confidencePct", confidencePct);
         m.put("latencyMs", latencyMs);
         m.put("tokens", tokens);
+        m.put("neurons", neurons);
         return m;
     }
 }

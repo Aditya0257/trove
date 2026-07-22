@@ -58,14 +58,11 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
 
     private final CloudflareProperties props;
     private final ObjectMapper mapper;
-    private final com.trove.extraction.AiUsageTracker usage;
     private final HttpClient http;
 
-    public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper,
-                                        com.trove.extraction.AiUsageTracker usage) {
+    public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper) {
         this.props = props;
         this.mapper = mapper;
-        this.usage = usage;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
@@ -128,12 +125,18 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
             // Stash Workers AI's token usage so the engine can surface the AI cost in the
             // Developer drawer (result.usage.total_tokens). Neurons aren't returned per
             // request — a daily total needs Cloudflare's analytics API (a later add).
-            int tokens = result.path("usage").path("total_tokens").asInt(0);
-            if (tokens > 0) {
-                usage.add(tokens); // roll into the app-wide daily total
+            // Stash usage so the engine/worker can bill it: total tokens (human figure)
+            // and neurons (Cloudflare's real unit, derived from the model's token rates).
+            com.fasterxml.jackson.databind.JsonNode u = result.path("usage");
+            long promptTokens = u.path("prompt_tokens").asLong(0);
+            long completionTokens = u.path("completion_tokens").asLong(0);
+            long totalTokens = u.path("total_tokens").asLong(promptTokens + completionTokens);
+            if (totalTokens > 0) {
+                double neurons = com.trove.extraction.AiUsageTracker.neuronsFor(model, promptTokens, completionTokens);
                 java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(
                         parsed.extra() != null ? parsed.extra() : java.util.Map.of());
-                extra.put("aiTokens", tokens);
+                extra.put("aiTokens", totalTokens);
+                extra.put("aiNeurons", Math.round(neurons * 100.0) / 100.0);
                 parsed = new ExtractionResult(parsed.categoryCode(), parsed.merchantName(),
                         parsed.docDate(), parsed.amount(), parsed.currency(), parsed.dueDate(),
                         parsed.lineItems(), parsed.rawText(), extra, parsed.confidence());

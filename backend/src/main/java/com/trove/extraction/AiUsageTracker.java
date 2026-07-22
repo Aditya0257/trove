@@ -1,61 +1,112 @@
 /*
  * ============================================================================
- *  AiUsageTracker — app-wide AI token consumption for the day
+ *  AiUsageTracker — persistent, per-user + global AI consumption accounting
  * ============================================================================
  *
  *  Purpose
  *  -------
- *  One Cloudflare Workers AI account backs the whole application, so its daily free
- *  allowance is shared by ALL users. This tracks the total tokens consumed today
- *  (extraction + search) across everyone, so the Developer surface can show a single
- *  global gauge rather than a misleading per-device count.
+ *  One Cloudflare Workers AI account backs the whole app, and its free allowance is
+ *  10,000 neurons/day shared by everyone. This records consumption per UTC day, both
+ *  as a global aggregate and per user, in the ai_usage table (V11) so it survives
+ *  restarts and drives the Developer gauge (global + your-usage, neurons + tokens).
  *
  *  Solution architecture
  *  ---------------------
- *  A process-wide counter that rolls over at UTC midnight. Every provider that spends
- *  tokens calls add(); the request filter reads tokensToday() into a response header
- *  the clients display. In-memory by design (cheap, no dependency); it resets on
- *  restart — Cloudflare's own dashboard/analytics API remains the authoritative source
- *  for billing, and a persistent counter can be added later if needed.
+ *  A tiny JdbcTemplate upsert per AI call bumps the day's global row (the all-zero
+ *  UUID) and the caller's own row. Neurons are Cloudflare's billed unit and the real
+ *  limit; tokens are the API's human-readable figure, kept alongside. The neuron cost
+ *  of a call is derived from the model's published per-token rates.
  *
  *  Reasoning & logic
  *  -----------------
- *  Neurons (Cloudflare's real free-tier unit) aren't returned per request; tokens are.
- *  This counts tokens as a visible proxy for consumption, not as the hard limit.
+ *  Cloudflare doesn't return neurons per request, only tokens — so we convert tokens
+ *  to neurons with each model's input/output rates. Not exact to the cent (the CF
+ *  dashboard is authoritative), but a truthful, restart-safe estimate against 10,000.
  * ============================================================================
  */
 package com.trove.extraction;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 @Component
 public class AiUsageTracker {
 
-    private LocalDate day = LocalDate.now(ZoneOffset.UTC);
-    private long tokens = 0;
+    /** Cloudflare Workers AI free allowance, shared by the whole app. */
+    public static final int DAILY_NEURON_LIMIT = 10_000;
 
-    /** Add tokens spent by an AI call, rolling the counter over at UTC midnight. */
-    public synchronized void add(int spent) {
-        rollIfNewDay();
-        if (spent > 0) {
-            tokens += spent;
+    /** The aggregate ("all users") row is stored under this sentinel user id. */
+    private static final UUID GLOBAL = new UUID(0L, 0L);
+
+    private final JdbcTemplate jdbc;
+
+    public AiUsageTracker(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    /** Record one AI call's cost against both the global total and the user's slice. */
+    public void record(UUID userId, double neurons, long tokens) {
+        if (neurons <= 0 && tokens <= 0) {
+            return;
+        }
+        upsert(GLOBAL, neurons, tokens);
+        if (userId != null && !GLOBAL.equals(userId)) {
+            upsert(userId, neurons, tokens);
         }
     }
 
-    /** Total AI tokens consumed across the whole app so far today (UTC). */
-    public synchronized long tokensToday() {
-        rollIfNewDay();
-        return tokens;
+    /** Today's global (whole-app) usage. */
+    public Usage globalToday() {
+        return read(GLOBAL);
     }
 
-    private void rollIfNewDay() {
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        if (!today.equals(day)) {
-            day = today;
-            tokens = 0;
+    /** Today's usage for one user. */
+    public Usage userToday(UUID userId) {
+        return read(userId == null ? GLOBAL : userId);
+    }
+
+    private void upsert(UUID uid, double neurons, long tokens) {
+        jdbc.update(
+                "insert into ai_usage (day, user_id, neurons, tokens) values (?, ?, ?, ?) "
+                        + "on conflict (day, user_id) do update set "
+                        + "neurons = ai_usage.neurons + excluded.neurons, "
+                        + "tokens = ai_usage.tokens + excluded.tokens",
+                LocalDate.now(ZoneOffset.UTC), uid, neurons, tokens);
+    }
+
+    private Usage read(UUID uid) {
+        return jdbc.query(
+                "select neurons, tokens from ai_usage where day = ? and user_id = ?",
+                rs -> rs.next() ? new Usage(rs.getDouble(1), rs.getLong(2)) : new Usage(0, 0),
+                LocalDate.now(ZoneOffset.UTC), uid);
+    }
+
+    /** A day's usage figures. */
+    public record Usage(double neurons, long tokens) {
+    }
+
+    /**
+     * Convert a call's token counts to neurons using the model's published rates
+     * (neurons per million tokens). Falls back to a middle estimate for unknown models.
+     */
+    public static double neuronsFor(String model, long promptTokens, long completionTokens) {
+        String m = model == null ? "" : model.toLowerCase();
+        double inRate;
+        double outRate;
+        if (m.contains("llama-3.2-11b-vision")) {
+            inRate = 4_410;
+            outRate = 61_493;
+        } else if (m.contains("llama-3.1-8b")) {
+            inRate = 25_608;
+            outRate = 75_147;
+        } else {
+            inRate = 10_000; // conservative fallback for an unmapped model
+            outRate = 60_000;
         }
+        return promptTokens / 1_000_000.0 * inRate + completionTokens / 1_000_000.0 * outRate;
     }
 }

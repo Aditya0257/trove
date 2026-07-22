@@ -77,7 +77,7 @@ public class SearchService {
      */
     @Transactional(readOnly = true)
     public SearchResult naturalSearch(UUID spaceId, UUID userId, String queryText) {
-        SearchQuery q = llmQueryParser.parse(queryText).orElseGet(() -> parser.parse(queryText));
+        SearchQuery q = llmQueryParser.parse(queryText, userId).orElseGet(() -> parser.parse(queryText));
         List<DocumentResponse> results = search(spaceId, userId, q);
         return new SearchResult(q, results.size(), results);
     }

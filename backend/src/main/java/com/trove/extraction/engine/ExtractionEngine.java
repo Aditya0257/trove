@@ -87,13 +87,13 @@ public class ExtractionEngine {
                 log.warn("Extraction step '{}' skipped — no provider bean named '{}'",
                         label, step.getProvider());
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                        ExtractionAttempt.SKIPPED_NO_BEAN, "no provider bean registered", null, 0, null));
+                        ExtractionAttempt.SKIPPED_NO_BEAN, "no provider bean registered", null, 0, null, null));
                 continue;
             }
             if (breaker.isOpen(label, nowMillis)) {
                 log.info("Extraction step '{}' skipped — circuit breaker open", label);
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                        ExtractionAttempt.SKIPPED_BREAKER, "circuit breaker open (recent failures)", null, 0, null));
+                        ExtractionAttempt.SKIPPED_BREAKER, "circuit breaker open (recent failures)", null, 0, null, null));
                 continue;
             }
 
@@ -106,13 +106,13 @@ public class ExtractionEngine {
 
                 if (result == null) {
                     attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                            ExtractionAttempt.TRANSIENT, "provider returned no result", null, ms, null));
+                            ExtractionAttempt.TRANSIENT, "provider returned no result", null, ms, null, null));
                     continue;
                 }
                 if (isAccepted(result)) {
                     log.info("Extraction step '{}' accepted (confidence={})", label, result.confidence());
                     attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                            ExtractionAttempt.ACCEPTED, "cleared the acceptance bar", pct(result), ms, tokensOf(result)));
+                            ExtractionAttempt.ACCEPTED, "cleared the acceptance bar", pct(result), ms, tokensOf(result), neuronsOf(result)));
                     return new ExtractionOutcome(result, step.getProvider(), step.getModel(), true, attempts);
                 }
                 // Not confident enough — keep as fallback if it's the best so far.
@@ -124,7 +124,7 @@ public class ExtractionEngine {
                 log.info("Extraction step '{}' below threshold (confidence={}) — trying next",
                         label, result.confidence());
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                        ExtractionAttempt.BELOW_THRESHOLD, "below the acceptance bar", pct(result), ms, tokensOf(result)));
+                        ExtractionAttempt.BELOW_THRESHOLD, "below the acceptance bar", pct(result), ms, tokensOf(result), neuronsOf(result)));
 
             } catch (ExtractionException e) {
                 long ms = elapsedMs(startNanos);
@@ -134,16 +134,16 @@ public class ExtractionEngine {
                             props.getBreaker().getCooldownSeconds());
                     log.warn("Extraction step '{}' quota-exhausted — {}", label, e.getMessage());
                     attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                            ExtractionAttempt.QUOTA, "free daily allowance reached", null, ms, null));
+                            ExtractionAttempt.QUOTA, "free daily allowance reached", null, ms, null, null));
                 } else {
                     log.warn("Extraction step '{}' failed (transient) — {}", label, e.getMessage());
                     attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                            ExtractionAttempt.TRANSIENT, shorten(e.getMessage()), null, ms, null));
+                            ExtractionAttempt.TRANSIENT, shorten(e.getMessage()), null, ms, null, null));
                 }
             } catch (Exception e) {
                 log.warn("Extraction step '{}' errored unexpectedly — {}", label, e.toString());
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                        ExtractionAttempt.ERROR, shorten(e.getClass().getSimpleName()), null, elapsedMs(startNanos), null));
+                        ExtractionAttempt.ERROR, shorten(e.getClass().getSimpleName()), null, elapsedMs(startNanos), null, null));
             }
         }
 
@@ -172,6 +172,13 @@ public class ExtractionEngine {
         if (result == null || result.extra() == null) return null;
         Object t = result.extra().get("aiTokens");
         return t instanceof Number n ? n.intValue() : null;
+    }
+
+    /** AI neurons for this read, if the provider stashed them in extra.aiNeurons. */
+    private static Double neuronsOf(ExtractionResult result) {
+        if (result == null || result.extra() == null) return null;
+        Object n = result.extra().get("aiNeurons");
+        return n instanceof Number num ? num.doubleValue() : null;
     }
 
     /** Confidence (0..1) as a whole percent for the trail, or null. */

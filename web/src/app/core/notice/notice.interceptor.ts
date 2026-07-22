@@ -29,8 +29,6 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
           extractionMeta: extractionMetaOf(event.body),
           extracted: extractedOf(event.body),
         });
-        const ai = event.headers.get('X-Trove-Ai-Tokens-Today');
-        if (ai != null) devlog.setTokensToday(Number(ai));
       }
     }),
     catchError((err: HttpErrorResponse) => {
@@ -44,8 +42,6 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
         requestId: err.headers?.get('X-Trove-Request-Id'),
         notice,
       });
-      const ai = err.headers?.get('X-Trove-Ai-Tokens-Today');
-      if (ai != null) devlog.setTokensToday(Number(ai));
       notices.show(notice);
       return throwError(() => err);
     }),

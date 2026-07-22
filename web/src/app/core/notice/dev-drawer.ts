@@ -1,5 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { DevLogService, DevLogEntry } from './dev-log.service';
+import { ApiService } from '../api.service';
+import { AiUsage } from '../models';
 
 /**
  * The in-app "inspect" surface: a slide-over listing recent API calls with method,
@@ -30,22 +32,25 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
           <button class="link" (click)="open.set(false)">Close</button>
         </header>
 
-        @if (log.tokensToday() > 0 || deviceTokens() > 0) {
+        @if (usage(); as u) {
           <div class="gauge">
             <div class="gauge-row">
               <span>All users today
-                <span class="tip" tabindex="0">i<span class="bubble">Total AI tokens spent across everyone on the one shared Workers AI account today. This is what counts toward the free daily allowance.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">Total across everyone on the one shared Workers AI account today. Neurons are Cloudflare's billed unit; this is what counts toward the free {{ fmt(u.limitNeurons) }}/day limit.</span></span>
               </span>
-              <span class="gauge-nums">{{ fmt(log.tokensToday()) }} / {{ fmt(log.tokenBudget) }}</span>
+              <span class="gauge-nums">{{ fmt(u.global.neurons) }} / {{ fmt(u.limitNeurons) }} neurons</span>
             </div>
-            <div class="bar"><div class="fill" [style.width.%]="tokenPct()"></div></div>
-            <div class="gauge-row sub">
-              <span>This device
-                <span class="tip" tabindex="0">i<span class="bubble">AI tokens used by your requests in this browser session — a subset of the global total above.</span></span>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.global.neurons, u.limitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.global.tokens) }} tokens · {{ fmt(left(u.global.neurons, u.limitNeurons)) }} neurons left today</div>
+
+            <div class="gauge-row two">
+              <span>Your usage today
+                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today — a subset of the global total above.</span></span>
               </span>
-              <span>{{ fmt(deviceTokens()) }} tok</span>
+              <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.limitNeurons) }} neurons</span>
             </div>
-            <div class="gauge-sub">{{ fmt(remaining()) }} left in the display budget</div>
+            <div class="bar"><div class="fill you" [style.width.%]="pct(u.user.neurons, u.limitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens</div>
           </div>
         }
 
@@ -175,8 +180,11 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
         pointer-events: none;
       }
       .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
+      .gauge-row.two { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(59, 125, 221, 0.25); }
+      .gauge-nums.you { color: #2e7d5b; }
       .bar { height: 8px; background: rgba(59, 125, 221, 0.15); border-radius: 999px; overflow: hidden; }
       .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
+      .fill.you { background: linear-gradient(90deg, #43b581, #2e7d5b); }
       .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
       .json {
         background: #0f172a; color: #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;
@@ -187,8 +195,25 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
 })
 export class DevDrawer {
   protected log = inject(DevLogService);
+  protected api = inject(ApiService);
   protected entries = this.log.entries;
   protected open = signal(false);
+  protected usage = signal<AiUsage | null>(null);
+
+  constructor() {
+    // Refresh the usage gauge when the drawer opens and after any new logged call.
+    effect(() => {
+      const n = this.entries().length; // track: new calls should refresh usage
+      if (this.open()) {
+        void n;
+        this.fetchUsage();
+      }
+    });
+  }
+
+  protected fetchUsage(): void {
+    this.api.aiUsage().subscribe({ next: (u) => this.usage.set(u), error: () => {} });
+  }
 
   protected path = (e: DevLogEntry) => e.url.replace(/^https?:\/\/[^/]+/, '');
   protected ok = (e: DevLogEntry) => e.status >= 200 && e.status < 300;
@@ -260,14 +285,8 @@ export class DevDrawer {
     return seen ? sum : null;
   }
 
-  protected fmt = (n: number) => n.toLocaleString('en-US');
-  protected tokenPct = () =>
-    Math.min(100, Math.round((this.log.tokensToday() / this.log.tokenBudget) * 100));
-  protected remaining = () => Math.max(0, this.log.tokenBudget - this.log.tokensToday());
+  protected fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+  protected pct = (used: number, limit: number) => Math.min(100, Math.round((used / limit) * 100));
+  protected left = (used: number, limit: number) => Math.max(0, limit - used);
   protected pretty = (o: unknown) => JSON.stringify(o, null, 2);
-
-  /** Tokens used by this browser session (sum of what the drawer has logged). */
-  protected deviceTokens(): number {
-    return this.entries().reduce((sum, e) => sum + (this.aiTokens(e) ?? 0), 0);
-  }
 }

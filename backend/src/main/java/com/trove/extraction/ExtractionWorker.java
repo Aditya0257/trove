@@ -64,19 +64,22 @@ public class ExtractionWorker {
     private final CategoryService categoryService;
     private final MerchantService merchantService;
     private final ExtractionEngine extractionEngine;
+    private final AiUsageTracker aiUsage;
 
     public ExtractionWorker(DocumentRepository documentRepository,
                             LineItemRepository lineItemRepository,
                             StorageService storageService,
                             CategoryService categoryService,
                             MerchantService merchantService,
-                            ExtractionEngine extractionEngine) {
+                            ExtractionEngine extractionEngine,
+                            AiUsageTracker aiUsage) {
         this.documentRepository = documentRepository;
         this.lineItemRepository = lineItemRepository;
         this.storageService = storageService;
         this.categoryService = categoryService;
         this.merchantService = merchantService;
         this.extractionEngine = extractionEngine;
+        this.aiUsage = aiUsage;
     }
 
     /**
@@ -108,6 +111,9 @@ public class ExtractionWorker {
         // first acceptable result (or a best-effort/stub result). See DECISIONS.md → D9.
         ExtractionOutcome outcome = extractionEngine.run(bytes, doc.getMimeType());
         ExtractionResult result = outcome.result();
+
+        // Bill the AI usage to the uploader + the app-wide total (shared Workers AI account).
+        aiUsage.record(doc.getUploadedBy(), outcome.totalNeurons(), outcome.totalTokens());
 
         // Resolve category (always non-null) and merchant (optional).
         Category category = categoryService.resolve(doc.getSpaceId(), result.categoryCode());
