@@ -58,6 +58,8 @@ export interface ConfirmRequest {
   currency?: string;
   dueDate?: string;
   vital?: boolean;
+  /** Extra fields merged into the document (e.g. Mail metadata: account/subject/bundle). */
+  extra?: Record<string, unknown>;
 }
 
 export interface SpaceSummary {

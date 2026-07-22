@@ -21,6 +21,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/documents/review').then((m) => m.Review),
   },
   {
+    path: 'mail',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/mail/mail').then((m) => m.Mail),
+  },
+  {
     path: 'search',
     canActivate: [authGuard],
     loadComponent: () => import('./features/search/search').then((m) => m.Search),

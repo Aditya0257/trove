@@ -34,6 +34,7 @@ import com.trove.category.Category;
 import com.trove.category.CategoryService;
 import com.trove.document.Document;
 import com.trove.document.DocumentRepository;
+import com.trove.document.DocumentStatus;
 import com.trove.document.LineItem;
 import com.trove.document.LineItemRepository;
 import com.trove.document.SidecarFactory;
@@ -91,6 +92,14 @@ public class ExtractionWorker {
         }
         if (doc.getExtractionConfidence() != null) {
             log.debug("Extraction skipped — document {} already extracted", documentId);
+            return;
+        }
+        // Never overwrite a human-confirmed document. Besides being the right invariant
+        // (the human's values are final), this lets flows that confirm quickly after
+        // upload — e.g. filing email screenshots — set their own category/fields without
+        // a late extraction run clobbering them.
+        if (DocumentStatus.CONFIRMED.equals(doc.getStatus())) {
+            log.debug("Extraction skipped — document {} already confirmed", documentId);
             return;
         }
 
