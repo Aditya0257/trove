@@ -40,9 +40,11 @@ public class SpaceAuthorization {
         this.memberRepository = memberRepository;
     }
 
-    /** Returns the user's role in the space, or throws 403 if they are not a member. */
+    /** Returns the user's role in the space, or throws 403 unless they are an ACTIVE
+     *  member. A pending (unaccepted) or declined invite grants no access. */
     public String requireMembership(UUID spaceId, UUID userId) {
         return memberRepository.findBySpaceIdAndUserId(spaceId, userId)
+                .filter(m -> MembershipStatus.ACTIVE.equals(m.getStatus()))
                 .map(SpaceMember::getRole)
                 .orElseThrow(() -> new ForbiddenException("Not a member of this space"));
     }

@@ -2,7 +2,8 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
-import { DriveStatus, IngestAddress, Member } from '../../core/models';
+import { NoticeService } from '../../core/notice/notice.service';
+import { DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { TERMS } from '../../core/terms';
@@ -12,6 +13,25 @@ import { TroveSelect, SelectOption } from '../../core/select';
   selector: 'app-spaces',
   imports: [FormsModule, HelpCard, DateTimePipe, TroveSelect],
   template: `
+    @if (invitations().length) {
+      <div class="card invites">
+        <h3>Invitations</h3>
+        <p class="muted">You've been invited to these spaces. Accept to join, or decline.</p>
+        @for (inv of invitations(); track inv.spaceId) {
+          <div class="invite">
+            <div class="invite-info">
+              <b>{{ inv.spaceName }}</b> <span class="tag">{{ inv.role }}</span>
+              <span class="muted">invited by {{ inv.invitedByName || inv.invitedByEmail || 'someone' }}</span>
+            </div>
+            <div class="invite-actions">
+              <button type="button" (click)="accept(inv)" [disabled]="busy()">Accept</button>
+              <button type="button" class="btn-ghost" (click)="decline(inv)" [disabled]="busy()">Decline</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
     <div class="card">
       <h1>Spaces</h1>
       <form (ngSubmit)="createSpace()" class="inline-form">
@@ -41,7 +61,16 @@ import { TroveSelect, SelectOption } from '../../core/select';
                   <div class="member-name">{{ m.displayName || 'Unknown user' }}</div>
                   <div class="member-sub">{{ m.email || m.userId }}</div>
                 </td>
-                <td>{{ m.role }}</td>
+                <td>
+                  @if (m.status === 'active') {
+                    {{ m.role }}
+                  } @else if (m.status === 'pending') {
+                    <span class="badge">invite sent · {{ m.role }}</span>
+                  } @else {
+                    <span class="badge due">declined</span>
+                    <button type="button" class="dismiss" title="Dismiss this row" (click)="dismiss(m)">✕</button>
+                  }
+                </td>
               </tr>
             }
           </tbody>
@@ -108,12 +137,26 @@ import { TroveSelect, SelectOption } from '../../core/select';
       .member-sub { font-size: 12px; color: var(--muted); font-family: monospace; }
       /* Breathing room + a divider between the members table and the invite row. */
       .invite-form { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+      .invites { border-left: 3px solid var(--accent); }
+      .invite { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+      .invite-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .invite-actions { display: flex; gap: 8px; }
+      .invite-actions button { margin: 0; }
+      .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+      .btn-ghost:hover { background: var(--hover); }
+      .tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+      .dismiss { margin: 0 0 0 8px; padding: 2px 8px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 12px; }
+      .dismiss:hover { color: var(--danger); border-color: var(--danger-line); }
     `,
   ],
 })
 export class Spaces {
   protected spaceCtx = inject(SpaceContext);
   private api = inject(ApiService);
+  private notices = inject(NoticeService);
+
+  protected invitations = signal<Invitation[]>([]);
+  protected busy = signal(false);
 
   /** Vendor-neutral labels (see core/terms.ts) so provider swaps are one-file changes. */
   protected terms = TERMS;
@@ -153,6 +196,44 @@ export class Spaces {
         this.loadSpace(sid);
       }
     });
+    this.loadInvitations();
+  }
+
+  private loadInvitations(): void {
+    this.api.listInvitations().subscribe({ next: (i) => this.invitations.set(i), error: () => {} });
+  }
+
+  /** Accept an invite: the space becomes active and shows up in the switcher for you. */
+  accept(inv: Invitation): void {
+    this.busy.set(true);
+    this.api.acceptInvite(inv.spaceId).subscribe({
+      next: () => {
+        this.notices.show({ level: 'success', code: 'JOINED', userMessage: `Joined "${inv.spaceName}".` });
+        this.loadInvitations();
+        this.spaceCtx.load();
+        this.busy.set(false);
+      },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  decline(inv: Invitation): void {
+    this.busy.set(true);
+    this.api.declineInvite(inv.spaceId).subscribe({
+      next: () => {
+        this.notices.show({ level: 'info', code: 'DECLINED', userMessage: `Declined "${inv.spaceName}".` });
+        this.loadInvitations();
+        this.busy.set(false);
+      },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  /** Owner removes a member, or dismisses a declined-invite row so it stops showing. */
+  dismiss(m: Member): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    this.api.removeMember(sid, m.userId).subscribe({ next: () => this.loadSpace(sid) });
   }
 
   private loadSpace(sid: string): void {
@@ -186,7 +267,7 @@ export class Spaces {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid || !this.memberEmail.trim()) return;
     this.api.addMember(sid, this.memberEmail.trim(), this.memberRole).subscribe({
-      next: () => { this.memberMsg.set('Added.'); this.memberEmail = ''; this.loadSpace(sid); },
+      next: () => { this.memberMsg.set('Invitation sent — waiting for them to accept.'); this.memberEmail = ''; this.loadSpace(sid); },
       error: (e) => this.memberMsg.set(e?.error?.message ?? 'Could not add member'),
     });
   }

@@ -23,6 +23,7 @@ import {
   DocumentResponse,
   DriveStatus,
   IngestAddress,
+  Invitation,
   Member,
   MonthlySpend,
   ReminderResponse,
@@ -123,6 +124,20 @@ export class ApiService {
   }
   addMember(spaceId: string, email: string, role: string) {
     return this.http.post<Member>(`${API_BASE}/api/spaces/${spaceId}/members`, { email, role });
+  }
+  removeMember(spaceId: string, userId: string) {
+    return this.http.delete<void>(`${API_BASE}/api/spaces/${spaceId}/members/${userId}`);
+  }
+
+  // --- space invitations (accept/decline flow) ---
+  listInvitations() {
+    return this.http.get<Invitation[]>(`${API_BASE}/api/spaces/invitations`);
+  }
+  acceptInvite(spaceId: string) {
+    return this.http.post<Member>(`${API_BASE}/api/spaces/${spaceId}/invitations/accept`, {});
+  }
+  declineInvite(spaceId: string) {
+    return this.http.post<Member>(`${API_BASE}/api/spaces/${spaceId}/invitations/decline`, {});
   }
 
   // --- ingest address ---

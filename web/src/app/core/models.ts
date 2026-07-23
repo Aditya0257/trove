@@ -75,7 +75,18 @@ export interface Member {
   displayName: string | null;
   email: string | null;
   role: 'owner' | 'member' | 'viewer';
+  status: 'active' | 'pending' | 'declined';
   joinedAt: string;
+}
+
+/** An outstanding invitation to a space, shown to the invited user. */
+export interface Invitation {
+  spaceId: string;
+  spaceName: string;
+  spaceKind: 'personal' | 'shared';
+  role: string;
+  invitedByName: string | null;
+  invitedByEmail: string | null;
 }
 
 export interface IngestAddress {

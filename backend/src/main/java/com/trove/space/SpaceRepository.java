@@ -18,7 +18,9 @@ public interface SpaceRepository extends JpaRepository<Space, UUID> {
     /** All spaces the given user is a member of, via space_member. */
     @Query("""
            select s from Space s
-           where s.id in (select m.spaceId from SpaceMember m where m.userId = :userId)
+           where s.id in (
+             select m.spaceId from SpaceMember m where m.userId = :userId and m.status = 'active'
+           )
            order by s.createdAt
            """)
     List<Space> findAllForUser(UUID userId);

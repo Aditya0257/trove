@@ -28,6 +28,7 @@ import com.trove.common.security.CurrentUser;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -84,10 +85,47 @@ public class SpaceController {
                 .toList();
     }
 
-    /** Add or re-role a member by email (owner only). */
+    /** Invite a member by email (owner only). Creates a PENDING invitation. */
     @PostMapping("/{id}/members")
     public MemberResponse addMember(@PathVariable UUID id, @RequestBody AddMemberRequest req) {
         SpaceMember m = spaceService.addMember(id, currentUser.requireUserId(), req.email(), req.role());
+        return MemberResponse.of(m, userRepository.findById(m.getUserId()).orElse(null));
+    }
+
+    /** Remove a member, or dismiss a declined invite row (owner only). */
+    @DeleteMapping("/{id}/members/{userId}")
+    public ResponseEntity<Void> removeMember(@PathVariable UUID id, @PathVariable UUID userId) {
+        spaceService.removeMember(id, currentUser.requireUserId(), userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** The caller's outstanding invitations (pending), with who invited them. */
+    @GetMapping("/invitations")
+    public List<InvitationResponse> invitations() {
+        List<SpaceMember> pending = spaceService.pendingInvitations(currentUser.requireUserId());
+        Map<UUID, User> inviters = userRepository
+                .findAllById(pending.stream().map(SpaceMember::getInvitedBy).filter(java.util.Objects::nonNull).toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        return pending.stream().map(m -> {
+            Space s = spaceService.getSpace(m.getSpaceId());
+            User inviter = m.getInvitedBy() != null ? inviters.get(m.getInvitedBy()) : null;
+            return new InvitationResponse(s.getId(), s.getName(), s.getKind(), m.getRole(),
+                    inviter != null ? inviter.getDisplayName() : null,
+                    inviter != null ? inviter.getEmail() : null);
+        }).toList();
+    }
+
+    /** Accept a pending invitation to this space. */
+    @PostMapping("/{id}/invitations/accept")
+    public MemberResponse acceptInvite(@PathVariable UUID id) {
+        SpaceMember m = spaceService.respondToInvite(id, currentUser.requireUserId(), true);
+        return MemberResponse.of(m, userRepository.findById(m.getUserId()).orElse(null));
+    }
+
+    /** Decline a pending invitation to this space. */
+    @PostMapping("/{id}/invitations/decline")
+    public MemberResponse declineInvite(@PathVariable UUID id) {
+        SpaceMember m = spaceService.respondToInvite(id, currentUser.requireUserId(), false);
         return MemberResponse.of(m, userRepository.findById(m.getUserId()).orElse(null));
     }
 
@@ -105,14 +143,20 @@ public class SpaceController {
         }
     }
 
-    public record MemberResponse(UUID userId, String displayName, String email, String role, Instant joinedAt) {
+    public record MemberResponse(UUID userId, String displayName, String email, String role,
+                                 String status, Instant joinedAt) {
         static MemberResponse of(SpaceMember m, User u) {
             return new MemberResponse(
                     m.getUserId(),
                     u != null ? u.getDisplayName() : null,
                     u != null ? u.getEmail() : null,
                     m.getRole(),
+                    m.getStatus(),
                     m.getJoinedAt());
         }
+    }
+
+    public record InvitationResponse(UUID spaceId, String spaceName, String spaceKind, String role,
+                                     String invitedByName, String invitedByEmail) {
     }
 }

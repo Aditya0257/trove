@@ -20,4 +20,7 @@ public interface SpaceMemberRepository extends JpaRepository<SpaceMember, SpaceM
     boolean existsBySpaceIdAndUserId(UUID spaceId, UUID userId);
 
     List<SpaceMember> findBySpaceId(UUID spaceId);
+
+    /** A user's memberships in a given lifecycle state (e.g. their pending invitations). */
+    List<SpaceMember> findByUserIdAndStatus(UUID userId, String status);
 }
