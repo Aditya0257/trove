@@ -31,7 +31,7 @@ export interface SelectOption {
       </button>
       @if (open()) {
         <ul class="ts-list" role="listbox">
-          @for (o of options; track o.value; let i = $index) {
+          @for (o of opts(); track o.value; let i = $index) {
             <li role="option" [attr.aria-selected]="o.value === value()"
                 [class.sel]="o.value === value()" [class.hi]="i === highlight()"
                 (click)="pick(o.value)" (mouseenter)="highlight.set(i)">
@@ -62,7 +62,7 @@ export interface SelectOption {
       .ts.open .ts-chev { transform: rotate(180deg); }
       .ts-list {
         position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px;
-        list-style: none; max-height: 260px; overflow-y: auto; background: var(--card);
+        list-style: none; max-height: 260px; overflow-y: auto; background: var(--card); font-size: 0.9rem;
         border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px var(--shadow);
       }
       .ts-list li {
@@ -78,7 +78,14 @@ export interface SelectOption {
   ],
 })
 export class TroveSelect implements ControlValueAccessor {
-  @Input() options: SelectOption[] = [];
+  // Signal-backed so the displayed label reacts when the options change (e.g. a space
+  // is renamed) — a plain @Input wouldn't re-run the `selected` computed.
+  private _options = signal<SelectOption[]>([]);
+  @Input() set options(v: SelectOption[]) {
+    this._options.set(v ?? []);
+  }
+  protected opts = this._options.asReadonly();
+
   @Input() placeholder = 'Select…';
   @Input() ariaLabel = '';
 
@@ -86,7 +93,7 @@ export class TroveSelect implements ControlValueAccessor {
   protected open = signal(false);
   protected disabled = signal(false);
   protected highlight = signal(-1);
-  protected selected = computed(() => this.options.find((o) => o.value === this.value()));
+  protected selected = computed(() => this._options().find((o) => o.value === this.value()));
 
   private host = inject(ElementRef);
   private onChange: (v: string) => void = () => {};
@@ -109,7 +116,7 @@ export class TroveSelect implements ControlValueAccessor {
     if (this.disabled()) return;
     this.open.update((o) => !o);
     if (this.open()) {
-      this.highlight.set(Math.max(0, this.options.findIndex((o) => o.value === this.value())));
+      this.highlight.set(Math.max(0, this._options().findIndex((o) => o.value === this.value())));
     }
   }
 
@@ -122,7 +129,7 @@ export class TroveSelect implements ControlValueAccessor {
 
   protected onKey(e: KeyboardEvent): void {
     if (this.disabled()) return;
-    const n = this.options.length;
+    const n = this._options().length;
     if (!this.open()) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
@@ -137,7 +144,7 @@ export class TroveSelect implements ControlValueAccessor {
       case 'End': e.preventDefault(); this.highlight.set(n - 1); break;
       case 'Enter': case ' ': {
         e.preventDefault();
-        const o = this.options[this.highlight()];
+        const o = this._options()[this.highlight()];
         if (o) this.pick(o.value);
         break;
       }
