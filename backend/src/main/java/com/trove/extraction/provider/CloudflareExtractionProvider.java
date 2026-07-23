@@ -43,18 +43,33 @@ import com.trove.extraction.ExtractionRequest;
 import com.trove.extraction.ExtractionResult;
 import com.trove.extraction.support.ExtractionPrompt;
 import com.trove.extraction.support.ExtractionResponseParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import javax.imageio.ImageIO;
+
 @Component("cloudflare")
 public class CloudflareExtractionProvider implements ExtractionProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(CloudflareExtractionProvider.class);
     private static final String LABEL = "cloudflare";
+
+    /** Longest edge (px) we send to the vision model. Large scans/screenshots are
+     *  downscaled to this first: the model reads them fine at this size, huge images
+     *  can come back empty, and smaller images cost far fewer credits. */
+    private static final int MAX_IMAGE_EDGE = 1600;
 
     private final CloudflareProperties props;
     private final ObjectMapper mapper;
@@ -84,7 +99,12 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         String url = "https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s"
                 .formatted(props.getAccountId(), model);
 
-        String body = buildRequestBody(fileBytes, mimeType, model);
+        // Downscale big scans/screenshots first: the model reads them fine smaller, huge
+        // images can return an empty reply, and it costs far fewer credits.
+        byte[] toSend = downscaleIfLarge(fileBytes, mimeType);
+        String sendMime = toSend == fileBytes ? mimeType : "image/jpeg";
+
+        String body = buildRequestBody(toSend, sendMime, model);
         HttpResponse<String> resp;
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))
@@ -124,7 +144,16 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
             } else {
                 text = response.asText("");
             }
-            ExtractionResult parsed = ExtractionResponseParser.parse(text, mapper);
+            final String modelText = text;
+            ExtractionResult parsed;
+            try {
+                parsed = ExtractionResponseParser.parse(text, mapper);
+            } catch (IllegalArgumentException e) {
+                // Surface what the model actually said, so a failure like this is diagnosable
+                // from the developer trail instead of a bare "No JSON object found".
+                throw ExtractionException.transientError(LABEL,
+                        e.getMessage() + " — model returned: " + truncate(modelText), e);
+            }
             // Stash Workers AI's token usage so the engine can surface the AI cost in the
             // Developer drawer (result.usage.total_tokens). Neurons aren't returned per
             // request — a daily total needs Cloudflare's analytics API (a later add).
@@ -145,6 +174,8 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
                         parsed.lineItems(), parsed.rawText(), extra, parsed.confidence());
             }
             return parsed;
+        } catch (ExtractionException e) {
+            throw e; // already a well-formed provider error (e.g. the parse-failure above)
         } catch (IllegalArgumentException e) {
             throw ExtractionException.transientError(LABEL, e.getMessage(), e);
         } catch (Exception e) {
@@ -169,7 +200,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
                 image.add(b & 0xFF);
             }
             root.put("prompt", ExtractionPrompt.INSTRUCTION);
-            root.put("max_tokens", 1024);
+            root.put("max_tokens", 2048);
             return root.toString();
         }
         String dataUri = "data:" + imageMime(mimeType) + ";base64,"
@@ -179,11 +210,48 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         content.addObject().put("type", "text").put("text", ExtractionPrompt.INSTRUCTION);
         content.addObject().put("type", "image_url")
                 .putObject("image_url").put("url", dataUri);
-        root.put("max_tokens", 1024);
+        root.put("max_tokens", 2048);
         // Force valid JSON output. Without this the vision model intermittently replies
         // in prose ("No JSON object found"), which sent real receipts to the stub.
         root.putObject("response_format").put("type", "json_object");
         return root.toString();
+    }
+
+    /**
+     * Downscales an image whose longest edge exceeds MAX_IMAGE_EDGE, re-encoding as JPEG.
+     * Returns the ORIGINAL array (same reference) when no resize is needed or on any
+     * failure, so the caller can tell whether the mime changed. Never throws.
+     */
+    private byte[] downscaleIfLarge(byte[] fileBytes, String mimeType) {
+        if (mimeType == null || !mimeType.startsWith("image/")) {
+            return fileBytes; // non-images (PDF, etc.) are handled elsewhere / by the stub
+        }
+        try {
+            BufferedImage img = ImageIO.read(new ByteArrayInputStream(fileBytes));
+            if (img == null) {
+                return fileBytes; // unreadable format — let the API try the raw bytes
+            }
+            int longest = Math.max(img.getWidth(), img.getHeight());
+            if (longest <= MAX_IMAGE_EDGE) {
+                return fileBytes; // already small enough
+            }
+            double scale = (double) MAX_IMAGE_EDGE / longest;
+            int w = Math.max(1, (int) Math.round(img.getWidth() * scale));
+            int h = Math.max(1, (int) Math.round(img.getHeight() * scale));
+            BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = scaled.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g.drawImage(img, 0, 0, w, h, null);
+            g.dispose();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(scaled, "jpeg", out);
+            log.info("Downscaled image {}x{} -> {}x{} for the vision model", img.getWidth(), img.getHeight(), w, h);
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.warn("Image downscale failed, sending original: {}", e.getMessage());
+            return fileBytes;
+        }
     }
 
     /** Vision models need an image MIME; fall back to png for missing/non-image types. */

@@ -6,6 +6,7 @@ import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
 import { noticeFrom } from '../../core/notice/notice.model';
+import { HelpCard } from '../../core/help-card';
 
 /** A queued image awaiting upload, with a preview URL to revoke later. */
 interface Queued {
@@ -22,7 +23,7 @@ interface Queued {
  */
 @Component({
   selector: 'app-upload',
-  imports: [FormsModule],
+  imports: [FormsModule, HelpCard],
   template: `
     <div class="card">
       <h1>Add documents</h1>
@@ -32,6 +33,13 @@ interface Queued {
         details next. PDFs and other non-image files are stored safely, but aren't auto-read
         yet, so you'll fill in their details yourself.
       </p>
+
+      <trove-help-card
+        title="How reading works"
+        [open]="false"
+        user="Trove reads each image with a vision AI model and pre-fills the details for you to confirm. Big photos and scans are automatically shrunk to a sensible size first, so they read reliably and use less of the daily AI budget. If the AI can't read something, or the daily budget is used up, the file is still saved and you simply fill in the details yourself."
+        dev="Images larger than 1600px on the longest edge are downscaled and re-encoded as JPEG before being sent to the vision model (this also cuts credit cost), and the model is asked for strict JSON. Extraction runs asynchronously after upload and always lands in needs-review for a human to confirm. If the model errors or the daily budget is spent, the provider chain falls back to a free stub, so an upload never fails.">
+      </trove-help-card>
 
       <div
         class="dropzone"
