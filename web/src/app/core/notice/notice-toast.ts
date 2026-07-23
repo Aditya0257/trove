@@ -35,7 +35,7 @@ import { NoticeService } from './notice.service';
     `
       :host {
         position: fixed;
-        top: 18px;
+        top: 72px;
         right: 18px;
         z-index: 1000;
         max-width: min(440px, calc(100vw - 36px));

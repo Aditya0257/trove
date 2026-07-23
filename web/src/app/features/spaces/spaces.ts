@@ -45,7 +45,7 @@ import { TERMS } from '../../core/terms';
             }
           </tbody>
         </table>
-        <form (ngSubmit)="addMember()" class="inline-form">
+        <form (ngSubmit)="addMember()" class="inline-form invite-form">
           <label>Invite by email <input name="email" [(ngModel)]="memberEmail" /></label>
           <label>Role
             <select name="role" [(ngModel)]="memberRole">
@@ -109,6 +109,8 @@ import { TERMS } from '../../core/terms';
     `
       .member-name { font-weight: 600; }
       .member-sub { font-size: 12px; color: var(--muted); font-family: monospace; }
+      /* Breathing room + a divider between the members table and the invite row. */
+      .invite-form { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
     `,
   ],
 })
