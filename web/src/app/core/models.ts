@@ -121,6 +121,8 @@ export interface MonthlySpend {
 export interface SpendSummary {
   from: string;
   to: string;
+  currency: string;
+  ratesAsOf: string | null;
   total: number;
   count: number;
   byCategory: CategorySpend[];

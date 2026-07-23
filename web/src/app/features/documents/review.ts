@@ -6,6 +6,7 @@ import { ApiService } from '../../core/api.service';
 import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
 import { NoticeService } from '../../core/notice/notice.service';
 import { TroveSelect, SelectOption } from '../../core/select';
+import { CURRENCY_OPTIONS } from '../../core/currencies';
 
 @Component({
   selector: 'app-review',
@@ -73,7 +74,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
             </label>
             <label>
               <span class="lbl">Currency <span class="tip" tabindex="0">i<span class="bubble">{{ tips.currency }}</span></span></span>
-              <input name="currency" [(ngModel)]="form.currency" placeholder="INR" />
+              <trove-select name="currency" [(ngModel)]="form.currency" [options]="currencyOptions" ariaLabel="Currency"></trove-select>
             </label>
           </div>
           <div class="row">
@@ -223,6 +224,7 @@ export class Review {
   protected categoryOptions = computed<SelectOption[]>(() =>
     this.categories().map((c) => ({ value: c.code, label: c.label })),
   );
+  protected currencyOptions = CURRENCY_OPTIONS;
   reading = signal(false);
   saving = signal(false);
   error = signal<string | null>(null);

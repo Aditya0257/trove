@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 public interface CategorySpend {
     String getCategoryCode();
     String getCategoryLabel();
+    String getCurrency();
     BigDecimal getTotal();
     long getCount();
 }

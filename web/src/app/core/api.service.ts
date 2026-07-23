@@ -89,11 +89,11 @@ export class ApiService {
   }
 
   // --- spend ---
-  spendSummary(spaceId?: string) {
-    return this.http.get<SpendSummary>(`${API_BASE}/api/spend/summary${this.qs({ spaceId })}`);
+  spendSummary(spaceId?: string, currency = 'INR') {
+    return this.http.get<SpendSummary>(`${API_BASE}/api/spend/summary${this.qs({ spaceId, currency })}`);
   }
-  spendByMonth(spaceId?: string) {
-    return this.http.get<MonthlySpend[]>(`${API_BASE}/api/spend/by-month${this.qs({ spaceId })}`);
+  spendByMonth(spaceId?: string, currency = 'INR') {
+    return this.http.get<MonthlySpend[]>(`${API_BASE}/api/spend/by-month${this.qs({ spaceId, currency })}`);
   }
 
   // --- anomalies ---

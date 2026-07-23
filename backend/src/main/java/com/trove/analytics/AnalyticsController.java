@@ -54,8 +54,9 @@ public class AnalyticsController {
     public List<AnalyticsService.CategorySpendResponse> byCategory(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return analyticsService.byCategory(resolveSpace(spaceId), currentUser.requireUserId(), from, to);
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(value = "currency", required = false, defaultValue = "INR") String currency) {
+        return analyticsService.byCategory(resolveSpace(spaceId), currentUser.requireUserId(), from, to, currency);
     }
 
     /** Spend grouped by month (YYYY-MM). */
@@ -63,8 +64,9 @@ public class AnalyticsController {
     public List<AnalyticsService.MonthlySpendResponse> byMonth(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return analyticsService.byMonth(resolveSpace(spaceId), currentUser.requireUserId(), from, to);
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(value = "currency", required = false, defaultValue = "INR") String currency) {
+        return analyticsService.byMonth(resolveSpace(spaceId), currentUser.requireUserId(), from, to, currency);
     }
 
     /** Overall total + per-category breakdown. */
@@ -72,8 +74,9 @@ public class AnalyticsController {
     public AnalyticsService.SpendSummary summary(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return analyticsService.summary(resolveSpace(spaceId), currentUser.requireUserId(), from, to);
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(value = "currency", required = false, defaultValue = "INR") String currency) {
+        return analyticsService.summary(resolveSpace(spaceId), currentUser.requireUserId(), from, to, currency);
     }
 
     private UUID resolveSpace(UUID spaceId) {

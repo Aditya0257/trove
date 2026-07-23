@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 
 public interface MonthlySpend {
     String getPeriod();
+    String getCurrency();
     BigDecimal getTotal();
     long getCount();
 }

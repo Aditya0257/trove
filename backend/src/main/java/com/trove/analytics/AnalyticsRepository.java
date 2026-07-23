@@ -40,9 +40,13 @@ import java.util.UUID;
 
 public interface AnalyticsRepository extends Repository<Document, UUID> {
 
+    // Grouped by currency as well, so the service can convert each bucket to the caller's
+    // display currency and then re-aggregate (amounts in different currencies can't be
+    // summed directly).
     @Query(value = """
             select c.code as categoryCode,
                    c.label as categoryLabel,
+                   coalesce(d.currency, 'INR') as currency,
                    coalesce(sum(d.amount), 0) as total,
                    count(*) as count
             from document d
@@ -52,8 +56,7 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
               and d.amount is not null
               and d.doc_date >= :from
               and d.doc_date <= :to
-            group by c.code, c.label
-            order by total desc
+            group by c.code, c.label, coalesce(d.currency, 'INR')
             """, nativeQuery = true)
     List<CategorySpend> spendByCategory(@Param("spaceId") UUID spaceId,
                                         @Param("from") LocalDate from,
@@ -61,6 +64,7 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
 
     @Query(value = """
             select to_char(d.doc_date, 'YYYY-MM') as period,
+                   coalesce(d.currency, 'INR') as currency,
                    coalesce(sum(d.amount), 0) as total,
                    count(*) as count
             from document d
@@ -70,8 +74,7 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
               and d.doc_date is not null
               and d.doc_date >= :from
               and d.doc_date <= :to
-            group by to_char(d.doc_date, 'YYYY-MM')
-            order by period
+            group by to_char(d.doc_date, 'YYYY-MM'), coalesce(d.currency, 'INR')
             """, nativeQuery = true)
     List<MonthlySpend> spendByMonth(@Param("spaceId") UUID spaceId,
                                     @Param("from") LocalDate from,
