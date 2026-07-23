@@ -35,6 +35,15 @@ import { DocumentResponse } from '../../core/models';
         </div>
         <p class="muted small">{{ docs().length }} screenshot(s). Click any to view it full-size.</p>
 
+        @if (hasReadText()) {
+          <details class="read">
+            <summary>Text read by AI (makes this email searchable)</summary>
+            @for (d of docs(); track d.id) {
+              @if (d.rawText) { <pre class="rawtext">{{ d.rawText }}</pre> }
+            }
+          </details>
+        }
+
         <form (ngSubmit)="save()">
           <label>
             <span class="lbl">Account <span class="tip" tabindex="0">i<span class="bubble">{{ tips.account }}</span></span></span>
@@ -79,6 +88,12 @@ import { DocumentResponse } from '../../core/models';
       .shot img { display: block; width: 120px; height: 120px; object-fit: cover; }
       .shot:hover { border-color: var(--accent); }
       .small { font-size: 12px; }
+      .read { margin: 6px 0 14px; }
+      .read summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--accent); }
+      .read .rawtext {
+        background: var(--code-bg); color: var(--ink); border-radius: 8px; padding: 10px; font-size: 12px;
+        line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto; margin: 8px 0 0;
+      }
       .lbl { display: inline-flex; align-items: center; margin-bottom: 2px; }
       /* Salesforce-style field help: a round "i" that reveals a bubble on hover/focus. */
       .tip {
@@ -159,6 +174,11 @@ export class MailDetail {
 
   thumb(d: DocumentResponse): string {
     return this.api.fileUrl(d) ?? '';
+  }
+
+  /** True if AI read any of these screenshots (so there's captured text to show). */
+  hasReadText(): boolean {
+    return this.docs().some((d) => !!d.rawText);
   }
 
   openShot(d: DocumentResponse): void {

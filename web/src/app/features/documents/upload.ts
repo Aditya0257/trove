@@ -242,8 +242,10 @@ export class Upload {
     const ids: string[] = [];
     for (const item of items) {
       try {
+        // AI reads images only, and only when the toggle is on.
+        const useAi = this.settings.aiReading() && this.isImage(item);
         const doc = await firstValueFrom(
-          this.api.uploadDocument(item.file, this.vital, spaceId, this.settings.aiReading()));
+          this.api.uploadDocument(item.file, this.vital, spaceId, useAi));
         const meta = doc.extra?.['extractionMeta'] as Record<string, unknown> | undefined;
         const notice = noticeFrom(meta?.['notice']);
         if (notice) {

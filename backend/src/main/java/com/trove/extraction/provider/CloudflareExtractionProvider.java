@@ -94,6 +94,11 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         if (props.getAccountId().isBlank() || props.getApiToken().isBlank()) {
             throw ExtractionException.transientError(LABEL, "Cloudflare Workers AI not configured", null);
         }
+        // The vision model only reads images. Skip non-images (e.g. PDFs) entirely rather
+        // than spend a call that will fail — the chain then falls through to the stub.
+        if (mimeType == null || !mimeType.startsWith("image/")) {
+            throw ExtractionException.transientError(LABEL, "Not an image; vision reading skipped", null);
+        }
         String model = request.model() != null && !request.model().isBlank()
                 ? request.model() : props.getDefaultModel();
         String url = "https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s"

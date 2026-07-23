@@ -111,6 +111,10 @@ interface MailEntry {
           <label class="checkbox">
             <input type="checkbox" name="vital" [(ngModel)]="vital" /> Sensitive: encrypt at rest
           </label>
+          <label class="checkbox">
+            <input type="checkbox" name="aiRead" [(ngModel)]="aiRead" />
+            Also read the text with AI (optional — makes the email body searchable; uses AI credits)
+          </label>
 
           @if (saving()) { <p class="muted">Reading &amp; filing {{ done() + 1 }} of {{ total() }}…</p> }
           <button type="button" (click)="save()" [disabled]="!canSave()">
@@ -211,6 +215,7 @@ export class Mail {
   emailDate = '';
   description = '';
   vital = false;
+  aiRead = false; // email screenshots aren't read by AI unless the user opts in
   saving = signal(false);
   done = signal(0);
   total = signal(0);
@@ -328,10 +333,12 @@ export class Mail {
 
     for (const item of items) {
       try {
-        const uploaded = await firstValueFrom(this.api.uploadDocument(item.file, this.vital, spaceId));
-        // Wait for the async extractor to finish BEFORE confirming — otherwise its
-        // delayed write races the confirm and clobbers the email category + metadata.
-        const doc = await this.waitExtracted(uploaded.id);
+        const uploaded = await firstValueFrom(
+          this.api.uploadDocument(item.file, this.vital, spaceId, this.aiRead));
+        // Only when AI reading is on do we wait for the async extractor to finish before
+        // confirming (so its delayed write can't clobber the email category + metadata).
+        // With AI off there's no extractor to race, so confirm the upload straight away.
+        const doc = this.aiRead ? await this.waitExtracted(uploaded.id) : uploaded;
         const body: ConfirmRequest = {
           category: 'email',
           docDate: this.emailDate || undefined,
@@ -363,6 +370,7 @@ export class Mail {
     this.emailDate = '';
     this.description = '';
     this.vital = false;
+    this.aiRead = false;
     this.saving.set(false);
     this.showAdd.set(false);
     this.notices.show({ level: 'success', code: 'MAIL_SAVED', userMessage: 'Email filed to your vault.' });
