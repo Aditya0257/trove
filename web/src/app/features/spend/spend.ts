@@ -28,19 +28,49 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
         @if (s.ratesAsOf) {
           <p class="muted small">Amounts in other currencies converted at rates from {{ s.ratesAsOf | prettyDate }}.</p>
         }
-        <h3>By category</h3>
-        @if (s.byCategory.length) {
-          <div class="bars">
-            @for (c of s.byCategory; track c.category) {
-              <div class="bar-row">
-                <span class="bar-label" [title]="c.label">{{ c.label }}</span>
-                <div class="bar-track">
-                  <div class="bar-fill" [style.width.%]="pctOfMax(c.total, maxCategory())"></div>
-                </div>
-                <span class="bar-val">{{ c.total | money: currency() }}</span>
-              </div>
-            }
+        <div class="row-between section-head">
+          <h3>By category</h3>
+          <div class="ccy">
+            <button type="button" class="chip sm" [class.on]="chartType() === 'bar'" (click)="chartType.set('bar')">Bars</button>
+            <button type="button" class="chip sm" [class.on]="chartType() === 'donut'" (click)="chartType.set('donut')">Donut</button>
           </div>
+        </div>
+        @if (s.byCategory.length) {
+          @if (chartType() === 'bar') {
+            <div class="bars">
+              @for (c of s.byCategory; track c.category) {
+                <div class="bar-row">
+                  <span class="bar-label" [title]="c.label">{{ c.label }}</span>
+                  <div class="bar-track">
+                    <div class="bar-fill" [style.width.%]="pctOfMax(c.total, maxCategory())"></div>
+                  </div>
+                  <span class="bar-val">{{ c.total | money: currency() }}</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="donut-wrap">
+              <svg viewBox="0 0 170 170" class="donut" aria-hidden="true">
+                <g transform="rotate(-90 85 85)">
+                  @for (seg of donut(); track seg.label) {
+                    <circle cx="85" cy="85" r="60" fill="none" [attr.stroke]="seg.color" stroke-width="24"
+                      [attr.stroke-dasharray]="seg.dash" [attr.stroke-dashoffset]="seg.offset" />
+                  }
+                </g>
+                <text x="85" y="80" class="donut-c1">{{ s.count }}</text>
+                <text x="85" y="98" class="donut-c2">docs</text>
+              </svg>
+              <div class="legend">
+                @for (seg of donut(); track seg.label) {
+                  <div class="leg">
+                    <span class="sw" [style.background]="seg.color"></span>
+                    <span class="leg-label">{{ seg.label }}</span>
+                    <span class="leg-val">{{ seg.value | money: currency() }} · {{ seg.pct }}%</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
           <details class="detail-table">
             <summary>Show as table</summary>
             <table>
@@ -109,12 +139,25 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
       .detail-table summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 
       /* Monthly trend — vertical bars. */
-      .trend { display: flex; align-items: flex-end; gap: 10px; margin: 10px 0; overflow-x: auto; padding-bottom: 4px; }
-      .trend-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 46px; }
-      .trend-bar-wrap { display: flex; align-items: flex-end; height: 120px; width: 100%; }
-      .trend-bar { width: 60%; margin: 0 auto; background: linear-gradient(180deg, var(--accent), var(--brand)); border-radius: 6px 6px 0 0; min-height: 3px; transition: height 320ms; }
+      .trend { display: flex; align-items: flex-end; gap: 14px; margin: 10px 0; overflow-x: auto; padding-bottom: 4px; }
+      .trend-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 0 60px; }
+      .trend-bar-wrap { display: flex; align-items: flex-end; height: 120px; width: 44px; }
+      .trend-bar { width: 100%; background: linear-gradient(180deg, var(--accent), var(--brand)); border-radius: 7px 7px 0 0; min-height: 3px; transition: height 320ms; }
       .trend-val { font-size: 11px; font-weight: 600; }
       .trend-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+      /* Donut (SVG) + legend. */
+      .section-head { margin-top: 10px; }
+      .chip.sm { padding: 2px 10px; font-size: 12px; }
+      .donut-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin: 10px 0 6px; }
+      .donut { width: 150px; height: 150px; flex: none; }
+      .donut-c1 { text-anchor: middle; font-size: 26px; font-weight: 700; fill: var(--ink); }
+      .donut-c2 { text-anchor: middle; font-size: 11px; fill: var(--muted); }
+      .legend { display: flex; flex-direction: column; gap: 7px; min-width: 220px; flex: 1; }
+      .leg { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+      .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+      .leg-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .leg-val { color: var(--muted); font-size: 12px; white-space: nowrap; }
     `,
   ],
 })
@@ -124,6 +167,36 @@ export class Spend {
 
   protected readonly currencies = CURRENCIES;
   protected currency = signal<string>('INR');
+  protected chartType = signal<'bar' | 'donut'>('bar');
+
+  /** Distinct, theme-neutral segment colours for the donut/legend. */
+  private static readonly PALETTE = [
+    '#2f9e78', '#3b7ddd', '#e0a04d', '#c0576b', '#7a5bd0',
+    '#2bb3b3', '#d98a3d', '#5a8f3c', '#b8567a', '#4d7cc7',
+  ];
+  private static readonly DONUT_R = 60;
+
+  /** Category slices as SVG stroke-dasharray arcs (drawn on one <circle> each). */
+  protected donut = computed(() => {
+    const cats = this.summary()?.byCategory ?? [];
+    const total = cats.reduce((s, c) => s + c.total, 0) || 1;
+    const circ = 2 * Math.PI * Spend.DONUT_R;
+    let cumulative = 0;
+    return cats.map((c, i) => {
+      const frac = c.total / total;
+      const len = frac * circ;
+      const seg = {
+        color: Spend.PALETTE[i % Spend.PALETTE.length],
+        label: c.label,
+        value: c.total,
+        pct: Math.round(frac * 100),
+        dash: `${len} ${circ - len}`,
+        offset: -cumulative,
+      };
+      cumulative += len;
+      return seg;
+    });
+  });
   summary = signal<SpendSummary | null>(null);
   byMonth = signal<MonthlySpend[]>([]);
   anomalies = signal<DocumentResponse[]>([]);
