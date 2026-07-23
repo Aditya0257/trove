@@ -72,6 +72,11 @@ google:
 
 # ── Trove-specific configuration ─────────────────────────────────────────────
 trove:
+  # Where the web app lives — used to bounce OAuth callbacks back into the UI. Dev is
+  # ng-serve on 4200; set to the deployed web origin in prod.
+  web:
+    base-url: ${TROVE_WEB_BASE_URL:http://localhost:4200}
+
   ai:
     # Shared Cloudflare Workers AI free allowance (neurons/day) — the whole app draws on
     # one account, so this ceiling is global. Neurons (not tokens) are the billed unit.

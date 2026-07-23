@@ -31,7 +31,6 @@ import com.trove.common.security.CurrentUser;
 import com.trove.common.security.EncryptionService;
 import com.trove.space.SpaceAuthorization;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,16 +52,19 @@ public class GoogleDriveController {
     private final SpaceAuthorization authorization;
     private final EncryptionService encryptionService;
     private final CurrentUser currentUser;
+    private final String webBaseUrl;
 
     public GoogleDriveController(GoogleDriveOAuthService oauthService, DriveSyncService driveSyncService,
                                 GoogleOAuthProperties props, SpaceAuthorization authorization,
-                                EncryptionService encryptionService, CurrentUser currentUser) {
+                                EncryptionService encryptionService, CurrentUser currentUser,
+                                @org.springframework.beans.factory.annotation.Value("${trove.web.base-url:http://localhost:4200}") String webBaseUrl) {
         this.oauthService = oauthService;
         this.driveSyncService = driveSyncService;
         this.props = props;
         this.authorization = authorization;
         this.encryptionService = encryptionService;
         this.currentUser = currentUser;
+        this.webBaseUrl = webBaseUrl;
     }
 
     /** Owner starts the flow → 302 to Google's consent screen (for direct/curl use). */
@@ -96,25 +98,23 @@ public class GoogleDriveController {
             @RequestParam(value = "state", required = false) String state,
             @RequestParam(value = "error", required = false) String error) {
         if (error != null) {
-            return html("Google Drive authorization was cancelled or failed: " + error);
+            return backToApp("error");
         }
         UUID spaceId;
         try {
             spaceId = UUID.fromString(encryptionService.decrypt(state).split("\\|")[0]);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Invalid state");
+            return backToApp("error");
         }
         try {
             GoogleTokenResponse token = oauthService.exchange(code);
             if (token.getRefreshToken() == null) {
-                return html("No refresh token returned. Remove Trove's access at "
-                        + "https://myaccount.google.com/permissions and try connecting again.");
+                return backToApp("noRefresh");
             }
             driveSyncService.storeConnection(spaceId, null, token.getRefreshToken());
-            return html("Google Drive connected for this space. You can close this tab "
-                    + "and trigger a sync from Trove.");
+            return backToApp("connected");
         } catch (Exception e) {
-            return html("Failed to complete Google Drive connection: " + e.getMessage());
+            return backToApp("error");
         }
     }
 
@@ -136,10 +136,11 @@ public class GoogleDriveController {
         return driveSyncService.sync(spaceId);
     }
 
-    private ResponseEntity<String> html(String message) {
-        String body = "<html><body style=\"font-family:sans-serif;padding:2rem\"><h3>Trove · Google Drive</h3><p>"
-                + message + "</p></body></html>";
-        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(body);
+    /** Bounce the browser back into the app's Spaces page, carrying a status the UI turns
+     *  into a toast — nicer than leaving the user on a bare backend page. */
+    private ResponseEntity<String> backToApp(String status) {
+        String target = webBaseUrl.replaceAll("/+$", "") + "/spaces?drive=" + status;
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(target)).build();
     }
 
     public record StatusResponse(boolean connected, Instant connectedAt, Instant lastSyncAt) {

@@ -1,5 +1,6 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { AuthService } from '../../core/auth.service';
@@ -213,6 +214,8 @@ export class Spaces {
   private api = inject(ApiService);
   private auth = inject(AuthService);
   private notices = inject(NoticeService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   protected invitations = signal<Invitation[]>([]);
   protected busy = signal(false);
@@ -276,6 +279,27 @@ export class Spaces {
       this.editDescription = c?.description ?? '';
     });
     this.loadInvitations();
+    this.handleDriveCallback();
+  }
+
+  /** Turns the ?drive=… flag from the OAuth callback into a toast, then strips it. */
+  private handleDriveCallback(): void {
+    const status = this.route.snapshot.queryParamMap.get('drive');
+    if (!status) return;
+    if (status === 'connected') {
+      this.notices.show({ level: 'success', code: 'DRIVE_CONNECTED', userMessage: `${TERMS.driveBackup} connected for this space.` });
+    } else if (status === 'noRefresh') {
+      this.notices.show({
+        level: 'warning', code: 'DRIVE_NO_REFRESH',
+        userMessage: `${TERMS.driveBackup} didn't return access. Remove Trove at myaccount.google.com/permissions, then connect again.`,
+      });
+    } else {
+      this.notices.show({ level: 'error', code: 'DRIVE_ERROR', userMessage: `Couldn't connect ${TERMS.driveBackup}. Please try again.` });
+    }
+    // Drop the query param so a refresh doesn't re-toast, and refresh the connection status.
+    this.router.navigate([], { queryParams: {}, replaceUrl: true });
+    const sid = this.spaceCtx.currentSpaceId();
+    if (sid) this.loadSpace(sid);
   }
 
   /** Rename / set description of the current space (owner only). */
