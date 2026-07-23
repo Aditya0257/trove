@@ -66,6 +66,17 @@ import { SettingsService } from '../settings.service';
                 ? 'Uploads are read by the AI. Pause to stop spending credits — uploads then wait for no read and you fill the details yourself.'
                 : 'AI reading is OFF. New uploads are stored and go straight to the review form for manual entry, with no wait and no credits.' }}
             </div>
+
+            <details class="ai-where">
+              <summary>Where AI credits are spent</summary>
+              <ul>
+                <li><b>Uploading images</b> — only while "Read images with AI" is on. Images only; PDFs and other non-image files never use AI.</li>
+                <li><b>Mail</b> — only if you tick "read with AI" when filing an email (off by default).</li>
+                <li><b>Search</b> — each plain-English search; it falls back to keyword rules when the daily budget is spent.</li>
+                <li>A hard-to-read scan may cost <b>2 calls</b> (one automatic retry).</li>
+                <li>Confirming, editing, deleting, backups and everything else use <b>no</b> AI.</li>
+              </ul>
+            </details>
           </div>
         }
 
@@ -219,6 +230,10 @@ import { SettingsService } from '../settings.service';
       }
       .ai-toggle.off { border-color: rgba(184, 134, 11, 0.4); background: rgba(184, 134, 11, 0.12); color: #8a5a00; }
       .ai-toggle-note { margin-top: 5px; font-size: 10.5px; color: #8a8a8a; line-height: 1.4; }
+      .ai-where { margin-top: 8px; }
+      .ai-where summary { cursor: pointer; font-size: 11px; font-weight: 700; color: var(--accent); }
+      .ai-where ul { margin: 6px 0 0; padding-left: 16px; }
+      .ai-where li { font-size: 10.5px; color: #8a8a8a; line-height: 1.5; margin-bottom: 3px; }
       .gauge-foot {
         display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px;
         border-top: 1px solid rgba(59, 125, 221, 0.15); font-size: 10.5px; color: #8a8a8a;
