@@ -6,11 +6,17 @@ import { AuthService } from '../../core/auth.service';
 import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
 import { MoneyPipe } from '../../core/money.pipe';
-import { ChatAnswer } from '../../core/models';
+import { ChatAnswer, ChatCitation } from '../../core/models';
 
 interface Turn {
   question: string;
   answer: ChatAnswer;
+}
+
+/** A run of answer text, or a citation marker to render as a clickable chip. */
+interface AnswerPart {
+  text?: string;
+  cite?: number;
 }
 
 /**
@@ -50,17 +56,27 @@ interface Turn {
                 }
               </div>
             }
-            @for (t of turns(); track $index) {
+            @for (t of turns(); track ti; let ti = $index) {
               <div class="msg q">{{ t.question }}</div>
               <div class="msg a">
-                <p class="a-text">{{ t.answer.answer }}</p>
+                <!-- Answer with clickable [n] citations that jump to + flash the source. -->
+                <p class="a-text">
+                  @for (p of answerParts(t.answer.answer); track $index) {
+                    @if (p.cite != null) {
+                      <button type="button" class="cite" (click)="flash(ti, p.cite)">[{{ p.cite }}]</button>
+                    } @else {<span>{{ p.text }}</span>}
+                  }
+                </p>
                 @if (!t.answer.aiUsed && t.answer.sources.length) {
                   <p class="muted xs">Most relevant documents (AI summary paused or off).</p>
                 }
-                @if (t.answer.sources.length) {
+
+                <!-- Sources actually cited in the answer, highlighted. -->
+                @if (citedSources(t).length) {
                   <div class="sources">
-                    @for (s of t.answer.sources; track s.documentId) {
-                      <a class="source" [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
+                    @for (s of citedSources(t); track s.documentId) {
+                      <a class="source cited" [id]="'src-' + ti + '-' + s.index" [class.flash]="flashKey() === ti + '-' + s.index"
+                         [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
                         <span class="src-idx">[{{ s.index }}]</span>
                         <span class="src-title">{{ s.title }}</span>
                         @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
@@ -69,6 +85,27 @@ interface Turn {
                       </a>
                     }
                   </div>
+                }
+
+                <!-- The rest it considered but didn't cite — collapsed to reduce noise. -->
+                @if (otherSources(t).length) {
+                  <button type="button" class="more" (click)="toggleOthers(ti)">
+                    {{ isExpanded(ti) ? '▾ Hide' : '▸ ' + otherSources(t).length + ' more considered' }}
+                  </button>
+                  @if (isExpanded(ti)) {
+                    <div class="sources">
+                      @for (s of otherSources(t); track s.documentId) {
+                        <a class="source dim" [id]="'src-' + ti + '-' + s.index" [class.flash]="flashKey() === ti + '-' + s.index"
+                           [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
+                          <span class="src-idx">[{{ s.index }}]</span>
+                          <span class="src-title">{{ s.title }}</span>
+                          @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
+                          @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
+                          @if (s.amount != null) { <span class="src-meta">{{ s.amount | money: s.currency }}</span> }
+                        </a>
+                      }
+                    </div>
+                  }
                 }
               </div>
             }
@@ -143,13 +180,35 @@ interface Turn {
       .msg.q { background: var(--accent-soft); color: var(--ink); margin-left: 24px; }
       .msg.a { background: var(--hover); }
       .a-text { margin: 0; white-space: pre-wrap; }
+      /* Inline clickable citation chip inside the answer text. */
+      .cite {
+        margin: 0 1px; padding: 0 4px; border: 0; border-radius: 5px; cursor: pointer;
+        background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 11px;
+        font-family: inherit; vertical-align: baseline;
+      }
+      .cite:hover { background: var(--accent); color: var(--brand-ink); }
       .xs { font-size: 10.5px; margin: 6px 0 0; }
       .sources { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
       .source {
         display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; text-decoration: none;
         border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--ink); background: var(--card);
+        scroll-margin: 8px;
       }
       .source:hover { border-color: var(--accent-line); }
+      /* Cited sources stand out with an accent edge; considered-but-unused ones are dimmed. */
+      .source.cited { border-left: 3px solid var(--accent); }
+      .source.dim { opacity: 0.6; }
+      .source.dim:hover { opacity: 1; }
+      .source.flash { animation: srcflash 1.4s ease; }
+      @keyframes srcflash {
+        0%, 100% { box-shadow: 0 0 0 0 transparent; }
+        15% { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
+      }
+      .more {
+        margin: 8px 0 0; padding: 3px 4px; background: transparent; border: 0; cursor: pointer;
+        color: var(--muted); font-size: 11.5px; font-weight: 600;
+      }
+      .more:hover { color: var(--accent); }
       .src-idx { color: var(--accent); font-weight: 700; font-size: 10.5px; }
       .src-title { font-weight: 600; font-size: 11.5px; }
       .src-meta { font-size: 10px; color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; }
@@ -171,6 +230,8 @@ export class AssistantWidget {
 
   protected open = signal(false);
   protected helpOpen = signal(false);
+  protected flashKey = signal<string | null>(null);
+  private expanded = signal<Set<number>>(new Set());
   protected q = '';
 
   protected helpUser =
@@ -196,6 +257,62 @@ export class AssistantWidget {
     'my last electricity bill?',
     'find my fridge warranty',
   ];
+
+  /** Which document indices the answer actually cites (a set of [n] found in the text). */
+  private citedIndices(answer: string): Set<number> {
+    const cited = new Set<number>();
+    for (const m of answer.matchAll(/\[(\d+)\]/g)) {
+      cited.add(Number(m[1]));
+    }
+    return cited;
+  }
+
+  /** Splits the answer into text runs + citation tokens, so [n] can be a clickable chip. */
+  answerParts(answer: string): AnswerPart[] {
+    const parts: AnswerPart[] = [];
+    let last = 0;
+    for (const m of answer.matchAll(/\[(\d+)\]/g)) {
+      const i = m.index ?? 0;
+      if (i > last) parts.push({ text: answer.slice(last, i) });
+      parts.push({ cite: Number(m[1]) });
+      last = i + m[0].length;
+    }
+    if (last < answer.length) parts.push({ text: answer.slice(last) });
+    return parts;
+  }
+
+  citedSources(t: Turn): ChatCitation[] {
+    const cited = this.citedIndices(t.answer.answer);
+    return t.answer.sources.filter((s) => cited.has(s.index));
+  }
+  otherSources(t: Turn): ChatCitation[] {
+    const cited = this.citedIndices(t.answer.answer);
+    return t.answer.sources.filter((s) => !cited.has(s.index));
+  }
+
+  /** Clicking a [n] chip: reveal (if hidden), scroll to, and briefly flash that source. */
+  flash(turnIndex: number, cite: number): void {
+    const key = `${turnIndex}-${cite}`;
+    if (this.otherSources(this.turns()[turnIndex]).some((s) => s.index === cite)) {
+      this.expanded.update((set) => new Set(set).add(turnIndex));
+    }
+    this.flashKey.set(key);
+    setTimeout(() => {
+      document.getElementById('src-' + key)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    setTimeout(() => { if (this.flashKey() === key) this.flashKey.set(null); }, 1400);
+  }
+
+  toggleOthers(turnIndex: number): void {
+    this.expanded.update((set) => {
+      const next = new Set(set);
+      next.has(turnIndex) ? next.delete(turnIndex) : next.add(turnIndex);
+      return next;
+    });
+  }
+  isExpanded(turnIndex: number): boolean {
+    return this.expanded().has(turnIndex);
+  }
 
   ask(text?: string): void {
     const question = (text ?? this.q).trim();
