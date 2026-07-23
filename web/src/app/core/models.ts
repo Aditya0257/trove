@@ -72,6 +72,8 @@ export interface SpaceSummary {
 
 export interface Member {
   userId: string;
+  displayName: string | null;
+  email: string | null;
   role: 'owner' | 'member' | 'viewer';
   joinedAt: string;
 }

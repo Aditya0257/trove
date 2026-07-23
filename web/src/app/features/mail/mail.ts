@@ -101,7 +101,7 @@ interface MailEntry {
           </label>
           <label>
             <span class="lbl">Subject <span class="tip" tabindex="0">i<span class="bubble">{{ tips.subject }}</span></span></span>
-            <input name="subject" [(ngModel)]="subject" placeholder="Exact subject line — e.g. 🎉 Your Health Benefits Are Ready" />
+            <input name="subject" [(ngModel)]="subject" placeholder="Copy the exact subject line from the email" />
           </label>
           <label>
             <span class="lbl">Notes / description (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>

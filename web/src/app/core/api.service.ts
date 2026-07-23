@@ -1,6 +1,20 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { map } from 'rxjs';
 import { API_BASE } from './config';
+
+/** Display order for categories — by everyday usefulness, financial kinds clustered,
+ *  with the catch-all buckets pinned to the end. Codes not listed sort alphabetically
+ *  just before "other". */
+const CATEGORY_ORDER = [
+  'uncategorized', 'shopping', 'food', 'electricity', 'water', 'gas', 'internet',
+  'mobile', 'rent', 'subscription', 'travel', 'medical', 'insurance', 'tax', 'bank', 'other',
+];
+function categoryRank(code: string): number {
+  const i = CATEGORY_ORDER.indexOf(code);
+  if (code === 'other') return 1000;             // always last
+  return i >= 0 ? i : 900;                        // unknown codes just before "other"
+}
 import {
   AiUsage,
   Category,
@@ -27,7 +41,11 @@ export class ApiService {
 
   // --- documents ---
   listCategories(spaceId?: string) {
-    return this.http.get<Category[]>(`${API_BASE}/api/categories${this.qs({ spaceId })}`);
+    return this.http.get<Category[]>(`${API_BASE}/api/categories${this.qs({ spaceId })}`).pipe(
+      // Order by everyday usefulness (see CATEGORY_ORDER) rather than however the DB
+      // returned them, so "Bank" sits with the financial kinds and "Other" stays last.
+      map((cats) => [...cats].sort((a, b) => categoryRank(a.code) - categoryRank(b.code))),
+    );
   }
   listDocuments(spaceId?: string, category?: string) {
     return this.http.get<DocumentResponse[]>(`${API_BASE}/api/documents${this.qs({ spaceId, category })}`);

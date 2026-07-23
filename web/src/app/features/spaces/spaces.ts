@@ -3,10 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { DriveStatus, IngestAddress, Member } from '../../core/models';
+import { HelpCard } from '../../core/help-card';
+import { DateTimePipe } from '../../core/datetime.pipe';
 
 @Component({
   selector: 'app-spaces',
-  imports: [FormsModule],
+  imports: [FormsModule, HelpCard, DateTimePipe],
   template: `
     <div class="card">
       <h1>Spaces</h1>
@@ -20,12 +22,24 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
 
     <div class="card">
       <h3>Members</h3>
+      <trove-help-card
+        user="The people who can see and use this space. Roles: owner (full control, backup & billing), member (add and edit documents), viewer (read-only)."
+        dev="Membership lives in the space_member table; every request checks the caller's role against the space before returning anything. A personal space always has exactly one owner — you.">
+      </trove-help-card>
       @if (membersError()) { <p class="muted">{{ membersError() }}</p> }
       @else {
         <table>
           <thead><tr><th>User</th><th>Role</th></tr></thead>
           <tbody>
-            @for (m of members(); track m.userId) { <tr><td>{{ m.userId }}</td><td>{{ m.role }}</td></tr> }
+            @for (m of members(); track m.userId) {
+              <tr>
+                <td>
+                  <div class="member-name">{{ m.displayName || 'Unknown user' }}</div>
+                  <div class="member-sub">{{ m.email || m.userId }}</div>
+                </td>
+                <td>{{ m.role }}</td>
+              </tr>
+            }
           </tbody>
         </table>
         <form (ngSubmit)="addMember()" class="inline-form">
@@ -45,6 +59,10 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
 
     <div class="card">
       <h3>Forward-to-file address</h3>
+      <trove-help-card
+        user="A private email address for this space. Forward or CC any bill, receipt or ticket to it and Trove files the attachment for you — no app needed. Keep it secret: anyone with it can add documents here, so Rotate it if it ever leaks."
+        dev="The address embeds a per-space secret token. An inbound-mail webhook matches the token to this space, runs each attachment through the same extraction pipeline as a normal upload, and files it. Rotating mints a new token and invalidates the old address immediately.">
+      </trove-help-card>
       @if (ingest(); as a) {
         <p>Forward documents to: <code>{{ a.address }}</code></p>
         <button (click)="rotate()">Rotate</button>
@@ -53,9 +71,13 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
 
     <div class="card">
       <h3>Google Drive backup</h3>
+      <trove-help-card
+        user="Keeps a human-browsable copy of this space's files in Google Drive, organised as Trove / space / category / month. If the app and database are ever gone, you can still open Drive and find every document."
+        dev="Tier-3 of the backup design (Cloudflare R2 → Backblaze B2 → Google Drive). A per-owner OAuth token lets a scheduled job mirror new files into the folder tree. The database is a rebuildable index; these files are a source of truth, so nothing is lost if it's wiped.">
+      </trove-help-card>
       @if (drive(); as d) {
         @if (d.connected) {
-          <p>✅ Connected. Last sync: {{ d.lastSyncAt || 'never' }}.</p>
+          <p>✅ Connected. Last sync: {{ d.lastSyncAt ? (d.lastSyncAt | prettyDate) : 'never' }}.</p>
           <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
           @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
         } @else {
@@ -67,10 +89,19 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
 
     <div class="card">
       <h3>Export</h3>
-      <p class="muted">Download everything (manifest.json + data.csv + files/) as a ZIP.</p>
+      <trove-help-card
+        user="Downloads this whole space as one ZIP — manifest.json (every record, machine-readable), data.csv (open in Excel/Sheets), and files/ (your original images and PDFs). A large vault takes a little while to prepare, so give it a moment."
+        dev="Streamed and zipped server-side. The manifest is the complete record set for a lossless re-import, the CSV is a flattened human view, and files/ are the originals pulled from object storage. Uploading this ZIP back fully restores the system — the ultimate 'no provider outage can wipe me' guarantee.">
+      </trove-help-card>
       <button (click)="exportZip()" [disabled]="exporting()">{{ exporting() ? 'Preparing…' : 'Download export' }}</button>
     </div>
   `,
+  styles: [
+    `
+      .member-name { font-weight: 600; }
+      .member-sub { font-size: 12px; color: var(--muted); font-family: monospace; }
+    `,
+  ],
 })
 export class Spaces {
   protected spaceCtx = inject(SpaceContext);

@@ -5,14 +5,19 @@ import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { MoneyPipe } from '../../core/money.pipe';
 import { SearchResult } from '../../core/models';
+import { HelpCard } from '../../core/help-card';
 
 @Component({
   selector: 'app-search',
-  imports: [FormsModule, RouterLink, MoneyPipe],
+  imports: [FormsModule, RouterLink, MoneyPipe, HelpCard],
   template: `
     <div class="card">
       <h1>Search</h1>
-      <p class="muted">Search in plain English. Tap an example or type your own:</p>
+      <trove-help-card
+        user="Type what you're after in plain English. Search understands a category (food, electricity…), a time range (&quot;from July&quot;, &quot;last month&quot;), amounts (&quot;over 1000&quot;), sorting (&quot;most expensive&quot;, &quot;latest&quot;), and a merchant/brand keyword (&quot;Reliance&quot;, &quot;Nike&quot;). It matches the fields Trove has extracted — so &quot;food bills from July&quot; and &quot;Nike purchases&quot; work well. It is not yet full free-text search over every word inside a document, so a very specific phrase may not match."
+        dev="Your text goes to a small language model that returns structured filters (category, date range, amount range, sort, limit, keyword); those run against the confirmed-document index. If the daily AI budget is spent or the model is unavailable, it falls back to a rule-based parser — so search always returns something.">
+      </trove-help-card>
+      <p class="muted">Tap an example or type your own:</p>
       <div class="examples">
         @for (ex of examples; track ex) {
           <button type="button" class="chip" (click)="runExample(ex)" [disabled]="loading()">{{ ex }}</button>

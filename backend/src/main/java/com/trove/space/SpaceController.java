@@ -22,6 +22,8 @@
  */
 package com.trove.space;
 
+import com.trove.auth.User;
+import com.trove.auth.UserRepository;
 import com.trove.common.security.CurrentUser;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
@@ -35,7 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/spaces")
@@ -43,10 +48,13 @@ public class SpaceController {
 
     private final SpaceService spaceService;
     private final CurrentUser currentUser;
+    private final UserRepository userRepository;
 
-    public SpaceController(SpaceService spaceService, CurrentUser currentUser) {
+    public SpaceController(SpaceService spaceService, CurrentUser currentUser,
+                           UserRepository userRepository) {
         this.spaceService = spaceService;
         this.currentUser = currentUser;
+        this.userRepository = userRepository;
     }
 
     /** Create a shared space (caller becomes owner). */
@@ -63,11 +71,16 @@ public class SpaceController {
                 .map(SpaceResponse::of).toList();
     }
 
-    /** List members of a space (any member). */
+    /** List members of a space (any member), enriched with each user's name + email. */
     @GetMapping("/{id}/members")
     public List<MemberResponse> members(@PathVariable UUID id) {
-        return spaceService.listMembers(id, currentUser.requireUserId()).stream()
-                .map(m -> new MemberResponse(m.getUserId(), m.getRole(), m.getJoinedAt()))
+        List<SpaceMember> members = spaceService.listMembers(id, currentUser.requireUserId());
+        // Batch-load the users so the UI can show a name + email instead of a raw UUID.
+        Map<UUID, User> byId = userRepository
+                .findAllById(members.stream().map(SpaceMember::getUserId).toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        return members.stream()
+                .map(m -> MemberResponse.of(m, byId.get(m.getUserId())))
                 .toList();
     }
 
@@ -75,7 +88,7 @@ public class SpaceController {
     @PostMapping("/{id}/members")
     public MemberResponse addMember(@PathVariable UUID id, @RequestBody AddMemberRequest req) {
         SpaceMember m = spaceService.addMember(id, currentUser.requireUserId(), req.email(), req.role());
-        return new MemberResponse(m.getUserId(), m.getRole(), m.getJoinedAt());
+        return MemberResponse.of(m, userRepository.findById(m.getUserId()).orElse(null));
     }
 
     // ── DTOs ─────────────────────────────────────────────────────────────────
@@ -92,6 +105,14 @@ public class SpaceController {
         }
     }
 
-    public record MemberResponse(UUID userId, String role, Instant joinedAt) {
+    public record MemberResponse(UUID userId, String displayName, String email, String role, Instant joinedAt) {
+        static MemberResponse of(SpaceMember m, User u) {
+            return new MemberResponse(
+                    m.getUserId(),
+                    u != null ? u.getDisplayName() : null,
+                    u != null ? u.getEmail() : null,
+                    m.getRole(),
+                    m.getJoinedAt());
+        }
     }
 }
