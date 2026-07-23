@@ -45,10 +45,20 @@ public final class ExtractionPrompt {
             fingers, on a cluttered surface, folded, faint (thermal paper), or slightly blurred. Read
             whatever you can regardless; ignore fingers, background and glare.
 
-            Respond with a SINGLE JSON object and NOTHING else — no markdown, no code fences, no prose,
-            no apology. Do NOT write sentences like "I'm sorry" or "I cannot read this". Even if the
-            image is unclear, you MUST still output the JSON object: set unreadable fields to null and
-            lower "confidence" accordingly. The JSON object is the ONLY acceptable output.
+            OUTPUT FORMAT — THIS IS STRICT:
+            Return EXACTLY ONE JSON object and nothing else. Your entire reply MUST begin with the
+            character { and end with the character }.
+            Do NOT reply in any of these ways:
+              - NOT prose, sentences, explanations, commentary, or reasoning
+              - NOT markdown of any kind — no **bold**, no # or ## headings, no bullet or numbered lists
+              - NOT code fences or backticks (no ```json, no ``` at all)
+              - NOT HTML or XML tags
+              - NOT plain text, and NOT a label such as "Document Details", "Here is", or "Answer:"
+                before or after the JSON
+              - NOT an apology or refusal such as "I'm sorry" or "I cannot read this"
+            Even if the image is blurry or unreadable, you MUST STILL return the JSON object: set the
+            fields you cannot read to null and lower "confidence". A single JSON object is the ONLY
+            acceptable reply, in every case.
 
             Use exactly this JSON shape (use null when a field is not present):
             {
@@ -70,5 +80,8 @@ public final class ExtractionPrompt {
             - Pick the single best categoryCode from the allowed list; use "other" if none fit.
             - Never invent values. If unsure of a number or date, use null and lower the confidence.
             - amount and lineItems[].amount must be plain numbers (e.g. 1840.50), not "₹1,840.50".
+
+            Reminder: reply with the JSON object ONLY. It must start with { and end with }. Output no
+            other characters before or after it.
             """.formatted(CATEGORY_CODES);
 }

@@ -104,15 +104,19 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         byte[] toSend = downscaleIfLarge(fileBytes, mimeType);
         String sendMime = toSend == fileBytes ? mimeType : "image/jpeg";
 
+        // Cloudflare bills EVERY call, including a failed first attempt before a retry, so
+        // accumulate usage across attempts and report the total on the winning result.
+        long[] tokens = {0};
+        double[] credits = {0};
         try {
-            return callOnce(url, toSend, sendMime, model, false);
+            return withUsage(callOnce(url, toSend, sendMime, model, false, tokens, credits), tokens[0], credits[0]);
         } catch (ExtractionException e) {
             // The vision model sometimes ignores the JSON instruction and replies in prose
             // ("**Document Details** ..."). Retry once with a blunt JSON-only directive —
             // the output is non-deterministic, so a stricter second attempt usually complies.
             if (isNoJson(e)) {
                 log.info("Cloudflare replied in prose, not JSON; retrying once with a stricter instruction");
-                return callOnce(url, toSend, sendMime, model, true);
+                return withUsage(callOnce(url, toSend, sendMime, model, true, tokens, credits), tokens[0], credits[0]);
             }
             throw e;
         }
@@ -123,8 +127,26 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         return e.getMessage() != null && e.getMessage().contains("No JSON object found");
     }
 
-    /** One Cloudflare call + parse. `strict` appends a hardened JSON-only directive. */
-    private ExtractionResult callOnce(String url, byte[] img, String mime, String model, boolean strict) {
+    /** Records the accumulated token/credit usage on the result so the worker bills it. */
+    private ExtractionResult withUsage(ExtractionResult r, long tokens, double credits) {
+        if (tokens <= 0) {
+            return r;
+        }
+        java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(
+                r.extra() != null ? r.extra() : java.util.Map.of());
+        extra.put("aiTokens", tokens);
+        extra.put("aiNeurons", Math.round(credits * 100.0) / 100.0);
+        return new ExtractionResult(r.categoryCode(), r.merchantName(), r.docDate(), r.amount(),
+                r.currency(), r.dueDate(), r.lineItems(), r.rawText(), extra, r.confidence());
+    }
+
+    /**
+     * One Cloudflare call + parse. `strict` appends a hardened JSON-only directive. The
+     * call's token/credit cost is added to the accumulators BEFORE parsing, so it counts
+     * even when this attempt then fails to parse (Cloudflare charged for it regardless).
+     */
+    private ExtractionResult callOnce(String url, byte[] img, String mime, String model, boolean strict,
+                                      long[] tokenAcc, double[] creditAcc) {
         String body = buildRequestBody(img, mime, model, strict);
         HttpResponse<String> resp;
         try {
@@ -150,6 +172,18 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         try {
             JsonNode root = mapper.readTree(resp.body());
             JsonNode result = root.path("result");
+
+            // Bill this call BEFORE parsing — Cloudflare charged for it whether or not the
+            // reply turns out to be valid JSON. Accumulate so a retry adds to the total.
+            JsonNode u = result.path("usage");
+            long promptTokens = u.path("prompt_tokens").asLong(0);
+            long completionTokens = u.path("completion_tokens").asLong(0);
+            long totalTokens = u.path("total_tokens").asLong(promptTokens + completionTokens);
+            if (totalTokens > 0) {
+                tokenAcc[0] += totalTokens;
+                creditAcc[0] += neuronRates.neuronsFor(model, promptTokens, completionTokens);
+            }
+
             JsonNode response = result.path("response");
             // Three response shapes across Workers AI vision models:
             //   • Llama vision in JSON mode returns result.response as an OBJECT
@@ -165,36 +199,15 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
             } else {
                 text = response.asText("");
             }
-            final String modelText = text;
-            ExtractionResult parsed;
             try {
-                parsed = ExtractionResponseParser.parse(text, mapper);
+                // Usage is applied by the caller (withUsage) from the accumulators.
+                return ExtractionResponseParser.parse(text, mapper);
             } catch (IllegalArgumentException e) {
                 // Surface what the model actually said, so a failure like this is diagnosable
                 // from the developer trail instead of a bare "No JSON object found".
                 throw ExtractionException.transientError(LABEL,
-                        e.getMessage() + " — model returned: " + truncate(modelText), e);
+                        e.getMessage() + " — model returned: " + truncate(text), e);
             }
-            // Stash Workers AI's token usage so the engine can surface the AI cost in the
-            // Developer drawer (result.usage.total_tokens). Neurons aren't returned per
-            // request — a daily total needs Cloudflare's analytics API (a later add).
-            // Stash usage so the engine/worker can bill it: total tokens (human figure)
-            // and neurons (Cloudflare's real unit, derived from the model's token rates).
-            com.fasterxml.jackson.databind.JsonNode u = result.path("usage");
-            long promptTokens = u.path("prompt_tokens").asLong(0);
-            long completionTokens = u.path("completion_tokens").asLong(0);
-            long totalTokens = u.path("total_tokens").asLong(promptTokens + completionTokens);
-            if (totalTokens > 0) {
-                double neurons = neuronRates.neuronsFor(model, promptTokens, completionTokens);
-                java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(
-                        parsed.extra() != null ? parsed.extra() : java.util.Map.of());
-                extra.put("aiTokens", totalTokens);
-                extra.put("aiNeurons", Math.round(neurons * 100.0) / 100.0);
-                parsed = new ExtractionResult(parsed.categoryCode(), parsed.merchantName(),
-                        parsed.docDate(), parsed.amount(), parsed.currency(), parsed.dueDate(),
-                        parsed.lineItems(), parsed.rawText(), extra, parsed.confidence());
-            }
-            return parsed;
         } catch (ExtractionException e) {
             throw e; // already a well-formed provider error (e.g. the parse-failure above)
         } catch (IllegalArgumentException e) {
