@@ -130,6 +130,15 @@ public class MirrorService {
         }
     }
 
+    /** All object keys currently in the mirror bucket (for integrity checks). Empty if the
+     *  mirror isn't configured. */
+    public Set<String> listMirrorKeys() {
+        if (!props.configured()) {
+            return java.util.Set.of();
+        }
+        return listKeys(client());
+    }
+
     private Set<String> listKeys(S3Client mirror) {
         Set<String> keys = new HashSet<>();
         String token = null;

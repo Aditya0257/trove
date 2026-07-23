@@ -167,6 +167,44 @@ export interface ChatAnswer {
   sources: ChatCitation[];
 }
 
+export interface IntegrityIssue {
+  documentId: string;
+  title: string;
+  severity: 'critical' | 'warning' | 'info';
+  problem: string;
+}
+
+export interface StorageIntegrity {
+  r2Objects: number;
+  indexedKeys: number;
+  orphanObjects: number;
+  rebuildableOrphans: number;
+  mirrorEnabled: boolean;
+  mirrorObjects: number;
+}
+
+export interface IntegrityReport {
+  spaceId: string;
+  checkedAt: string;
+  documents: number;
+  primaryOk: number;
+  sidecarOk: number;
+  mirrorOk: number | null;   // null = mirror not configured
+  driveOk: number;
+  criticalCount: number;
+  issues: IntegrityIssue[];
+  storage: StorageIntegrity;
+}
+
+export interface BackupRun {
+  kind: string;
+  status: 'running' | 'success' | 'failed';
+  location: string | null;
+  detail: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
 export interface SearchResult {
   interpreted: Record<string, unknown>;
   count: number;

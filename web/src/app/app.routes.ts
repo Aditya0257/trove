@@ -46,6 +46,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/reminders/reminders').then((m) => m.Reminders),
   },
   {
+    path: 'backups',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/backups/backups').then((m) => m.Backups),
+  },
+  {
     path: 'spaces',
     canActivate: [authGuard],
     loadComponent: () => import('./features/spaces/spaces').then((m) => m.Spaces),

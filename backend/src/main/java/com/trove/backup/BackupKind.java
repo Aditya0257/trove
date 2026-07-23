@@ -18,6 +18,7 @@ public final class BackupKind {
     public static final String EXPORT = "export";
     public static final String IMPORT = "import";
     public static final String REBUILD = "rebuild";
+    public static final String INTEGRITY = "integrity";
 
     private BackupKind() {
     }

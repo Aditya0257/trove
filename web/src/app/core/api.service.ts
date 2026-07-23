@@ -17,6 +17,7 @@ function categoryRank(code: string): number {
 }
 import {
   AiUsage,
+  BackupRun,
   Category,
   CategorySpend,
   ChatAnswer,
@@ -24,6 +25,7 @@ import {
   DocumentResponse,
   DriveStatus,
   IngestAddress,
+  IntegrityReport,
   Invitation,
   Member,
   MonthlySpend,
@@ -203,6 +205,14 @@ export class ApiService {
     return this.http.delete<void>(
       `${API_BASE}/api/integrations/google-drive/connections/${connectionId}${this.qs({ spaceId })}`
     );
+  }
+
+  // --- backup integrity ---
+  integrityReport(spaceId?: string) {
+    return this.http.get<IntegrityReport>(`${API_BASE}/api/integrity/report${this.qs({ spaceId })}`);
+  }
+  integrityHistory() {
+    return this.http.get<BackupRun[]>(`${API_BASE}/api/integrity/history`);
   }
 
   // --- export ---
