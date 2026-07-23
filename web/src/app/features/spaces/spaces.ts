@@ -240,13 +240,15 @@ export class Spaces {
   ];
   protected driveHelpUser =
     `Keeps a human-browsable copy of this space's files in ${TERMS.driveBackup}, organised as ` +
-    `Trove / space / category / month. If the app and ${TERMS.database} are ever gone, you can still ` +
-    `open ${TERMS.driveBackup} and find every document.`;
+    `Trove / space / category / month. It syncs automatically about once an hour, and "Sync now" copies ` +
+    `everything right away. If the app and ${TERMS.database} are ever gone, you can still open ` +
+    `${TERMS.driveBackup} and find every document.`;
   protected driveHelpDev =
-    `Tier-3 of the backup design: ${TERMS.objectStorage} first, then ${TERMS.mirrorStorage}, then ` +
-    `${TERMS.driveBackup}. A per-owner OAuth token lets a scheduled job mirror new files into the folder ` +
-    `tree. ${TERMS.database} is a rebuildable index; these files are a source of truth, so nothing is lost ` +
-    `if it is wiped.`;
+    `Tier-3 of the backup design: ${TERMS.objectStorage} first, then ${TERMS.mirrorStorage} (a separate ` +
+    `job, also roughly hourly), then ${TERMS.driveBackup}. A per-owner OAuth token lets a scheduled job ` +
+    `copy new files into the folder tree about once an hour (a fixed one-hour gap between runs); "Sync now" ` +
+    `runs it on demand. ${TERMS.database} is a rebuildable index; these files are a source of truth, so ` +
+    `nothing is lost if it is wiped.`;
 
   newName = '';
   members = signal<Member[]>([]);

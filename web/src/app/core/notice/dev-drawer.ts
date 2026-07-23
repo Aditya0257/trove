@@ -296,7 +296,7 @@ export class DevDrawer {
     if (p === '/api/spaces') return M('Your spaces', 'Loading your spaces', 'personal + shared spaces you belong to', 'who can see which documents');
     if (p === '/api/categories') return M('Categories', 'Loading categories', 'global + space category taxonomy', 'how the vault is organised');
     if (p === '/api/search') return M('Search', 'Finding your documents', 'NL query → LLM/rule parse → filtered query', 'plain-English retrieval');
-    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', `multipart → ${TERMS.objectStorage} object + sidecar JSON; async extraction queued (${TERMS.mirrorStorage} is a separate scheduled job)`, 'an item enters the source-of-truth vault');
+    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', `multipart → ${TERMS.objectStorage} object + sidecar JSON; async extraction queued (${TERMS.mirrorStorage} runs about hourly as a separate job)`, 'an item enters the source-of-truth vault');
     if (p === '/api/documents' && m === 'GET') return M('List documents', 'Loading your documents', 'reads the rebuildable DB index', 'browse the vault');
     if (/^\/api\/documents\/[^/]+\/confirm$/.test(p)) return M('Confirm a document', 'Saving your reviewed details', 'human-review → status=confirmed; fires reminders + anomaly check', 'nothing is trusted until a human confirms');
     if (/^\/api\/documents\/[^/]+\/content$/.test(p)) return M('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes (no presigned URL)', 'sensitive PII stays encrypted at rest');
