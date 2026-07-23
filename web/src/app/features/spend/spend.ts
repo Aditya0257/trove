@@ -87,24 +87,52 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
 
       <div class="row-between section-head">
         <h3>Over time</h3>
-        <div class="ccy">
-          <button type="button" class="chip sm" [class.on]="trendGran() === 'day'" (click)="trendGran.set('day')">Day</button>
-          <button type="button" class="chip sm" [class.on]="trendGran() === 'week'" (click)="trendGran.set('week')">Week</button>
-          <button type="button" class="chip sm" [class.on]="trendGran() === 'month'" (click)="trendGran.set('month')">Month</button>
+        <div class="chart-ctrls">
+          <div class="ccy">
+            <button type="button" class="chip sm" [class.on]="trendType() === 'bar'" (click)="trendType.set('bar')">Bars</button>
+            <button type="button" class="chip sm" [class.on]="trendType() === 'wave'" (click)="trendType.set('wave')">Wave</button>
+          </div>
+          <div class="ccy">
+            <button type="button" class="chip sm" [class.on]="trendGran() === 'day'" (click)="trendGran.set('day')">Day</button>
+            <button type="button" class="chip sm" [class.on]="trendGran() === 'week'" (click)="trendGran.set('week')">Week</button>
+            <button type="button" class="chip sm" [class.on]="trendGran() === 'month'" (click)="trendGran.set('month')">Month</button>
+          </div>
         </div>
       </div>
       @if (byMonth().length) {
-        <div class="trend">
-          @for (m of byMonth(); track m.period) {
-            <div class="trend-col" [title]="m.period">
-              <div class="trend-bar-wrap">
-                <div class="trend-bar" [style.height.%]="pctOfMax(m.total, maxMonth())"></div>
+        @if (trendType() === 'bar') {
+          <div class="trend">
+            @for (m of byMonth(); track m.period) {
+              <div class="trend-col" [title]="m.period">
+                <div class="trend-bar-wrap">
+                  <div class="trend-bar" [style.height.%]="pctOfMax(m.total, maxMonth())"></div>
+                </div>
+                <span class="trend-val">{{ compact(m.total) }}</span>
+                <span class="trend-label">{{ periodLabel(m.period) }}</span>
               </div>
-              <span class="trend-val">{{ compact(m.total) }}</span>
-              <span class="trend-label">{{ periodLabel(m.period) }}</span>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        } @else {
+          <div class="wave-scroll">
+            <svg class="wave" [attr.viewBox]="'0 0 ' + wave().w + ' ' + wave().h"
+                 [attr.width]="wave().w" [attr.height]="wave().h">
+              <defs>
+                <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.32" />
+                  <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02" />
+                </linearGradient>
+              </defs>
+              @if (wave().area) { <path [attr.d]="wave().area" fill="url(#waveGrad)" /> }
+              <path [attr.d]="wave().line" fill="none" stroke="var(--accent)" stroke-width="2.5"
+                    stroke-linejoin="round" stroke-linecap="round" />
+              @for (p of wave().pts; track p.period) {
+                <circle [attr.cx]="p.x" [attr.cy]="p.y" r="3.5" fill="var(--brand)" />
+                <text [attr.x]="p.x" [attr.y]="p.y - 9" class="wave-val">{{ compact(p.val) }}</text>
+                <text [attr.x]="p.x" [attr.y]="wave().h - 6" class="wave-lbl">{{ periodLabel(p.period) }}</text>
+              }
+            </svg>
+          </div>
+        }
       } @else { <p class="muted">Nothing to show yet.</p> }
 
       <h3>Flagged as unusual</h3>
@@ -152,6 +180,13 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
       .trend-bar { width: 100%; background: linear-gradient(180deg, var(--accent), var(--brand)); border-radius: 7px 7px 0 0; min-height: 3px; transition: height 320ms; }
       .trend-val { font-size: 11px; font-weight: 600; }
       .trend-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+      .chart-ctrls { display: flex; gap: 12px; flex-wrap: wrap; }
+
+      /* Wave (smooth area) chart. */
+      .wave-scroll { overflow-x: auto; margin: 10px 0; }
+      .wave { display: block; }
+      .wave-val { text-anchor: middle; font-size: 10px; font-weight: 600; fill: var(--ink); }
+      .wave-lbl { text-anchor: middle; font-size: 10px; fill: var(--muted); }
 
       /* Donut (SVG) + legend. */
       .section-head { margin-top: 10px; }
@@ -176,7 +211,52 @@ export class Spend {
   protected currency = signal<string>('INR');
   protected chartType = signal<'bar' | 'donut'>('bar');
   protected trendGran = signal<'day' | 'week' | 'month'>('month');
+  protected trendType = signal<'bar' | 'wave'>('bar');
   private static readonly ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  /** Smooth area/line ("wave") chart geometry for the over-time series. */
+  protected wave = computed(() => {
+    const data = this.byMonth();
+    const max = this.maxMonth();
+    const h = 156;
+    const padTop = 24;
+    const padBot = 24;
+    const padX = 28;
+    const base = h - padBot;
+    const usable = base - padTop;
+    const n = data.length;
+    const w = Math.max(280, n * 72);
+    const pts = data.map((m, i) => ({
+      x: n === 1 ? w / 2 : padX + (i * (w - 2 * padX)) / (n - 1),
+      y: base - (max > 0 ? (m.total / max) * usable : 0),
+      val: m.total,
+      period: m.period,
+    }));
+    const line = this.smoothPath(pts);
+    const area = pts.length >= 2
+      ? `${line} L ${pts[pts.length - 1].x.toFixed(1)} ${base} L ${pts[0].x.toFixed(1)} ${base} Z`
+      : '';
+    return { w, h, base, line, area, pts };
+  });
+
+  /** Catmull-Rom → cubic-bezier smoothing so the line reads as a wave. */
+  private smoothPath(pts: { x: number; y: number }[]): string {
+    if (!pts.length) return '';
+    if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+    let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] ?? pts[i + 1];
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return d;
+  }
 
   /** Distinct, theme-neutral segment colours for the donut/legend. */
   private static readonly PALETTE = [
