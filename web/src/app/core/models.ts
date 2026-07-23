@@ -150,6 +150,23 @@ export interface DriveStatus {
   connections: DriveConnectionView[];
 }
 
+export interface ChatCitation {
+  documentId: string;
+  index: number;
+  title: string;
+  category: string | null;
+  docDate: string | null;
+  amount: number | null;
+  currency: string | null;
+  snippet: string;
+}
+
+export interface ChatAnswer {
+  answer: string;
+  aiUsed: boolean;         // false = retrieval-only (AI summary paused/off)
+  sources: ChatCitation[];
+}
+
 export interface SearchResult {
   interpreted: Record<string, unknown>;
   count: number;

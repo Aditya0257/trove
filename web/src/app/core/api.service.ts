@@ -19,6 +19,7 @@ import {
   AiUsage,
   Category,
   CategorySpend,
+  ChatAnswer,
   ConfirmRequest,
   DocumentResponse,
   DriveStatus,
@@ -95,6 +96,14 @@ export class ApiService {
   // --- search ---
   search(q: string, spaceId?: string) {
     return this.http.get<SearchResult>(`${API_BASE}/api/search${this.qs({ q, spaceId })}`);
+  }
+
+  // --- ask (RAG) ---
+  chatAsk(question: string, spaceId?: string) {
+    return this.http.post<ChatAnswer>(`${API_BASE}/api/chat/ask${this.qs({ spaceId })}`, { question });
+  }
+  chatReindex(spaceId?: string) {
+    return this.http.post<{ indexed: number }>(`${API_BASE}/api/chat/reindex${this.qs({ spaceId })}`, {});
   }
 
   // --- spend ---
