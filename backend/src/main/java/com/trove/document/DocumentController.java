@@ -124,10 +124,31 @@ public class DocumentController {
         return documentService.confirm(id, currentUser.requireUserId(), body);
     }
 
-    /** Deletes a document (line items, stored file + sidecar, index row). Write access required. */
+    /** Soft-deletes a document: moves it to the trash (recoverable), status=deleted. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable UUID id) {
         documentService.delete(id, currentUser.requireUserId());
+    }
+
+    /** The trash: soft-deleted documents in a space, most recently deleted first. */
+    @GetMapping("/trash")
+    public List<DocumentResponse> trash(@RequestParam(value = "spaceId", required = false) UUID spaceId) {
+        UUID user = currentUser.requireUserId();
+        UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
+        return documentService.listTrash(space, user);
+    }
+
+    /** Restores a trashed document back to the live vault. */
+    @PostMapping("/{id}/restore")
+    public void restore(@PathVariable UUID id) {
+        documentService.restore(id, currentUser.requireUserId());
+    }
+
+    /** Permanently purges one trashed document now ("delete forever"). Write access required. */
+    @DeleteMapping("/{id}/purge")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void purge(@PathVariable UUID id) {
+        documentService.purgeNow(id, currentUser.requireUserId());
     }
 }

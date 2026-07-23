@@ -68,6 +68,15 @@ export class ApiService {
   deleteDocument(id: string) {
     return this.http.delete<void>(`${API_BASE}/api/documents/${id}`);
   }
+  listTrash(spaceId?: string) {
+    return this.http.get<DocumentResponse[]>(`${API_BASE}/api/documents/trash${this.qs({ spaceId })}`);
+  }
+  restoreDocument(id: string) {
+    return this.http.post<void>(`${API_BASE}/api/documents/${id}/restore`, {});
+  }
+  purgeDocument(id: string) {
+    return this.http.delete<void>(`${API_BASE}/api/documents/${id}/purge`);
+  }
 
   aiUsage() {
     return this.http.get<AiUsage>(`${API_BASE}/api/ai-usage`);

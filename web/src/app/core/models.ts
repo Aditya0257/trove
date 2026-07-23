@@ -35,9 +35,10 @@ export interface DocumentResponse {
   extractionConfidence: number | null;
   vital: boolean;
   encrypted: boolean;
-  status: 'needs_review' | 'confirmed';
+  status: 'needs_review' | 'confirmed' | 'deleted';
   reviewedBy: string | null;
   reviewedAt: string | null;
+  deletedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   fileUrl: string | null;

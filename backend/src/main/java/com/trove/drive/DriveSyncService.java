@@ -349,6 +349,74 @@ public class DriveSyncService {
         return slash >= 0 ? key.substring(slash + 1) : key;
     }
 
+    // ── trash: reflect soft-delete / restore / purge into each Drive ─────────────
+    private static final String DELETED_FOLDER = "_Deleted";
+
+    /** Moves a document's file into Trove/_Deleted/ in every Drive it was synced to. */
+    public void moveToDeletedFolder(UUID documentId) {
+        forEachSyncedDrive(documentId, (drive, conn, fileId) -> {
+            String rootId = ensureRoot(drive, conn);
+            String deletedId = ensureFolder(drive, conn, DELETED_FOLDER, DELETED_FOLDER, rootId);
+            reparent(drive, fileId, deletedId);
+        });
+    }
+
+    /** Moves a restored document's file back to its category/month folder in each Drive. */
+    public void moveOutOfDeletedFolder(UUID documentId) {
+        Document doc = documentRepository.findById(documentId).orElse(null);
+        if (doc == null) {
+            return;
+        }
+        Map<UUID, String> categoryCodes = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::getId, Category::getCode));
+        String code = doc.getCategoryId() != null
+                ? categoryCodes.getOrDefault(doc.getCategoryId(), "uncategorized") : "uncategorized";
+        LocalDate when = doc.getDocDate() != null
+                ? doc.getDocDate() : LocalDate.ofInstant(doc.getCreatedAt(), ZoneOffset.UTC);
+        String month = when.format(MONTH);
+        forEachSyncedDrive(documentId, (drive, conn, fileId) -> {
+            String rootId = ensureRoot(drive, conn);
+            String categoryFolderId = ensureFolder(drive, conn, code, code, rootId);
+            String monthFolderId = ensureFolder(drive, conn, code + "/" + month, month, categoryFolderId);
+            reparent(drive, fileId, monthFolderId);
+        });
+    }
+
+    /** Deletes a document's file from every Drive it was synced to (hard purge). */
+    public void deleteFromDrives(UUID documentId) {
+        forEachSyncedDrive(documentId, (drive, conn, fileId) -> drive.files().delete(fileId).execute());
+    }
+
+    /** Runs an action against the live Drive file for each connection this doc is synced to.
+     *  Best-effort per Drive: one failure is logged and the rest still run. */
+    private void forEachSyncedDrive(UUID documentId, DriveFileAction action) {
+        for (DocumentSync s : documentSyncRepository.findByDocumentIdIn(List.of(documentId))) {
+            try {
+                DriveConnection conn = connectionRepository.findById(s.getConnectionId()).orElse(null);
+                if (conn == null) {
+                    continue;
+                }
+                Drive drive = oauthService.driveFor(encryptionService.decrypt(conn.getRefreshTokenEnc()));
+                action.run(drive, conn, s.getExternalId());
+            } catch (Exception e) {
+                log.warn("Drive trash op failed for doc {} on connection {} — {}",
+                        documentId, s.getConnectionId(), e.getMessage());
+            }
+        }
+    }
+
+    /** Reparents a Drive file: removes its current parents, adds the new one. */
+    private void reparent(Drive drive, String fileId, String newParentId) throws Exception {
+        File current = drive.files().get(fileId).setFields("parents").execute();
+        String removeParents = current.getParents() == null ? null : String.join(",", current.getParents());
+        drive.files().update(fileId, null).setAddParents(newParentId).setRemoveParents(removeParents).execute();
+    }
+
+    @FunctionalInterface
+    private interface DriveFileAction {
+        void run(Drive drive, DriveConnection conn, String fileId) throws Exception;
+    }
+
     /** Summary of a sync run. */
     public record DriveSyncSummary(int synced, int skipped) {
     }

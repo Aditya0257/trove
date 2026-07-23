@@ -151,9 +151,10 @@ public class DocumentService {
         //    (dedupe is on content, independent of whether we encrypt at rest).
         byte[] bytes = readBytes(file);
         String hash = HashUtil.sha256Hex(bytes);
-        documentRepository.findBySpaceIdAndFileHash(spaceId, hash).ifPresent(existing -> {
-            throw new DuplicateDocumentException(existing.getId());
-        });
+        documentRepository.findBySpaceIdAndFileHashAndStatusNot(spaceId, hash, DocumentStatus.DELETED)
+                .ifPresent(existing -> {
+                    throw new DuplicateDocumentException(existing.getId());
+                });
 
         // 2) Store under the provisional category path. Vital docs are encrypted first.
         Category provisional = categoryService.resolve(spaceId, PROVISIONAL_CATEGORY);
@@ -197,9 +198,10 @@ public class DocumentService {
         List<Document> docs;
         if (categoryCode != null && !categoryCode.isBlank()) {
             Category category = categoryService.resolve(spaceId, categoryCode);
-            docs = documentRepository.findBySpaceIdAndCategoryIdOrderByCreatedAtDesc(spaceId, category.getId());
+            docs = documentRepository.findBySpaceIdAndCategoryIdAndStatusNotOrderByCreatedAtDesc(
+                    spaceId, category.getId(), DocumentStatus.DELETED);
         } else {
-            docs = documentRepository.findBySpaceIdOrderByCreatedAtDesc(spaceId);
+            docs = documentRepository.findBySpaceIdAndStatusNotOrderByCreatedAtDesc(spaceId, DocumentStatus.DELETED);
         }
         return docs.stream().map(this::toResponse).toList();
     }
@@ -254,27 +256,153 @@ public class DocumentService {
     }
 
     /**
-     * Deletes a document: its line items, the stored file + sidecar in object storage,
-     * and the index row. Requires write access to the space.
-     *
-     * Note on the core principle: this removes the LIVE copy (R2 + DB). The scheduled
-     * mirror is one-way/additive, so a copy may still exist in the second cloud and in
-     * Drive until those are separately pruned — which also means an accidental delete
-     * remains recoverable. A full purge across all tiers is a deliberate, separate op.
+     * Soft-deletes a document: moves its file + sidecar from the live path to a trash
+     * prefix in object storage (NOT erased), and marks the row status=deleted with who/
+     * when. The document disappears from every normal list/spend/search but stays fully
+     * recoverable via {@link #restore} until the retention window elapses and the purge
+     * sweep removes it for good. Honours the core principle: deletion is never a silent,
+     * irreversible wipe. Requires write access.
      */
     @Transactional
     public void delete(UUID documentId, UUID userId) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
         spaceAuthorization.requireCanWrite(doc.getSpaceId(), userId);
-
-        lineItemRepository.deleteByDocumentId(documentId);
-        deleteQuietly(doc.getStorageKey());
-        if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
-            deleteQuietly(doc.getSidecarKey());
+        if (DocumentStatus.DELETED.equals(doc.getStatus())) {
+            return;   // already in the trash
         }
+
+        // Move the live objects into _trash/{space}/{doc}/ — keep storage_key pointing at
+        // the ORIGINAL path so restore knows the destination; trash_key is where bytes are now.
+        String trashPrefix = "_trash/" + doc.getSpaceId() + "/" + doc.getId() + "/";
+        String trashKey = trashPrefix + basename(doc.getStorageKey());
+        moveObject(doc.getStorageKey(), trashKey, doc.getMimeType());
+        if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
+            moveObject(doc.getSidecarKey(), trashPrefix + basename(doc.getSidecarKey()), "application/json");
+        }
+
+        doc.setTrashKey(trashKey);
+        doc.setDeletedBy(userId);
+        doc.setDeletedAt(Instant.now());
+        doc.setStatus(DocumentStatus.DELETED);
+        documentRepository.save(doc);
+        events.publishEvent(new DocumentTrashedEvent(doc.getId(), doc.getSpaceId()));
+        log.info("Trashed document {} in space {} (recoverable until purge)", documentId, doc.getSpaceId());
+    }
+
+    /** The trash view: soft-deleted documents in a space, most recently deleted first. */
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> listTrash(UUID spaceId, UUID userId) {
+        spaceAuthorization.requireCanRead(spaceId, userId);
+        return documentRepository.findBySpaceIdAndStatusOrderByDeletedAtDesc(spaceId, DocumentStatus.DELETED)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Restores a trashed document: moves its file + sidecar back to the live path and
+     * clears the tombstone. Prior review state is inferred — a document that had been
+     * confirmed (has a reviewer) returns to confirmed, otherwise to needs_review.
+     */
+    @Transactional
+    public void restore(UUID documentId, UUID userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanWrite(doc.getSpaceId(), userId);
+        if (!DocumentStatus.DELETED.equals(doc.getStatus())) {
+            return;
+        }
+        if (doc.getTrashKey() != null) {
+            String trashPrefix = "_trash/" + doc.getSpaceId() + "/" + doc.getId() + "/";
+            moveObject(doc.getTrashKey(), doc.getStorageKey(), doc.getMimeType());
+            if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
+                moveObject(trashPrefix + basename(doc.getSidecarKey()), doc.getSidecarKey(), "application/json");
+            }
+        }
+        doc.setTrashKey(null);
+        doc.setDeletedAt(null);
+        doc.setDeletedBy(null);
+        doc.setStatus(doc.getReviewedAt() != null ? DocumentStatus.CONFIRMED : DocumentStatus.NEEDS_REVIEW);
+        documentRepository.save(doc);
+        events.publishEvent(new DocumentRestoredEvent(doc.getId(), doc.getSpaceId()));
+        log.info("Restored document {} in space {}", documentId, doc.getSpaceId());
+    }
+
+    /**
+     * Purges a trashed document for good: deletes its trashed file + sidecar from object
+     * storage, then the index row (line items + drive sync rows cascade). The purge event
+     * fires BEFORE the row is removed — synchronously — so a listener can still read the
+     * drive_sync rows and delete the Drive copies. The independent B2 mirror is left as an
+     * append-only archival backstop and is not touched here.
+     */
+    @Transactional
+    public void purge(Document doc) {
+        String trashPrefix = "_trash/" + doc.getSpaceId() + "/" + doc.getId() + "/";
+        if (doc.getTrashKey() != null) {
+            deleteQuietly(doc.getTrashKey());
+            if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
+                deleteQuietly(trashPrefix + basename(doc.getSidecarKey()));
+            }
+        } else {
+            // Defensive: if it was never trashed, clear whatever is at the live keys.
+            deleteQuietly(doc.getStorageKey());
+            if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
+                deleteQuietly(doc.getSidecarKey());
+            }
+        }
+        // Fire first (sync rows still present), then remove the row (cascades line items + sync).
+        events.publishEvent(new DocumentPurgedEvent(doc.getId(), doc.getSpaceId()));
+        lineItemRepository.deleteByDocumentId(doc.getId());
         documentRepository.delete(doc);
-        log.info("Deleted document {} from space {}", documentId, doc.getSpaceId());
+        log.info("Purged document {} from space {} (removed from live storage + DB)", doc.getId(), doc.getSpaceId());
+    }
+
+    /** Immediate purge of one trashed document by id (owner-driven "delete forever"). */
+    @Transactional
+    public void purgeNow(UUID documentId, UUID userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanWrite(doc.getSpaceId(), userId);
+        if (!DocumentStatus.DELETED.equals(doc.getStatus())) {
+            throw new IllegalStateException("Only a trashed document can be purged");
+        }
+        purge(doc);
+    }
+
+    /** Purges every trashed document whose retention window has elapsed (scheduled sweep). */
+    public int purgeExpired(int retentionDays) {
+        Instant cutoff = Instant.now().minus(retentionDays, java.time.temporal.ChronoUnit.DAYS);
+        List<Document> expired = documentRepository.findByStatusAndDeletedAtBefore(DocumentStatus.DELETED, cutoff);
+        for (Document doc : expired) {
+            try {
+                purge(doc);
+            } catch (Exception e) {
+                log.warn("Could not purge expired document {} — {}", doc.getId(), e.getMessage());
+            }
+        }
+        if (!expired.isEmpty()) {
+            log.info("Purge sweep removed {} document(s) past {}-day retention", expired.size(), retentionDays);
+        }
+        return expired.size();
+    }
+
+    /** Moves a stored object from one key to another (copy bytes, then delete the source).
+     *  Best-effort on the delete half so a stale source never blocks the logical move. */
+    private void moveObject(String fromKey, String toKey, String contentType) {
+        if (fromKey == null || fromKey.equals(toKey)) {
+            return;
+        }
+        byte[] bytes = storageService.get(fromKey);
+        storageService.put(toKey, bytes, contentType != null ? contentType : "application/octet-stream");
+        deleteQuietly(fromKey);
+    }
+
+    /** Last path segment of a storage key (filename). */
+    private String basename(String key) {
+        if (key == null) {
+            return "";
+        }
+        int slash = key.lastIndexOf('/');
+        return slash >= 0 ? key.substring(slash + 1) : key;
     }
 
     /**
@@ -398,7 +526,7 @@ public class DocumentService {
                 doc.getDocDate(), doc.getAmount(), doc.getCurrency(), doc.getDueDate(),
                 doc.getRawText(), doc.getExtra(), doc.getExtractionConfidence(),
                 doc.isVital(), doc.isEncrypted(), doc.getStatus(), doc.getReviewedBy(), doc.getReviewedAt(),
-                doc.getCreatedAt(), doc.getUpdatedAt(), fileUrl, items);
+                doc.getDeletedAt(), doc.getCreatedAt(), doc.getUpdatedAt(), fileUrl, items);
     }
 
     private String categoryCodeOf(UUID categoryId) {

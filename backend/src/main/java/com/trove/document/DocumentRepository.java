@@ -24,14 +24,25 @@ import java.util.UUID;
 public interface DocumentRepository extends JpaRepository<Document, UUID>,
         JpaSpecificationExecutor<Document> {
 
-    /** Duplicate detection: same content hash already stored in this space. */
-    Optional<Document> findBySpaceIdAndFileHash(UUID spaceId, String fileHash);
+    /** Duplicate detection: same content hash already LIVE in this space (a trashed copy
+     *  must not block re-uploading the same file). */
+    Optional<Document> findBySpaceIdAndFileHashAndStatusNot(UUID spaceId, String fileHash, String status);
 
-    /** All documents in a space, newest first. */
+    /** All documents in a space regardless of status (used by whole-space storage purge). */
     List<Document> findBySpaceIdOrderByCreatedAtDesc(UUID spaceId);
 
-    /** Documents in a space filed under a specific category, newest first. */
-    List<Document> findBySpaceIdAndCategoryIdOrderByCreatedAtDesc(UUID spaceId, UUID categoryId);
+    /** Live documents in a space (excludes trashed), newest first. */
+    List<Document> findBySpaceIdAndStatusNotOrderByCreatedAtDesc(UUID spaceId, String status);
+
+    /** Live documents in a space under a category (excludes trashed), newest first. */
+    List<Document> findBySpaceIdAndCategoryIdAndStatusNotOrderByCreatedAtDesc(
+            UUID spaceId, UUID categoryId, String status);
+
+    /** Trashed documents in a space, most recently deleted first (the Trash view). */
+    List<Document> findBySpaceIdAndStatusOrderByDeletedAtDesc(UUID spaceId, String status);
+
+    /** Trashed documents past their retention window (the purge sweep). */
+    List<Document> findByStatusAndDeletedAtBefore(String status, java.time.Instant cutoff);
 
     /** Documents whose extraction never completed (crash-recovery sweep). */
     List<Document> findByExtractionConfidenceIsNull();

@@ -4,19 +4,55 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { MoneyPipe } from '../../core/money.pipe';
+import { DateTimePipe } from '../../core/datetime.pipe';
 import { NoticeService } from '../../core/notice/notice.service';
 import { Category, DocumentResponse } from '../../core/models';
 import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-doc-list',
-  imports: [RouterLink, MoneyPipe, FormsModule, TroveSelect],
+  imports: [RouterLink, MoneyPipe, DateTimePipe, FormsModule, TroveSelect],
   template: `
     <div class="card">
       <div class="row-between">
-        <h1>Documents</h1>
-        <a routerLink="/upload" class="button">＋ Upload</a>
+        <h1>{{ showTrash() ? 'Trash' : 'Documents' }}</h1>
+        <div class="head-actions">
+          <button type="button" class="btn-ghost" (click)="toggleTrash()">
+            {{ showTrash() ? '← Documents' : '🗑 Trash' }}
+          </button>
+          @if (!showTrash()) { <a routerLink="/upload" class="button">＋ Upload</a> }
+        </div>
       </div>
+
+      @if (showTrash()) {
+        <p class="muted">Deleted documents stay here for 30 days, then they're permanently removed from
+          storage. Restore anything before then.</p>
+        @if (trashLoading()) { <p class="muted">Loading…</p> }
+        @else if (trash().length === 0) { <p class="muted">Trash is empty.</p> }
+        @else {
+          <table>
+            <thead>
+              <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Deleted</th><th></th></tr>
+            </thead>
+            <tbody>
+              @for (d of trash(); track d.id) {
+                <tr>
+                  <td>{{ d.originalFilename || d.id }}</td>
+                  <td>{{ d.category || '-' }}</td>
+                  <td>{{ d.merchant || '-' }}</td>
+                  <td>{{ d.amount | money: d.currency }}</td>
+                  <td>{{ d.deletedAt ? (d.deletedAt | prettyDate) : '-' }}</td>
+                  <td class="row-actions">
+                    <button type="button" class="btn-ghost sm" (click)="restore(d)">Restore</button>
+                    <button type="button" class="del" (click)="purge(d)">Delete forever</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <p class="muted total">{{ trash().length }} in trash</p>
+        }
+      } @else {
 
       <div class="cats">
         <button type="button" class="chip" [class.on]="category === ''" (click)="setCategory('')">All</button>
@@ -67,6 +103,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
           <span class="muted total">{{ visibleDocs().length }} document(s)</span>
         </div>
       }
+      }
     </div>
   `,
   styles: [
@@ -83,6 +120,14 @@ import { TroveSelect, SelectOption } from '../../core/select';
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: var(--danger-soft); }
+      .head-actions { display: flex; align-items: center; gap: 10px; }
+      .btn-ghost {
+        margin: 0; border: 1px solid var(--line); background: transparent; color: var(--muted);
+        border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+      }
+      .btn-ghost:hover { background: var(--hover); color: var(--accent); }
+      .btn-ghost.sm { padding: 4px 12px; font-size: 12px; }
+      .row-actions { display: flex; gap: 8px; white-space: nowrap; }
       .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
       .page-size { display: inline-block; width: 200px; }
       .pages { display: flex; align-items: center; gap: 10px; }
@@ -152,14 +197,57 @@ export class DocList {
 
   remove(d: DocumentResponse): void {
     const name = d.merchant || d.originalFilename || 'this document';
-    if (!confirm(`Delete "${name}"? This removes it from your vault.`)) {
+    if (!confirm(`Move "${name}" to Trash? It stays recoverable for 30 days before it's permanently removed.`)) {
       return;
     }
     this.api.deleteDocument(d.id).subscribe({
       next: () => {
         this.docs.update((list) => list.filter((x) => x.id !== d.id));
-        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Document deleted.' });
+        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash — recoverable for 30 days.' });
       },
+    });
+  }
+
+  // ── Trash ────────────────────────────────────────────────────────────────
+  showTrash = signal(false);
+  trash = signal<DocumentResponse[]>([]);
+  trashLoading = signal(false);
+
+  toggleTrash(): void {
+    const next = !this.showTrash();
+    this.showTrash.set(next);
+    if (next) this.loadTrash();
+  }
+
+  loadTrash(): void {
+    this.trashLoading.set(true);
+    this.api.listTrash(this.spaceCtx.currentSpaceId()).subscribe({
+      next: (d) => { this.trash.set(d); this.trashLoading.set(false); },
+      error: () => this.trashLoading.set(false),
+    });
+  }
+
+  restore(d: DocumentResponse): void {
+    this.api.restoreDocument(d.id).subscribe({
+      next: () => {
+        this.trash.update((list) => list.filter((x) => x.id !== d.id));
+        this.notices.show({ level: 'success', code: 'RESTORED', userMessage: 'Document restored.' });
+      },
+      error: (e) => this.notices.show({ level: 'error', code: 'RESTORE_FAIL', userMessage: e?.error?.message ?? 'Could not restore.' }),
+    });
+  }
+
+  purge(d: DocumentResponse): void {
+    const name = d.merchant || d.originalFilename || 'this document';
+    if (!confirm(`Permanently delete "${name}"? This clears it from live storage and can't be undone.`)) {
+      return;
+    }
+    this.api.purgeDocument(d.id).subscribe({
+      next: () => {
+        this.trash.update((list) => list.filter((x) => x.id !== d.id));
+        this.notices.show({ level: 'success', code: 'PURGED', userMessage: 'Permanently deleted.' });
+      },
+      error: (e) => this.notices.show({ level: 'error', code: 'PURGE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }),
     });
   }
 

@@ -129,6 +129,18 @@ public class Document extends BaseEntity {
     @Column(name = "reviewed_at")
     private Instant reviewedAt;
 
+    // Soft-delete tombstone (status = 'deleted'): when it was trashed, by whom, and the
+    // R2 key the live file was moved to. storage_key stays the ORIGINAL path so Restore
+    // knows where to put the file back; trash_key is where the bytes actually live now.
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
+
+    @Column(name = "trash_key")
+    private String trashKey;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -209,6 +221,12 @@ public class Document extends BaseEntity {
     public String getStatus() { return status; }
     public UUID getReviewedBy() { return reviewedBy; }
     public Instant getReviewedAt() { return reviewedAt; }
+    public Instant getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
+    public UUID getDeletedBy() { return deletedBy; }
+    public void setDeletedBy(UUID deletedBy) { this.deletedBy = deletedBy; }
+    public String getTrashKey() { return trashKey; }
+    public void setTrashKey(String trashKey) { this.trashKey = trashKey; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 

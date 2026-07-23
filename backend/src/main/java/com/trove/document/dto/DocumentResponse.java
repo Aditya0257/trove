@@ -54,6 +54,7 @@ public record DocumentResponse(
         String status,
         UUID reviewedBy,
         Instant reviewedAt,
+        Instant deletedAt,        // when soft-deleted (status=deleted), else null
         Instant createdAt,
         Instant updatedAt,
         String fileUrl,           // short-lived presigned URL
