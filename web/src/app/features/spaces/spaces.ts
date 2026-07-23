@@ -598,10 +598,15 @@ export class Spaces {
   disconnect(connectionId: string): void {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid) return;
-    if (!confirm('Unlink this Drive from the space? Files already backed up stay in the Drive; Trove just stops syncing to it.')) return;
+    if (!confirm('Unlink this Drive from the space? Files already backed up stay in the Drive — ' +
+                 'Trove just stops syncing to it. Use "+ Connect another Drive" afterwards to link a different one.')) {
+      return;
+    }
     this.api.driveDisconnect(sid, connectionId).subscribe({
       next: () => { this.notices.show({ level: 'info', code: 'DRIVE_DISCONNECTED', userMessage: 'Drive unlinked from this space.' }); this.reloadDrive(sid); },
-      error: (e) => this.notices.show({ level: 'error', code: 'DRIVE_DISCONNECT', userMessage: e?.error?.message ?? 'Could not unlink this Drive.' }),
+      // Always refresh — even on error the card must reflect reality, so a stale row can't
+      // linger and keep failing.
+      error: (e) => { this.notices.show({ level: 'error', code: 'DRIVE_DISCONNECT', userMessage: e?.error?.message ?? 'Could not unlink this Drive.' }); this.reloadDrive(sid); },
     });
   }
 

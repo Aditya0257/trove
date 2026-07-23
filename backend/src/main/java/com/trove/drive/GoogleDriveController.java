@@ -28,7 +28,6 @@ package com.trove.drive;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.trove.common.error.ForbiddenException;
-import com.trove.common.error.NotFoundException;
 import com.trove.common.security.CurrentUser;
 import com.trove.common.security.EncryptionService;
 import com.trove.space.SpaceAuthorization;
@@ -42,6 +41,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -174,14 +174,20 @@ public class GoogleDriveController {
         return java.util.Map.of("mode", driveSyncService.mode(spaceId));
     }
 
-    /** Unlinks a Drive. The owner may remove any; a member may remove only the one they linked. */
+    /** Unlinks a Drive. The owner may remove any; a member may remove only the one they linked.
+     *  Idempotent: if the connection is already gone (e.g. a stale card, a double click), this
+     *  is a no-op success rather than a 404 — the desired end state is "not linked" either way. */
     @DeleteMapping("/connections/{connectionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void disconnect(@RequestParam("spaceId") UUID spaceId, @PathVariable("connectionId") UUID connectionId) {
         UUID userId = currentUser.requireUserId();
         String role = authorization.requireMembership(spaceId, userId);
         DriveConnection conn = driveSyncService.connections(spaceId).stream()
                 .filter(c -> c.getId().equals(connectionId)).findFirst()
-                .orElseThrow(() -> new NotFoundException("Drive connection not found in this space"));
+                .orElse(null);
+        if (conn == null) {
+            return;   // already unlinked — nothing to do
+        }
         if (!SpaceRole.OWNER.equals(role) && !userId.equals(conn.getConnectedBy())) {
             throw new ForbiddenException("Only the owner or the member who linked it can remove this Drive");
         }
