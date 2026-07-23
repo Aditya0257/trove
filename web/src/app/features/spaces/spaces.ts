@@ -5,7 +5,7 @@ import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { AuthService } from '../../core/auth.service';
 import { NoticeService } from '../../core/notice/notice.service';
-import { DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
+import { DriveConnectionView, DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { TERMS } from '../../core/terms';
@@ -154,34 +154,65 @@ import { TroveSelect, SelectOption } from '../../core/select';
       </trove-help-card>
       @if (drive(); as d) {
         @if (d.connected) {
-          <p>✅ Connected. Last sync: {{ d.lastSyncAt ? (d.lastSyncAt | prettyDate) : 'never' }}.</p>
-          @if (d.googleEmail) {
-            <p class="drive-account">
-              <span class="drive-account-label">Account</span>
-              <span class="drive-account-email">{{ d.googleEmail }}</span>
-              @if (d.googleAccountName) { <span class="muted">({{ d.googleAccountName }})</span> }
-              @if (d.connectedByName) { <span class="muted"> · linked by {{ d.connectedByName }}</span> }
-            </p>
-          }
-          @if (d.storageLimitBytes) {
-            <div class="storage">
-              <div class="storage-bar" [title]="storageTitle(d)">
-                <span class="seg seg-trove" [style.width.%]="pctOf(d.troveBytes, d.storageLimitBytes)"></span>
-                <span class="seg seg-other" [style.width.%]="pctOther(d)"></span>
-              </div>
-              <p class="storage-text muted">
-                <span class="dot dot-trove"></span> Trove {{ fmtBytes(d.troveBytes) }}
-                <span class="dot dot-other"></span> other {{ fmtBytes((d.storageUsageBytes ?? 0) - (d.troveBytes ?? 0)) }}
-                · {{ fmtBytes(d.storageUsageBytes) }} of {{ fmtBytes(d.storageLimitBytes) }} used
-              </p>
+          <!-- How several Drives are used together. -->
+          <div class="drive-mode">
+            <span class="drive-mode-label">With several Drives</span>
+            <div class="ccy">
+              <button type="button" class="chip sm" [class.on]="d.mode === 'rotate'" (click)="setMode('rotate')">Rotate</button>
+              <button type="button" class="chip sm" [class.on]="d.mode === 'mirror'" (click)="setMode('mirror')">Mirror</button>
             </div>
-          } @else if (d.troveBytes) {
-            <p class="storage-text muted">Trove {{ fmtBytes(d.troveBytes) }} stored · account storage is unlimited</p>
+          </div>
+          <p class="muted small mode-hint">
+            @if (d.mode === 'mirror') {
+              Every document is copied into <b>all</b> linked Drives — a redundant, independent backup.
+            } @else {
+              Documents fill the <b>active</b> Drive, then roll to the next when it is full — pooled capacity.
+            }
+          </p>
+
+          @for (c of d.connections; track c.id) {
+            <div class="drive-conn" [class.is-active]="c.active && d.mode === 'rotate'">
+              <div class="drive-conn-head">
+                <span class="drive-account-email">{{ c.googleEmail || 'Google Drive' }}</span>
+                @if (c.googleAccountName) { <span class="muted">({{ c.googleAccountName }})</span> }
+                @if (d.mode === 'rotate' && c.active) { <span class="badge badge-active">Active</span> }
+                @if (c.status === 'full') { <span class="badge badge-full">Full</span> }
+              </div>
+              <div class="drive-conn-sub muted">
+                @if (c.connectedByName) { linked by {{ c.connectedByName }} · }
+                last sync {{ c.lastSyncAt ? (c.lastSyncAt | prettyDate) : 'never' }}
+              </div>
+              @if (c.storageLimitBytes) {
+                <div class="storage">
+                  <div class="storage-bar" [title]="connTitle(c)">
+                    <span class="seg seg-trove" [style.width.%]="pctOf(c.troveBytes, c.storageLimitBytes)"></span>
+                    <span class="seg seg-other" [style.width.%]="pctOtherC(c)"></span>
+                  </div>
+                  <p class="storage-text muted">
+                    <span class="dot dot-trove"></span> Trove {{ fmtBytes(c.troveBytes) }}
+                    <span class="dot dot-other"></span> other {{ fmtBytes((c.storageUsageBytes ?? 0) - (c.troveBytes ?? 0)) }}
+                    · {{ fmtBytes(c.storageUsageBytes) }} of {{ fmtBytes(c.storageLimitBytes) }} used
+                  </p>
+                </div>
+              } @else if (c.troveBytes) {
+                <p class="storage-text muted">Trove {{ fmtBytes(c.troveBytes) }} stored · account storage is unlimited</p>
+              }
+              <div class="drive-conn-actions">
+                @if (d.mode === 'rotate' && !c.active) {
+                  <button type="button" class="btn-ghost sm" (click)="activate(c.id)">Make active</button>
+                }
+                <button type="button" class="btn-ghost sm" (click)="disconnect(c.id)">Disconnect</button>
+              </div>
+            </div>
           }
-          <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
-          @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
+
+          <div class="drive-foot">
+            <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
+            <button type="button" class="btn-ghost" (click)="connect()">+ Connect another Drive</button>
+            @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
+          </div>
         } @else {
-          <p class="muted">Not connected. Back this space up to the owner's {{ terms.driveBackup }}.</p>
+          <p class="muted">Not connected. Back this space up into a member's {{ terms.driveBackup }} — anyone in the space can link their own.</p>
           <button (click)="connect()">Connect {{ terms.driveBackup }}</button>
         }
       } @else { <p class="muted">{{ driveError() || 'Loading…' }}</p> }
@@ -202,16 +233,31 @@ import { TroveSelect, SelectOption } from '../../core/select';
     `
       .member-name { font-weight: 600; }
       .member-sub { font-size: 12px; color: var(--muted); font-family: monospace; }
-      /* The connected Google account line under the Drive status. */
-      .drive-account {
-        display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-        margin: 2px 0 10px; font-size: 0.9rem;
-      }
-      .drive-account-label {
-        font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
-        color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 8px;
-      }
       .drive-account-email { font-weight: 600; font-family: monospace; }
+
+      /* Rotate/Mirror mode toggle. */
+      .drive-mode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 4px; }
+      .drive-mode-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+      .mode-hint { margin: 0 0 12px; }
+      .ccy { display: flex; align-items: center; gap: 6px; }
+      .chip {
+        margin: 0; border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
+        border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+      }
+      .chip.sm { padding: 2px 10px; font-size: 12px; }
+      .chip.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
+
+      /* One linked Drive. The active one (rotate mode) gets an accent frame. */
+      .drive-conn { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
+      .drive-conn.is-active { border-color: var(--accent-line); background: var(--accent-soft); }
+      .drive-conn-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .drive-conn-sub { font-size: 0.8rem; margin: 3px 0 0; }
+      .drive-conn-actions { display: flex; gap: 8px; margin-top: 8px; }
+      .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-radius: 6px; padding: 1px 7px; }
+      .badge-active { background: var(--accent); color: var(--brand-ink); }
+      .badge-full { background: var(--danger, #b4402f); color: #fff; }
+      .btn-ghost.sm { padding: 3px 10px; font-size: 12px; margin: 0; border-radius: 8px; cursor: pointer; }
+      .drive-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
       /* Storage bar: Trove's share (accent) + other files (muted grey) over the free track. */
       .storage { margin: 6px 0 12px; }
       .storage-bar {
@@ -482,9 +528,9 @@ export class Spaces {
     return Math.min(100, Math.max(0, (part / limit) * 100));
   }
   /** Width of the "used by other apps/files" segment (total usage minus Trove's share). */
-  pctOther(d: DriveStatus): number {
-    const other = (d.storageUsageBytes ?? 0) - (d.troveBytes ?? 0);
-    return this.pctOf(other, d.storageLimitBytes);
+  pctOtherC(c: DriveConnectionView): number {
+    const other = (c.storageUsageBytes ?? 0) - (c.troveBytes ?? 0);
+    return this.pctOf(other, c.storageLimitBytes);
   }
   /** Human-readable bytes: 1.2 GB, 940 MB, 512 KB. */
   fmtBytes(n: number | null): string {
@@ -495,8 +541,44 @@ export class Spaces {
     const v = b / Math.pow(1024, i);
     return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
   }
-  storageTitle(d: DriveStatus): string {
-    return `Trove ${this.fmtBytes(d.troveBytes)} of ${this.fmtBytes(d.storageLimitBytes)} total`;
+  connTitle(c: DriveConnectionView): string {
+    return `Trove ${this.fmtBytes(c.troveBytes)} of ${this.fmtBytes(c.storageLimitBytes)} total`;
+  }
+
+  /** Reloads just the Drive status (lighter than loadSpace, which also hits owner-only endpoints). */
+  private reloadDrive(sid: string): void {
+    this.api.driveStatus(sid).subscribe({
+      next: (d) => this.drive.set(d),
+      error: (e) => this.driveError.set(e?.error?.message ?? '-'),
+    });
+  }
+
+  setMode(mode: string): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid || this.drive()?.mode === mode) return;
+    this.api.driveSetMode(sid, mode).subscribe({
+      next: () => this.reloadDrive(sid),
+      error: (e) => this.notices.show({ level: 'error', code: 'DRIVE_MODE', userMessage: e?.error?.message ?? 'Only the owner can change the backup mode.' }),
+    });
+  }
+
+  activate(connectionId: string): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    this.api.driveActivate(sid, connectionId).subscribe({
+      next: () => this.reloadDrive(sid),
+      error: (e) => this.notices.show({ level: 'error', code: 'DRIVE_ACTIVATE', userMessage: e?.error?.message ?? 'Only the owner can switch the active Drive.' }),
+    });
+  }
+
+  disconnect(connectionId: string): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    if (!confirm('Unlink this Drive from the space? Files already backed up stay in the Drive; Trove just stops syncing to it.')) return;
+    this.api.driveDisconnect(sid, connectionId).subscribe({
+      next: () => { this.notices.show({ level: 'info', code: 'DRIVE_DISCONNECTED', userMessage: 'Drive unlinked from this space.' }); this.reloadDrive(sid); },
+      error: (e) => this.notices.show({ level: 'error', code: 'DRIVE_DISCONNECT', userMessage: e?.error?.message ?? 'Could not unlink this Drive.' }),
+    });
   }
 
   sync(): void {

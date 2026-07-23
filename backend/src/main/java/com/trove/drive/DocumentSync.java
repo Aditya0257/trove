@@ -1,12 +1,14 @@
 /*
  * ============================================================================
- *  DocumentSync — records that a document was synced to an external target
+ *  DocumentSync — records that a document was synced to a specific Drive
  * ============================================================================
- *  Purpose:        maps `document_sync` (composite key document_id + target): the
- *                  external id (Drive file id) and when it synced.
- *  Business use:    makes sync idempotent — a document already synced is skipped.
- *  Design:         `target` is generic ('google_drive') so a future 2nd-cloud mirror
- *                  reuses the same table. @IdClass(DocumentSyncId).
+ *  Purpose:        maps `document_sync` (composite key document_id + connection_id):
+ *                  the external id (Drive file id) and when it synced.
+ *  Business use:    makes sync idempotent per Drive — a document already in THIS Drive
+ *                  is skipped. Keyed by connection so mirror mode can store the same
+ *                  document in several Drives (one row each).
+ *  Design:         `target` remains a plain descriptor column ('google_drive') for
+ *                  readability/extensibility; the identity is (document_id, connection_id).
  * ============================================================================
  */
 package com.trove.drive;
@@ -31,6 +33,9 @@ public class DocumentSync {
     private UUID documentId;
 
     @Id
+    @Column(name = "connection_id", nullable = false)
+    private UUID connectionId;
+
     @Column(name = "target", nullable = false)
     private String target;
 
@@ -45,13 +50,15 @@ public class DocumentSync {
         // for JPA
     }
 
-    public DocumentSync(UUID documentId, String target, String externalId) {
+    public DocumentSync(UUID documentId, UUID connectionId, String externalId) {
         this.documentId = documentId;
-        this.target = target;
+        this.connectionId = connectionId;
+        this.target = "google_drive";
         this.externalId = externalId;
     }
 
     public UUID getDocumentId() { return documentId; }
+    public UUID getConnectionId() { return connectionId; }
     public String getTarget() { return target; }
     public String getExternalId() { return externalId; }
     public Instant getSyncedAt() { return syncedAt; }

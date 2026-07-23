@@ -128,17 +128,25 @@ export interface SpendSummary {
   byCategory: CategorySpend[];
 }
 
-export interface DriveStatus {
-  connected: boolean;
-  connectedAt: string | null;
-  lastSyncAt: string | null;
-  googleEmail: string | null;        // which Google account backs this space
+/** One Google Drive linked to a space (a space may pool several). */
+export interface DriveConnectionView {
+  id: string;
+  googleEmail: string | null;        // which Google account this Drive is
   googleAccountName: string | null;  // its display name, when Drive returns one
   connectedByName: string | null;    // the Trove member who linked it
+  active: boolean;                   // the current write target (rotate mode)
+  status: string;                    // 'active' | 'full' | 'error'
+  connectedAt: string | null;
+  lastSyncAt: string | null;
   storageLimitBytes: number | null;  // total Drive quota (null = unlimited)
   storageUsageBytes: number | null;  // bytes used across the whole account
   troveBytes: number | null;         // of that, how much Trove put there
-  quotaCheckedAt: string | null;     // when the quota was last read
+}
+
+export interface DriveStatus {
+  connected: boolean;
+  mode: string;                      // 'rotate' (aggregate) | 'mirror' (redundant copies)
+  connections: DriveConnectionView[];
 }
 
 export interface SearchResult {

@@ -42,6 +42,12 @@ public class Space extends BaseEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // How this space spreads its backup across its connected Drives: 'rotate' fills one
+    // Drive then rolls to the next (aggregate capacity); 'mirror' copies every document
+    // into all of them (redundant Tier-3 backup). See DriveSyncService.
+    @Column(name = "drive_sync_mode", nullable = false)
+    private String driveSyncMode = "rotate";
+
     protected Space() {
         // for JPA
     }
@@ -59,4 +65,6 @@ public class Space extends BaseEntity {
     public String getKind() { return kind; }
     public UUID getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getDriveSyncMode() { return driveSyncMode; }
+    public void setDriveSyncMode(String driveSyncMode) { this.driveSyncMode = driveSyncMode; }
 }

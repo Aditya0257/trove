@@ -63,15 +63,18 @@ import java.util.stream.Collectors;
 public class DriveSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(DriveSyncService.class);
-    private static final String TARGET = "google_drive";
     private static final String FOLDER_MIME = "application/vnd.google-apps.folder";
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy-MM");
+
+    // Fraction of quota at which we treat a Drive as full and rotation rolls onward.
+    private static final double FULL_AT = 0.98;
 
     private final DriveConnectionRepository connectionRepository;
     private final DriveFolderRepository folderRepository;
     private final DocumentSyncRepository documentSyncRepository;
     private final DocumentRepository documentRepository;
     private final CategoryRepository categoryRepository;
+    private final com.trove.space.SpaceRepository spaceRepository;
     private final GoogleDriveOAuthService oauthService;
     private final StorageService storageService;
     private final EncryptionService encryptionService;
@@ -82,6 +85,7 @@ public class DriveSyncService {
                             DocumentSyncRepository documentSyncRepository,
                             DocumentRepository documentRepository,
                             CategoryRepository categoryRepository,
+                            com.trove.space.SpaceRepository spaceRepository,
                             GoogleDriveOAuthService oauthService,
                             StorageService storageService,
                             EncryptionService encryptionService,
@@ -91,30 +95,42 @@ public class DriveSyncService {
         this.documentSyncRepository = documentSyncRepository;
         this.documentRepository = documentRepository;
         this.categoryRepository = categoryRepository;
+        this.spaceRepository = spaceRepository;
         this.oauthService = oauthService;
         this.storageService = storageService;
         this.encryptionService = encryptionService;
         this.backupRunService = backupRunService;
     }
 
-    /** Stores (or updates) the encrypted refresh token for a space, and records which
-     *  Google account it points at (read from Drive under the existing drive.file scope). */
+    /**
+     * Links a Google Drive to a space (pooling: a space may have several). Re-consenting
+     * with the SAME account updates that connection in place rather than duplicating it.
+     * The first Drive linked to a space becomes the active write target; later ones start
+     * inactive (the owner promotes them, or rotation does when the active one fills).
+     */
     @Transactional
     public void storeConnection(UUID spaceId, UUID userId, String refreshToken) {
         String enc = encryptionService.encrypt(refreshToken);
-        DriveConnection conn = connectionRepository.findBySpaceId(spaceId).orElse(null);
-        if (conn == null) {
+        GoogleDriveOAuthService.AccountInfo account =
+                oauthService.accountInfo(oauthService.driveFor(refreshToken));
+
+        // Dedupe on the Google account so re-consent doesn't create a second row for the
+        // same Drive. If we couldn't read the email, treat it as a fresh connection.
+        DriveConnection conn = account.email() == null ? null
+                : connectionRepository.findBySpaceIdAndGoogleEmail(spaceId, account.email()).orElse(null);
+        boolean isNew = conn == null;
+        if (isNew) {
             conn = new DriveConnection(spaceId, enc, userId);
+            conn.setActive(connectionRepository.countBySpaceId(spaceId) == 0);  // first Drive wins active
         } else {
             conn.setRefreshTokenEnc(enc);
             conn.setConnectedBy(userId);
         }
-        // Ask Drive which account this token belongs to (and its storage quota) so the UI
-        // can show "Trove uses X of Y". Best-effort: a failure here must not block linking.
-        applyAccountInfo(conn, oauthService.accountInfo(oauthService.driveFor(refreshToken)));
+        applyAccountInfo(conn, account);
+        conn.setStatus("active");
         connectionRepository.save(conn);
-        log.info("Google Drive connected for space {} by user {} (account {})",
-                spaceId, userId, conn.getGoogleEmail());
+        log.info("Google Drive {} for space {} by user {} (account {})",
+                isNew ? "linked" : "re-linked", spaceId, userId, conn.getGoogleEmail());
     }
 
     /** Copies identity + storage quota from a fresh about.get onto the connection. */
@@ -126,72 +142,168 @@ public class DriveSyncService {
         conn.setQuotaCheckedAt(Instant.now());
     }
 
-    /** Bytes Trove has stored in this space's Drive (sum of synced documents' sizes). */
-    public long troveBytes(UUID spaceId) {
-        return documentSyncRepository.troveBytesForSpace(spaceId, TARGET);
+    /** All Drives linked to a space, oldest first. */
+    public List<DriveConnection> connections(UUID spaceId) {
+        return connectionRepository.findBySpaceIdOrderByConnectedAtAsc(spaceId);
+    }
+
+    /** Bytes Trove has stored in one specific Drive (sum of its synced documents' sizes). */
+    public long troveBytesForConnection(UUID connectionId) {
+        return documentSyncRepository.troveBytesForConnection(connectionId);
     }
 
     public boolean isConnected(UUID spaceId) {
-        return connectionRepository.findBySpaceId(spaceId).isPresent();
+        return connectionRepository.countBySpaceId(spaceId) > 0;
     }
 
-    public DriveConnection connection(UUID spaceId) {
-        return connectionRepository.findBySpaceId(spaceId).orElse(null);
+    /** The space's sync mode ('rotate' | 'mirror'); defaults to rotate. */
+    public String mode(UUID spaceId) {
+        return spaceRepository.findById(spaceId).map(com.trove.space.Space::getDriveSyncMode).orElse("rotate");
+    }
+
+    /** Sets the space's sync mode. Only 'rotate' or 'mirror' are accepted. */
+    @Transactional
+    public void setMode(UUID spaceId, String mode) {
+        String m = "mirror".equalsIgnoreCase(mode) ? "mirror" : "rotate";
+        spaceRepository.findById(spaceId).ifPresent(s -> s.setDriveSyncMode(m));
+    }
+
+    /** Owner promotes one Drive to the active write target (rotate mode). */
+    @Transactional
+    public void activate(UUID spaceId, UUID connectionId) {
+        List<DriveConnection> conns = connectionRepository.findBySpaceIdOrderByConnectedAtAsc(spaceId);
+        boolean found = conns.stream().anyMatch(c -> c.getId().equals(connectionId));
+        if (!found) {
+            throw new NotFoundException("Drive connection not found in this space");
+        }
+        conns.forEach(c -> c.setActive(c.getId().equals(connectionId)));
+        connectionRepository.saveAll(conns);
+    }
+
+    /** Unlinks one Drive from a space. Its folder cache + per-doc sync rows cascade away,
+     *  so if it's ever reconnected the documents re-sync. Files already in that Drive stay
+     *  there (drive.file scope can't delete what the user may want to keep). */
+    @Transactional
+    public void disconnect(UUID spaceId, UUID connectionId) {
+        DriveConnection conn = connectionRepository.findById(connectionId)
+                .filter(c -> c.getSpaceId().equals(spaceId))
+                .orElseThrow(() -> new NotFoundException("Drive connection not found in this space"));
+        boolean wasActive = conn.isActive();
+        connectionRepository.delete(conn);
+        // Keep exactly one active Drive in rotate mode: if we removed the active one, promote
+        // the oldest remaining connection so syncs still have a target.
+        if (wasActive) {
+            connectionRepository.findBySpaceIdOrderByConnectedAtAsc(spaceId).stream().findFirst()
+                    .ifPresent(next -> { next.setActive(true); connectionRepository.save(next); });
+        }
     }
 
     /** All spaces that have a connected Drive (for the scheduled sweep). */
     public List<UUID> connectedSpaceIds() {
-        return connectionRepository.findAll().stream().map(DriveConnection::getSpaceId).toList();
+        return connectionRepository.findDistinctSpaceIds();
     }
 
-    /** Syncs a space's documents into the owner's Drive. Idempotent. */
+    /**
+     * Syncs a space's documents into its connected Drive(s). Idempotent per Drive.
+     * rotate mode writes to the active Drive (rolling to the next when it fills); mirror
+     * mode writes every document into every Drive (redundant Tier-3 copies). Network I/O
+     * stays out of one big transaction (per-row saves) so a slow Drive doesn't pin a DB
+     * connection — a mid-run failure just leaves already-synced rows recorded.
+     */
     public DriveSyncSummary sync(UUID spaceId) {
-        DriveConnection conn = connectionRepository.findBySpaceId(spaceId)
-                .orElseThrow(() -> new NotFoundException("Google Drive not connected for this space"));
-        Drive drive = oauthService.driveFor(encryptionService.decrypt(conn.getRefreshTokenEnc()));
+        List<DriveConnection> conns = connectionRepository.findBySpaceIdOrderByConnectedAtAsc(spaceId);
+        if (conns.isEmpty()) {
+            throw new NotFoundException("Google Drive not connected for this space");
+        }
+        String mode = mode(spaceId);
+        List<DriveConnection> targets = "mirror".equals(mode) ? conns : List.of(rotateTarget(conns));
+
+        Map<UUID, String> categoryCodes = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::getId, Category::getCode));
+        List<Document> docs = documentRepository.findBySpaceIdOrderByCreatedAtDesc(spaceId);
+
         BackupRun run = backupRunService.start(BackupKind.DRIVE_SYNC);
         int synced = 0;
         int skipped = 0;
         try {
-            String rootId = ensureRoot(drive, conn);
-            Map<UUID, String> categoryCodes = categoryRepository.findAll().stream()
-                    .collect(Collectors.toMap(Category::getId, Category::getCode));
-
-            for (Document doc : documentRepository.findBySpaceIdOrderByCreatedAtDesc(spaceId)) {
-                if (documentSyncRepository.existsByDocumentIdAndTarget(doc.getId(), TARGET)) {
-                    skipped++;
-                    continue;
-                }
-                String code = doc.getCategoryId() != null
-                        ? categoryCodes.getOrDefault(doc.getCategoryId(), "uncategorized") : "uncategorized";
-                LocalDate when = doc.getDocDate() != null
-                        ? doc.getDocDate() : LocalDate.ofInstant(doc.getCreatedAt(), ZoneOffset.UTC);
-                String month = when.format(MONTH);
-
-                String categoryFolderId = ensureFolder(drive, spaceId, code, code, rootId);
-                String monthFolderId = ensureFolder(drive, spaceId, code + "/" + month, month, categoryFolderId);
-
-                byte[] bytes = storageService.get(doc.getStorageKey());
-                String filename = doc.getOriginalFilename() != null
-                        ? doc.getOriginalFilename() : basename(doc.getStorageKey());
-                String fileId = uploadFile(drive, monthFolderId, filename, doc.getMimeType(), bytes);
-
-                documentSyncRepository.save(new DocumentSync(doc.getId(), TARGET, fileId));
-                synced++;
+            for (DriveConnection conn : targets) {
+                DriveSyncSummary one = syncOne(conn, docs, categoryCodes);
+                synced += one.synced();
+                skipped += one.skipped();
             }
-
-            conn.setLastSyncAt(Instant.now());
-            // Refresh the cached quota while we hold a live Drive client — cheap, and keeps
-            // the "Trove uses X of Y" bar honest after we've just pushed new files.
-            applyAccountInfo(conn, oauthService.accountInfo(drive));
-            connectionRepository.save(conn);
-            backupRunService.success(run, "drive:space:" + spaceId, "synced=" + synced + " skipped=" + skipped);
-            log.info("Drive sync for space {} — synced={} skipped={}", spaceId, synced, skipped);
+            backupRunService.success(run, "drive:space:" + spaceId,
+                    "mode=" + mode + " targets=" + targets.size() + " synced=" + synced + " skipped=" + skipped);
+            log.info("Drive sync for space {} — mode={} targets={} synced={} skipped={}",
+                    spaceId, mode, targets.size(), synced, skipped);
             return new DriveSyncSummary(synced, skipped);
         } catch (Exception e) {
             backupRunService.fail(run, e.getMessage());
             throw new IllegalStateException("Drive sync failed: " + e.getMessage(), e);
         }
+    }
+
+    /** Syncs the space's documents into ONE Drive, skipping those already in it. */
+    private DriveSyncSummary syncOne(DriveConnection conn, List<Document> docs, Map<UUID, String> categoryCodes)
+            throws Exception {
+        Drive drive = oauthService.driveFor(encryptionService.decrypt(conn.getRefreshTokenEnc()));
+        String rootId = ensureRoot(drive, conn);
+        int synced = 0;
+        int skipped = 0;
+        for (Document doc : docs) {
+            if (documentSyncRepository.existsByDocumentIdAndConnectionId(doc.getId(), conn.getId())) {
+                skipped++;
+                continue;
+            }
+            String code = doc.getCategoryId() != null
+                    ? categoryCodes.getOrDefault(doc.getCategoryId(), "uncategorized") : "uncategorized";
+            LocalDate when = doc.getDocDate() != null
+                    ? doc.getDocDate() : LocalDate.ofInstant(doc.getCreatedAt(), ZoneOffset.UTC);
+            String month = when.format(MONTH);
+
+            String categoryFolderId = ensureFolder(drive, conn, code, code, rootId);
+            String monthFolderId = ensureFolder(drive, conn, code + "/" + month, month, categoryFolderId);
+
+            byte[] bytes = storageService.get(doc.getStorageKey());
+            String filename = doc.getOriginalFilename() != null
+                    ? doc.getOriginalFilename() : basename(doc.getStorageKey());
+            String fileId = uploadFile(drive, monthFolderId, filename, doc.getMimeType(), bytes);
+
+            documentSyncRepository.save(new DocumentSync(doc.getId(), conn.getId(), fileId));
+            synced++;
+        }
+        conn.setLastSyncAt(Instant.now());
+        // Refresh the cached quota while we hold a live Drive client, then re-flag health so
+        // rotation sees an up-to-date "full" the next time around.
+        applyAccountInfo(conn, oauthService.accountInfo(drive));
+        conn.setStatus(isFull(conn) ? "full" : "active");
+        connectionRepository.save(conn);
+        return new DriveSyncSummary(synced, skipped);
+    }
+
+    /** Rotate write target: the active Drive if it still has room, else the oldest Drive
+     *  with free space (promoted to active). Keeps exactly one active connection. */
+    private DriveConnection rotateTarget(List<DriveConnection> conns) {
+        DriveConnection active = conns.stream().filter(DriveConnection::isActive).findFirst().orElse(null);
+        if (active != null && !isFull(active)) {
+            return active;
+        }
+        DriveConnection next = conns.stream().filter(c -> !isFull(c)).findFirst()
+                .orElse(active != null ? active : conns.get(0));
+        conns.forEach(c -> c.setActive(c.getId().equals(next.getId())));
+        connectionRepository.saveAll(conns);
+        log.info("Rotation: rolled active Drive to {} ({})", next.getId(), next.getGoogleEmail());
+        return next;
+    }
+
+    /** A Drive is "full" once its account usage crosses FULL_AT of quota. Unknown/unlimited
+     *  quota is never full. */
+    boolean isFull(DriveConnection c) {
+        Long limit = c.getStorageLimitBytes();
+        Long usage = c.getStorageUsageBytes();
+        if (limit == null || limit <= 0 || usage == null) {
+            return false;
+        }
+        return usage >= limit * FULL_AT;
     }
 
     private String ensureRoot(Drive drive, DriveConnection conn) throws Exception {
@@ -204,14 +316,14 @@ public class DriveSyncService {
         return id;
     }
 
-    private String ensureFolder(Drive drive, UUID spaceId, String path, String name, String parentId)
+    private String ensureFolder(Drive drive, DriveConnection conn, String path, String name, String parentId)
             throws Exception {
-        var cached = folderRepository.findBySpaceIdAndPath(spaceId, path);
+        var cached = folderRepository.findByConnectionIdAndPath(conn.getId(), path);
         if (cached.isPresent()) {
             return cached.get().getFolderId();
         }
         String id = createFolder(drive, name, parentId);
-        folderRepository.save(new DriveFolder(spaceId, path, id));
+        folderRepository.save(new DriveFolder(conn.getId(), conn.getSpaceId(), path, id));
         return id;
     }
 

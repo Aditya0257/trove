@@ -37,6 +37,16 @@ public class DriveConnection extends BaseEntity {
     @Column(name = "connected_by")
     private UUID connectedBy;
 
+    // In 'rotate' mode, exactly one connection per space is the active write target; new
+    // documents go here until it fills, then the owner (or auto-rotation) moves it on. In
+    // 'mirror' mode this flag is ignored (every connection receives every document).
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
+    // Health of the connection: 'active' | 'full' (near quota) | 'error' (auth/sync failed).
+    @Column(name = "status", nullable = false)
+    private String status = "active";
+
     // Which Google account this space's Drive is connected to — read from Drive's
     // about.get at connect/sync time (drive.file scope covers it). Shown in the UI so
     // an owner knows whose 15 GB backs the space; groundwork for Drive pooling (Phase 3).
@@ -81,6 +91,10 @@ public class DriveConnection extends BaseEntity {
     public void setRootFolderId(String rootFolderId) { this.rootFolderId = rootFolderId; }
     public UUID getConnectedBy() { return connectedBy; }
     public void setConnectedBy(UUID connectedBy) { this.connectedBy = connectedBy; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public String getGoogleEmail() { return googleEmail; }
     public void setGoogleEmail(String googleEmail) { this.googleEmail = googleEmail; }
     public String getGoogleAccountName() { return googleAccountName; }

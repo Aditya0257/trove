@@ -15,25 +15,33 @@ import java.util.Optional;
 import java.util.UUID;
 
 interface DriveConnectionRepository extends JpaRepository<DriveConnection, UUID> {
-    Optional<DriveConnection> findBySpaceId(UUID spaceId);
+    /** All Drives linked to a space, oldest first (stable display + rotation order). */
+    List<DriveConnection> findBySpaceIdOrderByConnectedAtAsc(UUID spaceId);
+
+    /** Same Google account reconnecting → update in place rather than duplicate. */
+    Optional<DriveConnection> findBySpaceIdAndGoogleEmail(UUID spaceId, String googleEmail);
+
+    long countBySpaceId(UUID spaceId);
+
+    /** Distinct spaces with at least one connected Drive (drives the scheduled sweep). */
+    @org.springframework.data.jpa.repository.Query("select distinct c.spaceId from DriveConnection c")
+    List<UUID> findDistinctSpaceIds();
 }
 
 interface DriveFolderRepository extends JpaRepository<DriveFolder, UUID> {
-    Optional<DriveFolder> findBySpaceIdAndPath(UUID spaceId, String path);
+    Optional<DriveFolder> findByConnectionIdAndPath(UUID connectionId, String path);
 }
 
 interface DocumentSyncRepository extends JpaRepository<DocumentSync, DocumentSyncId> {
-    boolean existsByDocumentIdAndTarget(UUID documentId, String target);
+    boolean existsByDocumentIdAndConnectionId(UUID documentId, UUID connectionId);
 
     List<DocumentSync> findByDocumentIdIn(List<UUID> documentIds);
 
-    /** Total bytes Trove has pushed to a target for a space — sum of synced docs' sizes. */
+    /** Bytes Trove has pushed to ONE Drive — sum of the sizes of docs synced to it. */
     @org.springframework.data.jpa.repository.Query(value = """
             select coalesce(sum(d.size_bytes), 0)
             from document d
-            join document_sync s on s.document_id = d.id and s.target = :target
-            where d.space_id = :spaceId
+            join document_sync s on s.document_id = d.id and s.connection_id = :connectionId
             """, nativeQuery = true)
-    long troveBytesForSpace(@org.springframework.data.repository.query.Param("spaceId") UUID spaceId,
-                            @org.springframework.data.repository.query.Param("target") String target);
+    long troveBytesForConnection(@org.springframework.data.repository.query.Param("connectionId") UUID connectionId);
 }

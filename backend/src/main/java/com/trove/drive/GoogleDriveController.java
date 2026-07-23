@@ -27,19 +27,26 @@
 package com.trove.drive;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
+import com.trove.common.error.ForbiddenException;
+import com.trove.common.error.NotFoundException;
 import com.trove.common.security.CurrentUser;
 import com.trove.common.security.EncryptionService;
 import com.trove.space.SpaceAuthorization;
+import com.trove.space.SpaceRole;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -90,7 +97,9 @@ public class GoogleDriveController {
             throw new IllegalStateException("Google OAuth is not configured (set google.oauth.*)");
         }
         UUID userId = currentUser.requireUserId();
-        authorization.requireOwner(spaceId, userId);
+        // Any writing member may link a Drive — pooling means members contribute their own
+        // 15 GB, not just the owner. Viewers (read-only) still can't.
+        authorization.requireCanWrite(spaceId, userId);
         // state carries who started the flow (so the public callback can record connected_by)
         // plus a random nonce; the whole thing is AES-GCM encrypted, so it's tamper-evident.
         String state = encryptionService.encrypt(spaceId + "|" + userId + "|" + UUID.randomUUID());
@@ -128,31 +137,65 @@ public class GoogleDriveController {
         }
     }
 
-    /** Connection status for a space (any member). */
+    /** Connection status for a space (any member): the sync mode + every linked Drive. */
     @GetMapping("/status")
     public StatusResponse status(@RequestParam("spaceId") UUID spaceId) {
         authorization.requireCanRead(spaceId, currentUser.requireUserId());
-        DriveConnection conn = driveSyncService.connection(spaceId);
-        if (conn == null) {
-            return new StatusResponse(false, null, null, null, null, null, null, null, null, null);
-        }
-        // Resolve who linked it to a friendly name for the UI (null-safe: the connector
-        // may be unknown on legacy connections made before we recorded connected_by).
-        String connectedByName = conn.getConnectedBy() == null ? null
-                : userRepository.findById(conn.getConnectedBy())
-                        .map(u -> u.getDisplayName() != null ? u.getDisplayName() : u.getEmail())
-                        .orElse(null);
-        return new StatusResponse(true, conn.getConnectedAt(), conn.getLastSyncAt(),
-                conn.getGoogleEmail(), conn.getGoogleAccountName(), connectedByName,
-                conn.getStorageLimitBytes(), conn.getStorageUsageBytes(),
-                driveSyncService.troveBytes(spaceId), conn.getQuotaCheckedAt());
+        List<DriveConnection> conns = driveSyncService.connections(spaceId);
+        List<ConnectionView> views = conns.stream().map(c -> new ConnectionView(
+                c.getId().toString(), c.getGoogleEmail(), c.getGoogleAccountName(),
+                connectorName(c.getConnectedBy()), c.isActive(), c.getStatus(),
+                c.getConnectedAt(), c.getLastSyncAt(),
+                c.getStorageLimitBytes(), c.getStorageUsageBytes(),
+                driveSyncService.troveBytesForConnection(c.getId()))).toList();
+        return new StatusResponse(!conns.isEmpty(), driveSyncService.mode(spaceId), views);
     }
 
-    /** Trigger a sync now (owner only). */
+    /** Trigger a sync now (any writing member). */
     @PostMapping("/sync")
     public DriveSyncService.DriveSyncSummary sync(@RequestParam("spaceId") UUID spaceId) {
-        authorization.requireOwner(spaceId, currentUser.requireUserId());
+        authorization.requireCanWrite(spaceId, currentUser.requireUserId());
         return driveSyncService.sync(spaceId);
+    }
+
+    /** Owner switches the active write target (rotate mode). */
+    @PostMapping("/connections/{connectionId}/activate")
+    public void activate(@RequestParam("spaceId") UUID spaceId, @PathVariable("connectionId") UUID connectionId) {
+        authorization.requireOwner(spaceId, currentUser.requireUserId());
+        driveSyncService.activate(spaceId, connectionId);
+    }
+
+    /** Owner sets how the space spreads backups across its Drives: 'rotate' or 'mirror'. */
+    @PutMapping("/mode")
+    public java.util.Map<String, String> setMode(@RequestParam("spaceId") UUID spaceId,
+                                                  @RequestParam("mode") String mode) {
+        authorization.requireOwner(spaceId, currentUser.requireUserId());
+        driveSyncService.setMode(spaceId, mode);
+        return java.util.Map.of("mode", driveSyncService.mode(spaceId));
+    }
+
+    /** Unlinks a Drive. The owner may remove any; a member may remove only the one they linked. */
+    @DeleteMapping("/connections/{connectionId}")
+    public void disconnect(@RequestParam("spaceId") UUID spaceId, @PathVariable("connectionId") UUID connectionId) {
+        UUID userId = currentUser.requireUserId();
+        String role = authorization.requireMembership(spaceId, userId);
+        DriveConnection conn = driveSyncService.connections(spaceId).stream()
+                .filter(c -> c.getId().equals(connectionId)).findFirst()
+                .orElseThrow(() -> new NotFoundException("Drive connection not found in this space"));
+        if (!SpaceRole.OWNER.equals(role) && !userId.equals(conn.getConnectedBy())) {
+            throw new ForbiddenException("Only the owner or the member who linked it can remove this Drive");
+        }
+        driveSyncService.disconnect(spaceId, connectionId);
+    }
+
+    /** Resolves a connector user id to a friendly name (null-safe). */
+    private String connectorName(UUID userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId)
+                .map(u -> u.getDisplayName() != null ? u.getDisplayName() : u.getEmail())
+                .orElse(null);
     }
 
     /** Bounce the browser back into the app's Spaces page, carrying a status the UI turns
@@ -162,9 +205,12 @@ public class GoogleDriveController {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(target)).build();
     }
 
-    public record StatusResponse(boolean connected, Instant connectedAt, Instant lastSyncAt,
-                                 String googleEmail, String googleAccountName, String connectedByName,
-                                 Long storageLimitBytes, Long storageUsageBytes, Long troveBytes,
-                                 Instant quotaCheckedAt) {
+    public record StatusResponse(boolean connected, String mode, List<ConnectionView> connections) {
+    }
+
+    /** One linked Drive, as the UI shows it. */
+    public record ConnectionView(String id, String googleEmail, String googleAccountName, String connectedByName,
+                                 boolean active, String status, Instant connectedAt, Instant lastSyncAt,
+                                 Long storageLimitBytes, Long storageUsageBytes, Long troveBytes) {
     }
 }

@@ -169,6 +169,23 @@ export class ApiService {
       {}
     );
   }
+  driveSetMode(spaceId: string, mode: string) {
+    return this.http.put<{ mode: string }>(
+      `${API_BASE}/api/integrations/google-drive/mode${this.qs({ spaceId, mode })}`,
+      {}
+    );
+  }
+  driveActivate(spaceId: string, connectionId: string) {
+    return this.http.post<void>(
+      `${API_BASE}/api/integrations/google-drive/connections/${connectionId}/activate${this.qs({ spaceId })}`,
+      {}
+    );
+  }
+  driveDisconnect(spaceId: string, connectionId: string) {
+    return this.http.delete<void>(
+      `${API_BASE}/api/integrations/google-drive/connections/${connectionId}${this.qs({ spaceId })}`
+    );
+  }
 
   // --- export ---
   exportZip(spaceId?: string) {
