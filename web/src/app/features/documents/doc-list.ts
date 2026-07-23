@@ -75,26 +75,26 @@ import { Category, DocumentResponse } from '../../core/models';
     `
       .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
       .chip {
-        border: 1px solid rgba(47, 111, 106, 0.35); background: transparent; color: #2f6f6a;
+        border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
         border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
       }
-      .chip.on { background: #2f6f6a; color: #fff; border-color: #2f6f6a; }
+      .chip.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
       td { vertical-align: middle; }
       .del {
-        margin: 0; border: 1px solid rgba(192, 57, 43, 0.4); background: transparent; color: #c0392b;
+        margin: 0; border: 1px solid var(--danger-line); background: transparent; color: var(--danger);
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
-      .del:hover { background: rgba(192, 57, 43, 0.08); }
+      .del:hover { background: var(--danger-soft); }
       .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
       .pager select { padding: 6px 8px; border-radius: 8px; }
       .pages { display: flex; align-items: center; gap: 10px; }
       /* Override the global brand button (light text on brand fill): these are neutral
          nav buttons on a white row, so give them a dark label + no stray top margin. */
       .pages button {
-        margin: 0; border: 1px solid var(--line, #ccc); background: #fff; color: #2f6f6a;
+        margin: 0; border: 1px solid var(--line); background: var(--card); color: var(--accent);
         border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
       }
-      .pages button:hover:not(:disabled) { background: rgba(47, 111, 106, 0.08); }
+      .pages button:hover:not(:disabled) { background: var(--accent-soft); }
       .pages button:disabled { opacity: 0.4; cursor: default; }
       .pager .total { margin-left: auto; font-size: 13px; }
     `,

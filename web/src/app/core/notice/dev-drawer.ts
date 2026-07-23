@@ -128,7 +128,7 @@ import { AiUsage } from '../models';
       .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.28); z-index: 950; }
       .panel {
         position: fixed; top: 0; right: 0; bottom: 0; z-index: 951;
-        width: min(560px, 96vw); background: var(--surface, #fff); color: var(--text, #1a1a1a);
+        width: min(560px, 96vw); background: var(--card); color: var(--ink);
         box-shadow: -8px 0 28px rgba(0, 0, 0, 0.2); overflow-y: auto; padding: 12px 14px;
       }
       header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }

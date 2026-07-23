@@ -144,39 +144,39 @@ interface MailEntry {
   `,
   styles: [
     `
-      .add { border: 1px solid #e4e4e4; border-radius: 12px; padding: 14px; margin: 8px 0 16px; }
+      .add { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 8px 0 16px; }
       .dropzone {
         display: flex; align-items: center; justify-content: space-between; gap: 12px;
-        border: 2px dashed rgba(47, 111, 106, 0.4); border-radius: 12px; padding: 18px; margin-bottom: 10px;
+        border: 2px dashed var(--accent-line); border-radius: 12px; padding: 18px; margin-bottom: 10px;
       }
-      .dropzone.drag { border-color: #2f6f6a; background: rgba(47, 111, 106, 0.06); }
-      .filebtn { cursor: pointer; background: rgba(47, 111, 106, 0.1); color: #2f6f6a; border-radius: 8px; padding: 8px 14px; font-weight: 600; }
+      .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
+      .filebtn { cursor: pointer; background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 8px 14px; font-weight: 600; }
       .thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
       .thumb { position: relative; width: 76px; height: 76px; }
-      .thumb img { width: 76px; height: 76px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e2e2; }
+      .thumb img { width: 76px; height: 76px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
       .thumb .rm {
         position: absolute; top: -7px; right: -7px; box-sizing: border-box; width: 20px; height: 20px;
         min-width: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center;
-        border: 2px solid #fff; border-radius: 50%; background: #c0392b; color: #fff; font-size: 12px;
+        border: 2px solid #fff; border-radius: 50%; background: var(--danger); color: #fff; font-size: 12px;
         line-height: 1; cursor: pointer; appearance: none;
       }
       .entries { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
       .entry {
-        display: flex; gap: 14px; padding: 12px; border: 1px solid #eee; border-radius: 12px;
+        display: flex; gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px;
         text-decoration: none; color: inherit; cursor: pointer; transition: background 120ms, border-color 120ms;
       }
-      .entry:hover { background: rgba(47, 111, 106, 0.05); border-color: rgba(47, 111, 106, 0.35); }
+      .entry:hover { background: var(--accent-soft); border-color: var(--accent-line); }
       .entry-thumbs { display: flex; gap: 6px; }
-      .entry-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e2e2; }
+      .entry-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
       .entry-meta { display: flex; flex-direction: column; gap: 4px; }
-      .subj { color: #444; font-size: 13px; }
-      .tag { align-self: flex-start; background: rgba(47, 111, 106, 0.12); color: #2f6f6a; border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+      .subj { color: var(--muted); font-size: 13px; }
+      .tag { align-self: flex-start; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
       /* Salesforce-style field help: a round "i" that reveals a bubble on hover/focus. */
       .lbl { display: inline-flex; align-items: center; }
       .tip {
         display: inline-flex; align-items: center; justify-content: center;
         width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
-        background: #dfe6e5; color: #2f6f6a; font-size: 11px; font-weight: 700;
+        background: var(--tip-bg); color: var(--accent); font-size: 11px; font-weight: 700;
         font-style: normal; cursor: help; position: relative; outline: none;
       }
       .tip .bubble {

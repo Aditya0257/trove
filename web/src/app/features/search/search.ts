@@ -57,10 +57,10 @@ import { SearchResult } from '../../core/models';
     `
       .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
       .chip {
-        border: 1px solid rgba(47, 111, 106, 0.35); background: rgba(47, 111, 106, 0.06);
-        color: #2f6f6a; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+        border: 1px solid var(--accent-line); background: var(--accent-soft);
+        color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer;
       }
-      .chip:hover { background: rgba(47, 111, 106, 0.12); }
+      .chip:hover { background: var(--accent-soft); }
       .chip:disabled { opacity: 0.5; cursor: default; }
     `,
   ],

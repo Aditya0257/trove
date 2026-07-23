@@ -44,8 +44,8 @@ import { NoticeService } from './notice.service';
         display: flex;
         gap: 11px;
         align-items: flex-start;
-        background: var(--surface, #fff);
-        color: var(--text, #1a1a1a);
+        background: var(--card);
+        color: var(--ink);
         border: 1px solid rgba(0, 0, 0, 0.06);
         border-radius: 14px;
         box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16);
@@ -66,9 +66,9 @@ import { NoticeService } from './notice.service';
       .msg { margin: 0; flex: 1; font-size: 14px; line-height: 1.45; font-weight: 500; }
       .x {
         border: 0; background: transparent; cursor: pointer;
-        font-size: 18px; line-height: 1; color: #9a9a9a; padding: 0 2px;
+        font-size: 18px; line-height: 1; color: var(--muted); padding: 0 2px;
       }
-      .x:hover { color: #555; }
+      .x:hover { color: var(--ink); }
       .dev-toggle {
         margin-top: 8px; border: 0; background: transparent; cursor: pointer;
         color: var(--accent); font-size: 12px; font-weight: 600; padding: 0;
@@ -77,12 +77,12 @@ import { NoticeService } from './notice.service';
       .chev { font-size: 10px; }
       .code {
         font-family: monospace; font-size: 11px; font-weight: 400;
-        color: #8a8a8a; margin-left: 4px;
+        color: var(--muted); margin-left: 4px;
       }
       .dev-note {
         margin: 8px 0 0; font-family: monospace; font-size: 12px; line-height: 1.4;
-        color: #4a4a4a; white-space: pre-wrap; word-break: break-word;
-        background: rgba(0, 0, 0, 0.03); padding: 8px 10px; border-radius: 8px;
+        color: var(--muted); white-space: pre-wrap; word-break: break-word;
+        background: var(--code-bg); padding: 8px 10px; border-radius: 8px;
       }
       @keyframes slide-in {
         from { opacity: 0; transform: translateY(-10px) scale(0.98); }

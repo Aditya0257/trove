@@ -10,15 +10,21 @@
       <a routerLink="/reminders">Reminders</a>
       <a routerLink="/spaces">Spaces</a>
     </nav>
-    <span class="spacer"></span>
-    @if (spaceCtx.spaces().length) {
-      <select class="space-select" [ngModel]="spaceCtx.currentSpaceId()"
-              (ngModelChange)="onSpaceChange($event)">
-        @for (s of spaceCtx.spaces(); track s.id) {
-          <option [value]="s.id">{{ s.name }}{{ s.kind === 'shared' ? ' (shared)' : '' }}</option>
-        }
-      </select>
-    }
+  }
+  <span class="spacer"></span>
+  @if (auth.isLoggedIn() && spaceCtx.spaces().length) {
+    <select class="space-select" [ngModel]="spaceCtx.currentSpaceId()"
+            (ngModelChange)="onSpaceChange($event)">
+      @for (s of spaceCtx.spaces(); track s.id) {
+        <option [value]="s.id">{{ s.name }}{{ s.kind === 'shared' ? ' (shared)' : '' }}</option>
+      }
+    </select>
+  }
+  <button class="theme-toggle" (click)="theme.toggle()"
+          [title]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+    {{ theme.theme() === 'dark' ? '☀️' : '🌙' }}
+  </button>
+  @if (auth.isLoggedIn()) {
     <span class="muted">{{ auth.user()?.email }}</span>
     <button class="link" (click)="logout()">Sign out</button>
   }

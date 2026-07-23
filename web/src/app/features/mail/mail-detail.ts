@@ -72,19 +72,19 @@ import { DocumentResponse } from '../../core/models';
   `,
   styles: [
     `
-      .back { border: 0; background: transparent; color: #2f6f6a; cursor: pointer; font-size: 13px; padding: 0; margin-bottom: 10px; }
+      .back { border: 0; background: transparent; color: var(--accent); cursor: pointer; font-size: 13px; padding: 0; margin-bottom: 10px; }
       .back:hover { text-decoration: underline; }
       .shots { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 4px; }
-      .shot { padding: 0; border: 1px solid #e2e2e2; border-radius: 8px; background: transparent; cursor: pointer; overflow: hidden; }
+      .shot { padding: 0; border: 1px solid var(--line); border-radius: 8px; background: transparent; cursor: pointer; overflow: hidden; }
       .shot img { display: block; width: 120px; height: 120px; object-fit: cover; }
-      .shot:hover { border-color: #2f6f6a; }
+      .shot:hover { border-color: var(--accent); }
       .small { font-size: 12px; }
       .lbl { display: inline-flex; align-items: center; margin-bottom: 2px; }
       /* Salesforce-style field help: a round "i" that reveals a bubble on hover/focus. */
       .tip {
         display: inline-flex; align-items: center; justify-content: center;
         width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
-        background: #dfe6e5; color: #2f6f6a; font-size: 11px; font-weight: 700;
+        background: var(--tip-bg); color: var(--accent); font-size: 11px; font-weight: 700;
         font-style: normal; cursor: help; position: relative; outline: none;
       }
       .tip .bubble {
@@ -98,10 +98,10 @@ import { DocumentResponse } from '../../core/models';
       textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; padding: 8px; }
       .actions { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
       .btn-del {
-        border: 1px solid rgba(192, 57, 43, 0.5); background: transparent; color: #c0392b;
+        border: 1px solid var(--danger-line); background: transparent; color: var(--danger);
         border-radius: 8px; padding: 9px 18px; font-size: 14px; cursor: pointer;
       }
-      .btn-del:hover { background: rgba(192, 57, 43, 0.08); }
+      .btn-del:hover { background: var(--danger-soft); }
     `,
   ],
 })

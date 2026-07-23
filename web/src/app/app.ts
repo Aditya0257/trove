@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
 import { SpaceContext } from './core/space.context';
+import { ThemeService } from './core/theme.service';
 import { NoticeToast } from './core/notice/notice-toast';
 import { DevDrawer } from './core/notice/dev-drawer';
 
@@ -15,6 +16,7 @@ import { DevDrawer } from './core/notice/dev-drawer';
 export class App {
   protected auth = inject(AuthService);
   protected spaceCtx = inject(SpaceContext);
+  protected theme = inject(ThemeService);
   private router = inject(Router);
 
   constructor() {

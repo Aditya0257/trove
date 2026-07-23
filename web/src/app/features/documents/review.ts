@@ -113,21 +113,21 @@ import { NoticeService } from '../../core/notice/notice.service';
         font-size: 14px;
         line-height: 1.45;
       }
-      .warn { color: #8a5a00; }
-      .ai-note.failed { background: rgba(192, 57, 43, 0.08); border-left-color: #c0392b; }
-      .help { display: block; margin-top: 4px; color: #8a8a8a; font-size: 12px; }
+      .warn { color: var(--warn); }
+      .ai-note.failed { background: var(--danger-soft); border-left-color: var(--danger); }
+      .help { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
       .view-file {
         display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 16px;
-        border: 1px solid rgba(47, 111, 106, 0.4); background: transparent; color: #2f6f6a;
+        border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
         border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
       }
-      .view-file:hover { background: rgba(47, 111, 106, 0.08); }
-      .uploaded { color: #8a8a8a; font-size: 12px; margin: 2px 0 14px; }
+      .view-file:hover { background: var(--accent-soft); }
+      .uploaded { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
       .lbl { display: inline-flex; align-items: center; }
       .tip {
         display: inline-flex; align-items: center; justify-content: center;
         width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
-        background: #dfe6e5; color: #2f6f6a; font-size: 11px; font-weight: 700;
+        background: var(--tip-bg); color: var(--accent); font-size: 11px; font-weight: 700;
         font-style: normal; cursor: help; position: relative; outline: none;
       }
       .tip .bubble {
@@ -140,16 +140,16 @@ import { NoticeService } from '../../core/notice/notice.service';
       .tip:hover .bubble, .tip:focus .bubble { visibility: visible; opacity: 1; }
       textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; padding: 8px; }
       .back {
-        border: 0; background: transparent; color: #2f6f6a; cursor: pointer;
+        border: 0; background: transparent; color: var(--accent); cursor: pointer;
         font-size: 13px; padding: 0; margin-bottom: 10px;
       }
       .back:hover { text-decoration: underline; }
       .actions { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
       .btn-del {
-        border: 1px solid rgba(192, 57, 43, 0.5); background: transparent; color: #c0392b;
+        border: 1px solid var(--danger-line); background: transparent; color: var(--danger);
         border-radius: 8px; padding: 9px 18px; font-size: 14px; cursor: pointer;
       }
-      .btn-del:hover { background: rgba(192, 57, 43, 0.08); }
+      .btn-del:hover { background: var(--danger-soft); }
     `,
   ],
 })
