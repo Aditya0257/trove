@@ -24,8 +24,21 @@ public class ChatProperties {
     /** Embedding model — bge-base-en-v1.5 → 768 dims (must match V19's vector(768)). */
     private String embeddingModel = "@cf/baai/bge-base-en-v1.5";
     private int dimensions = 768;
-    /** Chat model that writes the grounded answer (reused from search). */
+    /** Chat model that writes the grounded answer (fallback / single-model default). */
     private String chatModel = "@cf/meta/llama-3.1-8b-instruct";
+
+    // ── model routing ────────────────────────────────────────────────────────
+    /** When true, a cheap classifier picks the answer model per query (cost-aware). */
+    private boolean routingEnabled = true;
+    /** Tiny, near-free classifier that labels a question simple vs complex (~0.4 neurons). */
+    private String routerModel = "@cf/meta/llama-3.2-1b-instruct";
+    /** Cheap model for simple single-fact lookups (~3.8× cheaper than 8b). */
+    private String lightModel = "@cf/meta/llama-3.2-3b-instruct";
+    /** Capable model for reasoning/aggregation/comparison questions. */
+    private String standardModel = "@cf/meta/llama-3.1-8b-instruct";
+    /** Once the shared daily budget is this fraction spent, force the light model so the
+     *  free tier stretches across more users (0..1; 1 disables the downgrade). */
+    private double budgetDowngradeFraction = 0.75;
     /** How many documents to retrieve as context. Keep small to bound tokens/cost. */
     private int topK = 5;
     /** Max characters of each document's text put into the prompt. */
@@ -40,6 +53,16 @@ public class ChatProperties {
     public void setDimensions(int dimensions) { this.dimensions = dimensions; }
     public String getChatModel() { return chatModel; }
     public void setChatModel(String chatModel) { this.chatModel = chatModel; }
+    public boolean isRoutingEnabled() { return routingEnabled; }
+    public void setRoutingEnabled(boolean routingEnabled) { this.routingEnabled = routingEnabled; }
+    public String getRouterModel() { return routerModel; }
+    public void setRouterModel(String routerModel) { this.routerModel = routerModel; }
+    public String getLightModel() { return lightModel; }
+    public void setLightModel(String lightModel) { this.lightModel = lightModel; }
+    public String getStandardModel() { return standardModel; }
+    public void setStandardModel(String standardModel) { this.standardModel = standardModel; }
+    public double getBudgetDowngradeFraction() { return budgetDowngradeFraction; }
+    public void setBudgetDowngradeFraction(double v) { this.budgetDowngradeFraction = v; }
     public int getTopK() { return topK; }
     public void setTopK(int topK) { this.topK = topK; }
     public int getMaxSnippetChars() { return maxSnippetChars; }

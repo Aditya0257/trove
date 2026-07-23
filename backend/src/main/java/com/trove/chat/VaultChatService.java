@@ -31,8 +31,6 @@
  */
 package com.trove.chat;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trove.category.Category;
 import com.trove.category.CategoryRepository;
 import com.trove.chat.ChatDtos.ChatAnswer;
@@ -41,19 +39,12 @@ import com.trove.document.Document;
 import com.trove.document.DocumentRepository;
 import com.trove.merchant.Merchant;
 import com.trove.extraction.AiUsageTracker;
-import com.trove.extraction.NeuronRateService;
-import com.trove.extraction.provider.CloudflareProperties;
 import com.trove.merchant.MerchantRepository;
 import com.trove.space.SpaceAuthorization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -70,15 +61,13 @@ public class VaultChatService {
     private final CategoryRepository categoryRepository;
     private final MerchantRepository merchantRepository;
     private final AiUsageTracker usage;
-    private final NeuronRateService neuronRates;
-    private final CloudflareProperties cloudflare;
-    private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final ModelRouter router;
+    private final CloudflareChatClient chatClient;
 
     public VaultChatService(ChatProperties props, EmbeddingService embeddings, SpaceAuthorization authorization,
                             DocumentRepository documentRepository, CategoryRepository categoryRepository,
                             MerchantRepository merchantRepository, AiUsageTracker usage,
-                            NeuronRateService neuronRates, CloudflareProperties cloudflare, ObjectMapper mapper) {
+                            ModelRouter router, CloudflareChatClient chatClient) {
         this.props = props;
         this.embeddings = embeddings;
         this.authorization = authorization;
@@ -86,9 +75,8 @@ public class VaultChatService {
         this.categoryRepository = categoryRepository;
         this.merchantRepository = merchantRepository;
         this.usage = usage;
-        this.neuronRates = neuronRates;
-        this.cloudflare = cloudflare;
-        this.mapper = mapper;
+        this.router = router;
+        this.chatClient = chatClient;
     }
 
     /** Answers {@code question} from documents in {@code spaceId} (caller must be a member). */
@@ -136,7 +124,10 @@ public class VaultChatService {
                     false, sources);
         }
         try {
-            String answer = callChat(buildPrompt(question, context.toString()), userId);
+            ModelRouter.Decision route = router.pick(question, userId);
+            log.info("Vault chat routed to {} ({}: {})", route.model(), route.tier(), route.reason());
+            String answer = chatClient.chat(route.model(), buildPrompt(question, context.toString()),
+                    300, 0.2, props.getTimeoutSeconds(), userId);
             // The small model occasionally degenerates to just a citation marker ("[1]") or
             // whitespace. Never surface that — fall back to a plain summary of the top match.
             if (isEmptyAnswer(answer)) {
@@ -289,30 +280,4 @@ public class VaultChatService {
         return b.append(" [1]. Ask more specifically if that's not the one.").toString();
     }
 
-    private String callChat(String prompt, UUID userId) throws Exception {
-        String model = props.getChatModel();
-        String url = "https://api.cloudflare.com/client/v4/accounts/%s/ai/run/%s"
-                .formatted(cloudflare.getAccountId(), model);
-        var root = mapper.createObjectNode();
-        root.put("temperature", 0.2);
-        root.put("max_tokens", 300);           // bound output cost
-        var messages = root.putArray("messages");
-        messages.addObject().put("role", "user").put("content", prompt);
-        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(props.getTimeoutSeconds()))
-                .header("Authorization", "Bearer " + cloudflare.getApiToken())
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(root.toString()))
-                .build();
-        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-        JsonNode json = mapper.readTree(resp.body());
-        JsonNode u = json.path("result").path("usage");
-        long inTok = u.path("prompt_tokens").asLong(0);
-        long outTok = u.path("completion_tokens").asLong(0);
-        if (inTok + outTok > 0) {
-            usage.record(userId, neuronRates.neuronsFor(model, inTok, outTok), inTok + outTok);
-        }
-        JsonNode response = json.path("result").path("response");
-        return response.isTextual() ? response.asText("") : response.toString();
-    }
 }
