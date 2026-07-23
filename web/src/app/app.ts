@@ -9,10 +9,11 @@ import { NoticeService } from './core/notice/notice.service';
 import { TroveSelect, SelectOption } from './core/select';
 import { NoticeToast } from './core/notice/notice-toast';
 import { DevDrawer } from './core/notice/dev-drawer';
+import { AssistantWidget } from './features/ask/assistant';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, TroveSelect, NoticeToast, DevDrawer],
+  imports: [RouterOutlet, RouterLink, FormsModule, TroveSelect, NoticeToast, DevDrawer, AssistantWidget],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

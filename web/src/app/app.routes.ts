@@ -36,11 +36,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/search/search').then((m) => m.Search),
   },
   {
-    path: 'ask',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/ask/ask').then((m) => m.Ask),
-  },
-  {
     path: 'spend',
     canActivate: [authGuard],
     loadComponent: () => import('./features/spend/spend').then((m) => m.Spend),

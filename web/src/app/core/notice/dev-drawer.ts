@@ -138,7 +138,8 @@ import { SettingsService } from '../settings.service';
   styles: [
     `
       .pill {
-        position: fixed; bottom: 16px; right: 16px; z-index: 900;
+        /* bottom-LEFT: the bottom-right corner belongs to the user-facing Ask assistant. */
+        position: fixed; bottom: 16px; left: 16px; z-index: 900;
         background: #2f6f6a; color: #fff; border: 0; border-radius: 999px;
         padding: 8px 14px; font: 600 12px/1 monospace; cursor: pointer;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
