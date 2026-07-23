@@ -117,20 +117,20 @@ interface Turn {
       }
       .chip:hover:not(:disabled) { background: var(--accent-soft); }
 
-      .msg { margin: 8px 0; padding: 8px 11px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; }
+      .msg { margin: 7px 0; padding: 7px 10px; border-radius: 12px; font-size: 12px; line-height: 1.5; }
       .msg.q { background: var(--accent-soft); color: var(--ink); margin-left: 24px; }
       .msg.a { background: var(--hover); }
       .a-text { margin: 0; white-space: pre-wrap; }
-      .xs { font-size: 11px; margin: 6px 0 0; }
+      .xs { font-size: 10.5px; margin: 6px 0 0; }
       .sources { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
       .source {
         display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; text-decoration: none;
         border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--ink); background: var(--card);
       }
       .source:hover { border-color: var(--accent-line); }
-      .src-idx { color: var(--accent); font-weight: 700; font-size: 11px; }
-      .src-title { font-weight: 600; font-size: 12.5px; }
-      .src-meta { font-size: 11px; color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; }
+      .src-idx { color: var(--accent); font-weight: 700; font-size: 10.5px; }
+      .src-title { font-weight: 600; font-size: 11.5px; }
+      .src-meta { font-size: 10px; color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; }
 
       .composer { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); }
       .composer input { flex: 1; margin: 0; }
