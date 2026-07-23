@@ -7,6 +7,7 @@ import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
 import { noticeFrom } from '../../core/notice/notice.model';
 import { HelpCard } from '../../core/help-card';
+import { SettingsService } from '../../core/settings.service';
 
 /** A queued image awaiting upload, with a preview URL to revoke later. */
 interface Queued {
@@ -84,6 +85,10 @@ interface Queued {
         <input type="checkbox" name="vital" [(ngModel)]="vital" [disabled]="loading()" />
         These are vital/sensitive (passport, ID, policy). Encrypt at rest
       </label>
+      <label class="checkbox">
+        <input type="checkbox" [checked]="settings.aiReading()" (change)="settings.toggleAiReading()" [disabled]="loading()" />
+        Read images with AI automatically (uses AI credits). Turn off to skip the wait and fill the details yourself.
+      </label>
 
       @if (loading()) {
         <p class="muted">Uploading {{ done() + 1 }} of {{ total() }}…</p>
@@ -145,6 +150,7 @@ export class Upload {
   private router = inject(Router);
   private spaceCtx = inject(SpaceContext);
   private notices = inject(NoticeService);
+  protected settings = inject(SettingsService);
 
   vital = false;
   queue = signal<Queued[]>([]);
@@ -236,7 +242,8 @@ export class Upload {
     const ids: string[] = [];
     for (const item of items) {
       try {
-        const doc = await firstValueFrom(this.api.uploadDocument(item.file, this.vital, spaceId));
+        const doc = await firstValueFrom(
+          this.api.uploadDocument(item.file, this.vital, spaceId, this.settings.aiReading()));
         const meta = doc.extra?.['extractionMeta'] as Record<string, unknown> | undefined;
         const notice = noticeFrom(meta?.['notice']);
         if (notice) {

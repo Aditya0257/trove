@@ -24,7 +24,12 @@ import { TroveSelect, SelectOption } from '../../core/select';
         @if (reading()) {
           <p class="muted">Reading the document. The fields below will fill in automatically…</p>
         } @else if (needsReview()) {
-          @if (failedRead()) {
+          @if (extractionSkipped()) {
+            <div class="ai-note skipped">
+              <b>AI reading was off for this upload.</b> Enter the details below and Confirm.
+              You can turn AI reading back on any time from the Upload screen.
+            </div>
+          } @else if (failedRead()) {
             <div class="ai-note failed">
               <b>We couldn't read this one automatically.</b> No worries: just fill in the
               details below (it takes a few seconds). The fields are blank on purpose, so
@@ -98,6 +103,35 @@ import { TroveSelect, SelectOption } from '../../core/select';
             <button type="button" class="btn-del" (click)="remove()">Delete</button>
           </div>
         </form>
+
+        @if (lineItems().length || extraEntries().length || rawText()) {
+          <details class="extracted">
+            <summary>Everything the AI read from this document</summary>
+            @if (lineItems().length) {
+              <div class="ex-title">Line items</div>
+              <table class="li">
+                <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+                <tbody>
+                  @for (li of lineItems(); track $index) {
+                    <tr><td>{{ li.description || '-' }}</td><td>{{ li.quantity ?? '-' }}</td><td>{{ li.amount ?? '-' }}</td></tr>
+                  }
+                </tbody>
+              </table>
+            }
+            @if (extraEntries().length) {
+              <div class="ex-title">Other details found</div>
+              <div class="ex-fields">
+                @for (e of extraEntries(); track e[0]) {
+                  <div class="ex-kv"><span>{{ e[0] }}</span><div>{{ e[1] }}</div></div>
+                }
+              </div>
+            }
+            @if (rawText()) {
+              <div class="ex-title">Full text read</div>
+              <pre class="rawtext">{{ rawText() }}</pre>
+            }
+          </details>
+        }
       </div>
     }
   `,
@@ -114,6 +148,20 @@ import { TroveSelect, SelectOption } from '../../core/select';
       }
       .warn { color: var(--warn); }
       .ai-note.failed { background: var(--danger-soft); border-left-color: var(--danger); }
+      .ai-note.skipped { background: var(--accent-soft); border-left-color: var(--accent); }
+      .extracted { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+      .extracted summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--accent); }
+      .ex-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin: 12px 0 4px; }
+      .li { width: 100%; font-size: 13px; }
+      .li th { text-align: left; color: var(--muted); font-weight: 600; }
+      .li td, .li th { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+      .ex-fields { display: flex; flex-direction: column; gap: 4px; }
+      .ex-kv { display: flex; gap: 10px; font-size: 13px; }
+      .ex-kv span { flex: none; min-width: 140px; color: var(--muted); font-weight: 600; text-transform: capitalize; }
+      .rawtext {
+        background: var(--code-bg); color: var(--ink); border-radius: 8px; padding: 10px; font-size: 12px;
+        line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto; margin: 4px 0 0;
+      }
       .help { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
       .view-file {
         display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 16px;
@@ -237,6 +285,33 @@ export class Review {
     return !!a?.anomaly;
   }
 
+  /** True when this upload was stored with AI reading turned off. */
+  extractionSkipped(): boolean {
+    return this.doc()?.extra?.['extractionSkipped'] === true;
+  }
+
+  /** Internal `extra` keys that are plumbing, not document data — hidden from the trail. */
+  private static readonly INTERNAL_EXTRA = new Set([
+    'extractionMeta', 'extractionProvider', 'extractionModel', 'extractionAccepted',
+    'aiTokens', 'aiNeurons', 'notes', 'extractionSkipped', 'anomaly',
+    'mailAccount', 'mailAddress', 'mailTopic', 'mailSubject', 'mailDate', 'mailBundleId',
+  ]);
+
+  lineItems() {
+    return this.doc()?.lineItems ?? [];
+  }
+  rawText(): string {
+    return this.doc()?.rawText ?? '';
+  }
+  /** The model's type-specific extra fields (account no., invoice no., tax…) — the extra
+   *  value the AI read that doesn't map to a core field. Plumbing keys are filtered out. */
+  extraEntries(): [string, string][] {
+    const ex = this.doc()?.extra ?? {};
+    return Object.entries(ex)
+      .filter(([k, v]) => !Review.INTERNAL_EXTRA.has(k) && v != null && typeof v !== 'object')
+      .map(([k, v]) => [k, String(v)] as [string, string]);
+  }
+
   /**
    * Opens the original file. Non-vital docs have a presigned URL (no auth needed) and
    * open directly; vital (encrypted) docs are fetched from /content with the auth
@@ -268,7 +343,9 @@ export class Review {
         return;
       }
       this.doc.set(doc);
-      if (doc.extractionConfidence == null && doc.status === 'needs_review' && attempt < 12) {
+      // Don't wait for a read that will never come: skip polling when AI reading was off.
+      const skipped = doc.extra?.['extractionSkipped'] === true;
+      if (!skipped && doc.extractionConfidence == null && doc.status === 'needs_review' && attempt < 12) {
         this.reading.set(true);
         setTimeout(() => this.loadAndPoll(attempt + 1), 2000);
       } else {

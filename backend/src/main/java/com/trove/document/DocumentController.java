@@ -70,11 +70,12 @@ public class DocumentController {
     public ResponseEntity<DocumentResponse> upload(
             @RequestPart("file") MultipartFile file,
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
-            @RequestParam(value = "vital", required = false, defaultValue = "false") boolean vital) {
+            @RequestParam(value = "vital", required = false, defaultValue = "false") boolean vital,
+            @RequestParam(value = "extract", required = false, defaultValue = "true") boolean extract) {
 
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        DocumentResponse created = documentService.upload(space, user, file, vital);
+        DocumentResponse created = documentService.upload(space, user, file, vital, extract);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

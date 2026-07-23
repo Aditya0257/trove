@@ -3,6 +3,7 @@ import { DevLogService, DevLogEntry } from './dev-log.service';
 import { ApiService } from '../api.service';
 import { AiUsage } from '../models';
 import { TERMS } from '../terms';
+import { SettingsService } from '../settings.service';
 
 /**
  * The in-app "inspect" surface: a slide-over listing recent API calls with method,
@@ -55,6 +56,15 @@ import { TERMS } from '../terms';
 
             <div class="gauge-foot">
               <span class="dot"></span>Your usage updates instantly · the shared total refreshes every minute while this panel is open
+            </div>
+
+            <button type="button" class="ai-toggle" [class.off]="!settings.aiReading()" (click)="settings.toggleAiReading()">
+              {{ settings.aiReading() ? '⏸ Pause AI reading' : '▶ Resume AI reading' }}
+            </button>
+            <div class="ai-toggle-note">
+              {{ settings.aiReading()
+                ? 'Uploads are read by the AI. Pause to stop spending credits — uploads then wait for no read and you fill the details yourself.'
+                : 'AI reading is OFF. New uploads are stored and go straight to the review form for manual entry, with no wait and no credits.' }}
             </div>
           </div>
         }
@@ -202,6 +212,13 @@ import { TERMS } from '../terms';
       .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
       .fill.you { background: linear-gradient(90deg, #43b581, #2e7d5b); }
       .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
+      .ai-toggle {
+        margin: 10px 0 0; width: 100%; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+        border: 1px solid rgba(59, 125, 221, 0.3); background: rgba(59, 125, 221, 0.1); color: #2c5aa0;
+        font-size: 12px; font-weight: 700;
+      }
+      .ai-toggle.off { border-color: rgba(184, 134, 11, 0.4); background: rgba(184, 134, 11, 0.12); color: #8a5a00; }
+      .ai-toggle-note { margin-top: 5px; font-size: 10.5px; color: #8a8a8a; line-height: 1.4; }
       .gauge-foot {
         display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px;
         border-top: 1px solid rgba(59, 125, 221, 0.15); font-size: 10.5px; color: #8a8a8a;
@@ -244,6 +261,7 @@ export class DevDrawer {
   protected usage = signal<AiUsage | null>(null);
   /** Vendor-neutral labels (see core/terms.ts). */
   protected terms = TERMS;
+  protected settings = inject(SettingsService);
 
   /** How often the open drawer re-polls for the app-wide (global) figure. */
   private static readonly POLL_MS = 60_000;

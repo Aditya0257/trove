@@ -54,11 +54,11 @@ export class ApiService {
   getDocument(id: string) {
     return this.http.get<DocumentResponse>(`${API_BASE}/api/documents/${id}`);
   }
-  uploadDocument(file: File, vital: boolean, spaceId?: string) {
+  uploadDocument(file: File, vital: boolean, spaceId?: string, extract = true) {
     const form = new FormData();
     form.append('file', file);
     return this.http.post<DocumentResponse>(
-      `${API_BASE}/api/documents${this.qs({ spaceId, vital })}`,
+      `${API_BASE}/api/documents${this.qs({ spaceId, vital, extract })}`,
       form
     );
   }

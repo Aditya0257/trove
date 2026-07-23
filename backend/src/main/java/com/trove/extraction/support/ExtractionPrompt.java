@@ -71,8 +71,8 @@ public final class ExtractionPrompt {
               "lineItems": [                           // may be empty
                 { "description": string, "quantity": number or null, "amount": number or null }
               ],
-              "rawText": string,                       // all text you can read from the document
-              "extra": object,                         // any useful type-specific fields you find
+              "rawText": string,                       // ALL text you can read, top to bottom
+              "extra": object,                         // every other useful field you find (see rules)
               "confidence": number                     // 0..1, how sure you are overall
             }
 
@@ -80,6 +80,12 @@ public final class ExtractionPrompt {
             - Pick the single best categoryCode from the allowed list; use "other" if none fit.
             - Never invent values. If unsure of a number or date, use null and lower the confidence.
             - amount and lineItems[].amount must be plain numbers (e.g. 1840.50), not "₹1,840.50".
+            - "rawText" must contain everything legible on the document — do not summarise or omit.
+            - Fill "extra" generously with any labelled fields present, using clear camelCase keys,
+              e.g. invoiceNumber, accountNumber, taxAmount, subtotal, billingPeriod, statementDate,
+              paymentStatus, address, phone, email, gstin, policyNumber, referenceNumber. Include
+              anything else useful; omit what isn't present. This is where the document's real detail
+              is captured, so be thorough.
 
             Reminder: reply with the JSON object ONLY. It must start with { and end with }. Output no
             other characters before or after it.

@@ -130,6 +130,16 @@ public class DocumentService {
      */
     @Transactional
     public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file, boolean vital) {
+        return upload(spaceId, uploadedBy, file, vital, true);
+    }
+
+    /**
+     * Uploads a document. When {@code extract} is false the AI reading step is skipped
+     * (the doc is stored and left in needs_review for manual entry) — used when a user
+     * turns AI reading off to avoid the wait and the credit cost.
+     */
+    @Transactional
+    public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file, boolean vital, boolean extract) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Uploaded file is empty");
         }
@@ -166,10 +176,17 @@ public class DocumentService {
         storageService.writeSidecar(doc.getStorageKey(), sidecar);
 
         // 5) After this transaction commits, extraction is dispatched (see
-        //    ExtractionEventListener). We never call the provider inline.
-        events.publishEvent(new DocumentUploadedEvent(doc.getId()));
-
-        log.info("Uploaded document {} into space {} (status=needs_review)", doc.getId(), spaceId);
+        //    ExtractionEventListener). We never call the provider inline. When AI reading
+        //    is turned off, skip it and mark the doc so the UI shows the form immediately
+        //    instead of waiting for a read that will never come.
+        if (extract) {
+            events.publishEvent(new DocumentUploadedEvent(doc.getId()));
+            log.info("Uploaded document {} into space {} (status=needs_review)", doc.getId(), spaceId);
+        } else {
+            doc.setExtra(java.util.Map.of("extractionSkipped", true));
+            documentRepository.save(doc);
+            log.info("Uploaded document {} into space {} (status=needs_review, AI reading OFF)", doc.getId(), spaceId);
+        }
         return toResponse(doc);
     }
 
