@@ -65,6 +65,7 @@ export interface ConfirmRequest {
 export interface SpaceSummary {
   id: string;
   name: string;
+  description: string | null;
   kind: 'personal' | 'shared';
   createdBy: string;
   createdAt: string;

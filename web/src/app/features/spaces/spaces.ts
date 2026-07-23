@@ -2,6 +2,7 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
+import { AuthService } from '../../core/auth.service';
 import { NoticeService } from '../../core/notice/notice.service';
 import { DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
@@ -40,7 +41,49 @@ import { TroveSelect, SelectOption } from '../../core/select';
       </form>
       <p class="muted">Current space: <b>{{ spaceCtx.current()?.name || '-' }}</b>
         ({{ spaceCtx.current()?.kind }}). Switch spaces from the top-right selector.</p>
+      @if (spaceCtx.current()?.description) {
+        <p class="space-bio">{{ spaceCtx.current()?.description }}</p>
+      }
     </div>
+
+    @if (isOwner()) {
+      <div class="card">
+        <h3>Space settings</h3>
+        <label>Space name <input name="spaceName" [(ngModel)]="editName" placeholder="e.g. Household" /></label>
+        <label>Description / bio (optional)
+          <textarea name="spaceDesc" [(ngModel)]="editDescription" rows="2"
+            placeholder="What this space is for, or who it's shared with"></textarea>
+        </label>
+        <button (click)="saveSpace()" [disabled]="savingSpace() || !editName.trim()">
+          {{ savingSpace() ? 'Saving…' : 'Save changes' }}
+        </button>
+
+        @if (spaceCtx.current()?.kind === 'shared') {
+          <div class="danger">
+            <h4>Danger zone</h4>
+            <p class="muted">Deleting removes this space and <b>all its documents, for everyone</b>. It can't be undone from the app.</p>
+            <button type="button" class="btn-danger" (click)="askDelete()">Delete this space</button>
+          </div>
+        }
+      </div>
+    }
+
+    @if (deleting()) {
+      <div class="scrim" (click)="cancelDelete()"></div>
+      <div class="modal" role="dialog" aria-modal="true">
+        <h3>Delete "{{ spaceCtx.current()?.name }}"?</h3>
+        <p class="muted">This permanently removes the space and every document in it for all members.
+          To confirm, type the space name below.</p>
+        <input name="delConfirm" [(ngModel)]="deleteConfirm" [placeholder]="spaceCtx.current()?.name || ''" autocomplete="off" />
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="btn-danger"
+            [disabled]="deleteConfirm !== spaceCtx.current()?.name || deleteBusy()" (click)="confirmDelete()">
+            {{ deleteBusy() ? 'Deleting…' : 'Delete space' }}
+          </button>
+        </div>
+      </div>
+    }
 
     <div class="card">
       <h3>Members</h3>
@@ -147,16 +190,46 @@ import { TroveSelect, SelectOption } from '../../core/select';
       .tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
       .dismiss { margin: 0 0 0 8px; padding: 2px 8px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 12px; }
       .dismiss:hover { color: var(--danger); border-color: var(--danger-line); }
+      .space-bio { margin: 6px 0 0; }
+      textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; }
+      .danger { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--danger-line); }
+      .danger h4 { margin: 0 0 4px; color: var(--danger); font-size: 0.95rem; }
+      .btn-danger { margin: 0; background: var(--danger); color: #fff; border: 0; }
+      .btn-danger:hover:not(:disabled) { filter: brightness(0.94); }
+      .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1100; }
+      .modal {
+        position: fixed; z-index: 1101; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: min(460px, 92vw); background: var(--card); border: 1px solid var(--line);
+        border-radius: 12px; padding: 1.25rem 1.4rem; box-shadow: 0 20px 60px var(--shadow);
+      }
+      .modal h3 { margin: 0 0 0.5rem; }
+      .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
+      .modal-actions button { margin: 0; }
     `,
   ],
 })
 export class Spaces {
   protected spaceCtx = inject(SpaceContext);
   private api = inject(ApiService);
+  private auth = inject(AuthService);
   private notices = inject(NoticeService);
 
   protected invitations = signal<Invitation[]>([]);
   protected busy = signal(false);
+
+  // Space settings (rename + description) and delete.
+  protected editName = '';
+  protected editDescription = '';
+  protected savingSpace = signal(false);
+  protected deleting = signal(false);
+  protected deleteBusy = signal(false);
+  protected deleteConfirm = '';
+
+  /** True when the signed-in user is the owner of the current space. */
+  protected isOwner(): boolean {
+    const myId = this.auth.user()?.userId;
+    return !!myId && this.members().some((m) => m.userId === myId && m.role === 'owner' && m.status === 'active');
+  }
 
   /** Vendor-neutral labels (see core/terms.ts) so provider swaps are one-file changes. */
   protected terms = TERMS;
@@ -195,8 +268,54 @@ export class Spaces {
       if (sid) {
         this.loadSpace(sid);
       }
+      // Keep the settings form in sync with whichever space is selected.
+      const c = this.spaceCtx.current();
+      this.editName = c?.name ?? '';
+      this.editDescription = c?.description ?? '';
     });
     this.loadInvitations();
+  }
+
+  /** Rename / set description of the current space (owner only). */
+  saveSpace(): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid || !this.editName.trim()) return;
+    this.savingSpace.set(true);
+    this.api.updateSpace(sid, this.editName.trim(), this.editDescription.trim()).subscribe({
+      next: () => {
+        this.spaceCtx.load();
+        this.notices.show({ level: 'success', code: 'SPACE_SAVED', userMessage: 'Space updated.' });
+        this.savingSpace.set(false);
+      },
+      error: () => this.savingSpace.set(false),
+    });
+  }
+
+  askDelete(): void {
+    this.deleteConfirm = '';
+    this.deleting.set(true);
+  }
+  cancelDelete(): void {
+    this.deleting.set(false);
+  }
+
+  confirmDelete(): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    const name = this.spaceCtx.current()?.name;
+    if (!sid || this.deleteConfirm !== name) return;
+    this.deleteBusy.set(true);
+    this.api.deleteSpace(sid).subscribe({
+      next: () => {
+        // Move off the deleted space (back to the personal one) before reloading.
+        const personal = this.spaceCtx.spaces().find((s) => s.kind === 'personal');
+        if (personal) this.spaceCtx.setCurrent(personal.id);
+        this.spaceCtx.load();
+        this.deleteBusy.set(false);
+        this.deleting.set(false);
+        this.notices.show({ level: 'success', code: 'SPACE_DELETED', userMessage: `Deleted "${name}".` });
+      },
+      error: () => this.deleteBusy.set(false),
+    });
   }
 
   private loadInvitations(): void {

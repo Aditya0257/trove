@@ -260,6 +260,24 @@ public class DocumentService {
         log.info("Deleted document {} from space {}", documentId, doc.getSpaceId());
     }
 
+    /**
+     * Deletes the object-storage files (original + sidecar) for every document in a
+     * space. Used when deleting the whole space: the DB rows are removed by the
+     * space's ON DELETE CASCADE, but the objects live outside the DB and must be
+     * purged here first. Best-effort per object; never throws.
+     */
+    @Transactional(readOnly = true)
+    public void purgeStorageForSpace(UUID spaceId) {
+        List<Document> docs = documentRepository.findBySpaceIdOrderByCreatedAtDesc(spaceId);
+        for (Document doc : docs) {
+            deleteQuietly(doc.getStorageKey());
+            if (doc.getSidecarKey() != null && !doc.getSidecarKey().isBlank()) {
+                deleteQuietly(doc.getSidecarKey());
+            }
+        }
+        log.info("Purged storage for {} document(s) in space {}", docs.size(), spaceId);
+    }
+
     /** Best-effort object delete: a storage hiccup shouldn't block removing the row. */
     private void deleteQuietly(String storageKey) {
         try {

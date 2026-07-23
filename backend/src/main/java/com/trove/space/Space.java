@@ -28,6 +28,10 @@ public class Space extends BaseEntity {
     @Column(name = "name", nullable = false)
     private String name;
 
+    /** Optional short bio/description the owner can set. */
+    @Column(name = "description")
+    private String description;
+
     @Column(name = "kind", nullable = false)
     private String kind; // personal | shared
 
@@ -49,6 +53,9 @@ public class Space extends BaseEntity {
     }
 
     public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
     public String getKind() { return kind; }
     public UUID getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }

@@ -119,6 +119,12 @@ export class ApiService {
   createSpace(name: string) {
     return this.http.post<SpaceSummary>(`${API_BASE}/api/spaces`, { name });
   }
+  updateSpace(spaceId: string, name: string, description: string) {
+    return this.http.put<SpaceSummary>(`${API_BASE}/api/spaces/${spaceId}`, { name, description });
+  }
+  deleteSpace(spaceId: string) {
+    return this.http.delete<void>(`${API_BASE}/api/spaces/${spaceId}`);
+  }
   listMembers(spaceId: string) {
     return this.http.get<Member[]>(`${API_BASE}/api/spaces/${spaceId}/members`);
   }

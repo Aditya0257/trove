@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -63,6 +64,20 @@ public class SpaceController {
     public ResponseEntity<SpaceResponse> create(@RequestBody CreateSpaceRequest req) {
         Space s = spaceService.createSharedSpace(currentUser.requireUserId(), req.name());
         return ResponseEntity.status(HttpStatus.CREATED).body(SpaceResponse.of(s));
+    }
+
+    /** Rename a space / set its description (owner only). */
+    @PutMapping("/{id}")
+    public SpaceResponse update(@PathVariable UUID id, @RequestBody UpdateSpaceRequest req) {
+        return SpaceResponse.of(spaceService.updateSpace(id, currentUser.requireUserId(),
+                req.name(), req.description()));
+    }
+
+    /** Delete a shared space and everything in it (owner only). */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteSpace(@PathVariable UUID id) {
+        spaceService.deleteSpace(id, currentUser.requireUserId());
+        return ResponseEntity.noContent().build();
     }
 
     /** List the spaces the caller belongs to. */
@@ -134,12 +149,17 @@ public class SpaceController {
     public record CreateSpaceRequest(@NotBlank String name) {
     }
 
+    public record UpdateSpaceRequest(String name, String description) {
+    }
+
     public record AddMemberRequest(@NotBlank String email, @NotBlank String role) {
     }
 
-    public record SpaceResponse(UUID id, String name, String kind, UUID createdBy, Instant createdAt) {
+    public record SpaceResponse(UUID id, String name, String description, String kind,
+                                UUID createdBy, Instant createdAt) {
         static SpaceResponse of(Space s) {
-            return new SpaceResponse(s.getId(), s.getName(), s.getKind(), s.getCreatedBy(), s.getCreatedAt());
+            return new SpaceResponse(s.getId(), s.getName(), s.getDescription(), s.getKind(),
+                    s.getCreatedBy(), s.getCreatedAt());
         }
     }
 

@@ -30,6 +30,7 @@ package com.trove.space;
 import com.trove.auth.User;
 import com.trove.auth.UserRepository;
 import com.trove.common.error.NotFoundException;
+import com.trove.document.DocumentService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,15 +47,18 @@ public class SpaceService {
     private final SpaceMemberRepository memberRepository;
     private final SpaceAuthorization authorization;
     private final UserRepository userRepository;
+    private final DocumentService documentService;
 
     public SpaceService(SpaceRepository spaceRepository,
                         SpaceMemberRepository memberRepository,
                         SpaceAuthorization authorization,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        DocumentService documentService) {
         this.spaceRepository = spaceRepository;
         this.memberRepository = memberRepository;
         this.authorization = authorization;
         this.userRepository = userRepository;
+        this.documentService = documentService;
     }
 
     /** Creates a user's private personal space and makes them its owner. */
@@ -174,5 +178,35 @@ public class SpaceService {
     public Space getSpace(UUID spaceId) {
         return spaceRepository.findById(spaceId)
                 .orElseThrow(() -> new NotFoundException("Space not found: " + spaceId));
+    }
+
+    /** Rename a space and/or set its description. Owner-only. */
+    @Transactional
+    public Space updateSpace(UUID spaceId, UUID actingUserId, String name, String description) {
+        authorization.requireOwner(spaceId, actingUserId);
+        Space space = getSpace(spaceId);
+        if (name != null && !name.isBlank()) {
+            space.setName(name.trim());
+        }
+        // description is optional; blank clears it
+        space.setDescription(description != null && !description.isBlank() ? description.trim() : null);
+        return spaceRepository.save(space);
+    }
+
+    /**
+     * Deletes a shared space and everything in it. Owner-only, and a personal space
+     * can never be deleted (it's the user's default vault). The object-storage files
+     * are purged first (they live outside the DB); deleting the space row then cascades
+     * all DB rows — documents, memberships, categories, reminders, tags, integrations.
+     */
+    @Transactional
+    public void deleteSpace(UUID spaceId, UUID actingUserId) {
+        authorization.requireOwner(spaceId, actingUserId);
+        Space space = getSpace(spaceId);
+        if ("personal".equals(space.getKind())) {
+            throw new IllegalArgumentException("Your personal space can't be deleted");
+        }
+        documentService.purgeStorageForSpace(spaceId);
+        spaceRepository.delete(space);
     }
 }
