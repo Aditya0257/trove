@@ -33,11 +33,13 @@ package com.trove.chat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trove.category.Category;
 import com.trove.category.CategoryRepository;
 import com.trove.chat.ChatDtos.ChatAnswer;
 import com.trove.chat.ChatDtos.Citation;
 import com.trove.document.Document;
 import com.trove.document.DocumentRepository;
+import com.trove.merchant.Merchant;
 import com.trove.extraction.AiUsageTracker;
 import com.trove.extraction.NeuronRateService;
 import com.trove.extraction.provider.CloudflareProperties;
@@ -96,15 +98,27 @@ public class VaultChatService {
             return new ChatAnswer("Ask me something about your documents.", false, List.of());
         }
 
-        // 1) Retrieve the most relevant documents (semantic), scoped to this space.
+        // 1) Retrieve the most relevant documents (semantic), scoped to this space. Build the
+        //    citations (for the UI) and a type-aware context block (for the model) together.
         List<EmbeddingService.Hit> hits = embeddings.search(spaceId, question, userId, props.getTopK());
         List<Citation> sources = new ArrayList<>();
+        StringBuilder context = new StringBuilder();
         int idx = 1;
         for (EmbeddingService.Hit hit : hits) {
             Document doc = documentRepository.findById(hit.documentId()).orElse(null);
-            if (doc != null) {
-                sources.add(toCitation(doc, idx++));
+            if (doc == null) {
+                continue;
             }
+            Category cat = doc.getCategoryId() == null ? null
+                    : categoryRepository.findById(doc.getCategoryId()).orElse(null);
+            String code = cat == null ? null : cat.getCode();
+            String label = cat == null ? null : cat.getLabel();
+            String merchant = doc.getMerchantId() == null ? null
+                    : merchantRepository.findById(doc.getMerchantId()).map(Merchant::getCanonicalName).orElse(null);
+            boolean isEmail = "email".equals(code);
+            sources.add(citation(doc, idx, label, merchant, isEmail));
+            context.append(contextBlock(doc, idx, label, merchant, isEmail));
+            idx++;
         }
         if (sources.isEmpty()) {
             return new ChatAnswer(
@@ -122,7 +136,7 @@ public class VaultChatService {
                     false, sources);
         }
         try {
-            String answer = callChat(buildPrompt(question, sources), userId);
+            String answer = callChat(buildPrompt(question, context.toString()), userId);
             return new ChatAnswer(answer.isBlank() ? "I couldn't compose an answer, but see the sources below."
                     : answer, true, sources);
         } catch (Exception e) {
@@ -132,44 +146,114 @@ public class VaultChatService {
         }
     }
 
-    private Citation toCitation(Document doc, int index) {
-        String category = doc.getCategoryId() == null ? null
-                : categoryRepository.findById(doc.getCategoryId()).map(c -> c.getLabel()).orElse(null);
-        String merchant = doc.getMerchantId() == null ? null
-                : merchantRepository.findById(doc.getMerchantId()).map(m -> m.getCanonicalName()).orElse(null);
-        String title = merchant != null ? merchant
-                : (doc.getOriginalFilename() != null ? doc.getOriginalFilename() : "Document");
+    /** Builds the UI citation. Emails are titled by subject/topic and carry no amount. */
+    private Citation citation(Document doc, int index, String label, String merchant, boolean isEmail) {
+        String title = isEmail
+                ? firstNonBlank(extraStr(doc, "mailSubject"), extraStr(doc, "mailTopic"),
+                        doc.getOriginalFilename(), "Email")
+                : (merchant != null ? merchant
+                        : (doc.getOriginalFilename() != null ? doc.getOriginalFilename() : "Document"));
         String snippet = doc.getRawText() == null ? "" : doc.getRawText().trim();
         if (snippet.length() > props.getMaxSnippetChars()) {
             snippet = snippet.substring(0, props.getMaxSnippetChars()) + "…";
         }
-        return new Citation(doc.getId().toString(), index, title, category,
-                doc.getDocDate(), doc.getAmount(), doc.getCurrency(), snippet);
+        return new Citation(doc.getId().toString(), index, title, label,
+                doc.getDocDate(), isEmail ? null : doc.getAmount(), isEmail ? null : doc.getCurrency(), snippet);
     }
 
-    private String buildPrompt(String question, List<Citation> sources) {
-        StringBuilder ctx = new StringBuilder();
-        for (Citation c : sources) {
-            ctx.append('[').append(c.index()).append("] ");
-            if (c.category() != null) ctx.append("Category: ").append(c.category()).append(" | ");
-            if (c.title() != null) ctx.append("Merchant/File: ").append(c.title()).append(" | ");
-            if (c.docDate() != null) ctx.append("Date: ").append(c.docDate()).append(" | ");
-            if (c.amount() != null) {
-                ctx.append("Amount: ").append(c.amount());
-                if (c.currency() != null) ctx.append(' ').append(c.currency());
+    /** One document's block for the model, written by its KIND so the model reads it right:
+     *  emails expose Subject/Sender/Account (never an amount); bills expose Merchant/Amount. */
+    private String contextBlock(Document doc, int index, String label, String merchant, boolean isEmail) {
+        StringBuilder b = new StringBuilder();
+        b.append('[').append(index).append("] ").append(label == null ? "Document" : label);
+        if (isEmail) {
+            field(b, "Subject", extraStr(doc, "mailSubject"));
+            field(b, "Sender/Topic", extraStr(doc, "mailTopic"));
+            field(b, "Account", extraStr(doc, "mailAccount"));
+            field(b, "Address", extraStr(doc, "mailAddress"));
+            field(b, "Date", str(doc.getDocDate()));
+        } else {
+            field(b, "Merchant", merchant);
+            field(b, "Date", str(doc.getDocDate()));
+            if (doc.getAmount() != null) {
+                field(b, "Amount", doc.getAmount() + (doc.getCurrency() != null ? " " + doc.getCurrency() : ""));
             }
-            ctx.append('\n').append(c.snippet()).append("\n\n");
+            field(b, "Due/Expiry", str(doc.getDueDate()));
         }
+        field(b, "Notes", extraStr(doc, "notes"));
+        b.append('\n');
+        String snippet = doc.getRawText() == null ? "" : doc.getRawText().trim();
+        if (snippet.length() > props.getMaxSnippetChars()) {
+            snippet = snippet.substring(0, props.getMaxSnippetChars());
+        }
+        if (!snippet.isBlank()) {
+            b.append(snippet).append('\n');
+        }
+        return b.append('\n').toString();
+    }
+
+    private String buildPrompt(String question, String context) {
         return """
-                You are Trove's assistant. Answer the user's question using ONLY the documents
-                below. Cite the documents you use by their number, like [1] or [2]. If the
-                documents do not contain the answer, say you couldn't find it — never invent a
-                merchant, amount, date, or fact. Be concise and specific.
+                You are Trove's assistant for a personal document vault. Answer the user's
+                question using ONLY the documents below, and cite the ones you use by number
+                like [1] or [2].
+
+                Documents come in different KINDS — read each by its fields:
+                - Bills / receipts / purchases: have Merchant, Date and Amount (money spent).
+                - Emails (category Email): have Subject, Sender/Topic, Account and Date. They are
+                  saved notes, NOT spending — an email's numbers are never an amount paid.
+                - IDs, policies, warranties, subscriptions: may have a Due/Expiry date.
+
+                Do:
+                - Use Date for "last / latest / most recent" (newest) and "first / oldest" (earliest).
+                - Add Amounts for totals or "how much" — bills only, never emails.
+                - Use Subject / Sender/Topic / Account to answer questions about emails.
+                - Use the Due/Expiry date for "expires", "renews", "due".
+                - Honour exclusions: for "not X", "except X", "other than X", leave those documents out.
+                - For "list / which / all", list every document that matches.
+                - Answer whenever ANY document is relevant, even if the wording differs.
+
+                Do NOT:
+                - Invent a merchant, amount, date, subject, or fact that is not shown.
+                - Treat an email (or a number inside one) as spending.
+                - Say you couldn't find it while a relevant document is present; only refuse when
+                  NONE of the documents relate to the question.
+
+                Be concise and specific, and include the amount/date when asked.
 
                 Documents:
                 %s
                 Question: %s
-                Answer:""".formatted(ctx.toString().trim(), question.trim());
+                Answer:""".formatted(context.trim(), question.trim());
+    }
+
+    // ── small helpers ────────────────────────────────────────────────────────
+    private void field(StringBuilder b, String label, String value) {
+        if (value != null && !value.isBlank()) {
+            b.append(" | ").append(label).append(": ").append(value);
+        }
+    }
+
+    private String extraStr(Document doc, String key) {
+        var extra = doc.getExtra();
+        if (extra == null) {
+            return null;
+        }
+        Object v = extra.get(key);
+        return v == null || v.toString().isBlank() ? null : v.toString().trim();
+    }
+
+    private String str(Object o) {
+        return o == null ? null : o.toString();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return null;
     }
 
     private String callChat(String prompt, UUID userId) throws Exception {

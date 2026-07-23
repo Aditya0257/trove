@@ -148,7 +148,17 @@ public class EmbeddingService {
             if (doc.getCurrency() != null) sb.append(' ').append(doc.getCurrency());
             sb.append('\n');
         }
-        if (doc.getDueDate() != null) sb.append("Due: ").append(doc.getDueDate()).append('\n');
+        if (doc.getDueDate() != null) sb.append("Due/Expiry: ").append(doc.getDueDate()).append('\n');
+        // Emails (and any doc) keep their meaningful metadata in `extra` — surface it so
+        // an email is findable by its subject/sender/account, not just its screenshot text.
+        var extra = doc.getExtra();
+        if (extra != null) {
+            appendExtra(sb, extra, "mailSubject", "Subject");
+            appendExtra(sb, extra, "mailTopic", "Sender/Topic");
+            appendExtra(sb, extra, "mailAccount", "Account");
+            appendExtra(sb, extra, "mailAddress", "Address");
+            appendExtra(sb, extra, "notes", "Notes");
+        }
         if (doc.getOriginalFilename() != null) sb.append("File: ").append(doc.getOriginalFilename()).append('\n');
         if (doc.getRawText() != null && !doc.getRawText().isBlank()) {
             String raw = doc.getRawText().trim();
@@ -156,6 +166,14 @@ public class EmbeddingService {
         }
         String text = sb.toString().trim();
         return text.isEmpty() ? "(empty document)" : text;
+    }
+
+    /** Appends "Label: value" for a non-blank string value in the extra map. */
+    private void appendExtra(StringBuilder sb, java.util.Map<String, Object> extra, String key, String label) {
+        Object v = extra.get(key);
+        if (v != null && !v.toString().isBlank()) {
+            sb.append(label).append(": ").append(v.toString().trim()).append('\n');
+        }
     }
 
     /** pgvector text literal: [f1,f2,...]. */
