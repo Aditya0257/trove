@@ -33,10 +33,15 @@ public final class ExtractionPrompt {
     private ExtractionPrompt() {
     }
 
-    /** Known category codes (must match the seeded taxonomy). */
+    /** Category codes the EXTRACTOR may assign to an uploaded document. (Excludes "email",
+     *  which is only ever set by the Mail flow, not guessed from a document image.) */
     public static final String CATEGORY_CODES =
             "electricity, water, gas, internet, mobile, shopping, insurance, medical, "
             + "travel, food, rent, subscription, tax, bank, other";
+
+    /** Category codes SEARCH may filter by — the full taxonomy, including "email" so a
+     *  query like "all my emails" maps to the email category. */
+    public static final String SEARCH_CATEGORY_CODES = CATEGORY_CODES + ", email";
 
     public static final String INSTRUCTION = """
             You are a meticulous document-understanding assistant for a personal document vault.

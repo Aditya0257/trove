@@ -90,6 +90,11 @@ public class NaturalQueryParser {
         CATEGORY_SYNONYMS.put("purchase", "shopping");
         CATEGORY_SYNONYMS.put("purchases", "shopping");
         CATEGORY_SYNONYMS.put("order", "shopping");
+        CATEGORY_SYNONYMS.put("bank", "bank");
+        CATEGORY_SYNONYMS.put("statement", "bank");
+        CATEGORY_SYNONYMS.put("email", "email");
+        CATEGORY_SYNONYMS.put("emails", "email");
+        CATEGORY_SYNONYMS.put("mail", "email");
     }
 
     private static final Map<String, Integer> MONTHS = new LinkedHashMap<>();

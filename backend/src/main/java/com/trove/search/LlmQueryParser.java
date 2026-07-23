@@ -56,7 +56,7 @@ public class LlmQueryParser {
 
     /** Valid category codes; the LLM sometimes invents one (e.g. "bill"), which we drop. */
     private static final Set<String> VALID_CATEGORIES =
-            Arrays.stream(ExtractionPrompt.CATEGORY_CODES.split(",\\s*"))
+            Arrays.stream(ExtractionPrompt.SEARCH_CATEGORY_CODES.split(",\\s*"))
                     .map(String::trim).collect(Collectors.toUnmodifiableSet());
 
     private final SearchProperties props;
@@ -128,10 +128,11 @@ public class LlmQueryParser {
                   "top 10 expensive shopping bills" => {"categoryCode":"shopping","sortBy":"amount","sortDir":"desc","limit":10}
                   "electricity from july" => {"categoryCode":"electricity","dateFrom":"%d-07-01","dateTo":"%d-07-31"}
                   "all Nike purchases" => {"categoryCode":"shopping","text":"Nike"}
+                  "get all my emails" => {"categoryCode":"email"}
 
                 Respond with ONLY the JSON object, no prose.
                 Request: %s
-                """.formatted(today, ExtractionPrompt.CATEGORY_CODES, year, year, year, text);
+                """.formatted(today, ExtractionPrompt.SEARCH_CATEGORY_CODES, year, year, year, text);
     }
 
     private String callOllama(String prompt) throws Exception {
