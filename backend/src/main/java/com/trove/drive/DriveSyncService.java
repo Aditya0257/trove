@@ -97,7 +97,8 @@ public class DriveSyncService {
         this.backupRunService = backupRunService;
     }
 
-    /** Stores (or updates) the encrypted refresh token for a space. */
+    /** Stores (or updates) the encrypted refresh token for a space, and records which
+     *  Google account it points at (read from Drive under the existing drive.file scope). */
     @Transactional
     public void storeConnection(UUID spaceId, UUID userId, String refreshToken) {
         String enc = encryptionService.encrypt(refreshToken);
@@ -108,8 +109,13 @@ public class DriveSyncService {
             conn.setRefreshTokenEnc(enc);
             conn.setConnectedBy(userId);
         }
+        // Ask Drive which account this token belongs to so the UI can show "connected as
+        // <email>". Best-effort: a failure here must not block linking the Drive.
+        GoogleDriveOAuthService.AccountInfo account = oauthService.accountInfo(oauthService.driveFor(refreshToken));
+        conn.setGoogleEmail(account.email());
+        conn.setGoogleAccountName(account.name());
         connectionRepository.save(conn);
-        log.info("Google Drive connected for space {} by user {}", spaceId, userId);
+        log.info("Google Drive connected for space {} by user {} (account {})", spaceId, userId, account.email());
     }
 
     public boolean isConnected(UUID spaceId) {

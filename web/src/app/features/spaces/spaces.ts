@@ -155,6 +155,14 @@ import { TroveSelect, SelectOption } from '../../core/select';
       @if (drive(); as d) {
         @if (d.connected) {
           <p>✅ Connected. Last sync: {{ d.lastSyncAt ? (d.lastSyncAt | prettyDate) : 'never' }}.</p>
+          @if (d.googleEmail) {
+            <p class="drive-account">
+              <span class="drive-account-label">Account</span>
+              <span class="drive-account-email">{{ d.googleEmail }}</span>
+              @if (d.googleAccountName) { <span class="muted">({{ d.googleAccountName }})</span> }
+              @if (d.connectedByName) { <span class="muted"> · linked by {{ d.connectedByName }}</span> }
+            </p>
+          }
           <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
           @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
         } @else {
@@ -179,6 +187,16 @@ import { TroveSelect, SelectOption } from '../../core/select';
     `
       .member-name { font-weight: 600; }
       .member-sub { font-size: 12px; color: var(--muted); font-family: monospace; }
+      /* The connected Google account line under the Drive status. */
+      .drive-account {
+        display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+        margin: 2px 0 10px; font-size: 0.9rem;
+      }
+      .drive-account-label {
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+        color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 8px;
+      }
+      .drive-account-email { font-weight: 600; font-family: monospace; }
       /* Breathing room + a divider between the members table and the invite row. */
       .invite-form { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
       .invites { border-left: 3px solid var(--accent); }

@@ -82,6 +82,26 @@ public class GoogleDriveOAuthService {
         return flow().newTokenRequest(code).setRedirectUri(props.getRedirectUri()).execute();
     }
 
+    /**
+     * The Google account behind a Drive client — its email and display name. Read from
+     * Drive's about.get, which the drive.file scope already permits (no extra consent).
+     * Returns nulls if Drive doesn't hand back user info rather than failing the connect.
+     */
+    public AccountInfo accountInfo(Drive drive) {
+        try {
+            var user = drive.about().get().setFields("user(emailAddress,displayName)").execute().getUser();
+            return user == null ? AccountInfo.UNKNOWN
+                    : new AccountInfo(user.getEmailAddress(), user.getDisplayName());
+        } catch (Exception e) {
+            return AccountInfo.UNKNOWN;
+        }
+    }
+
+    /** Google account identity (email + display name), either possibly null. */
+    public record AccountInfo(String email, String name) {
+        static final AccountInfo UNKNOWN = new AccountInfo(null, null);
+    }
+
     /** Builds an authenticated Drive client from a stored refresh token. */
     public Drive driveFor(String refreshToken) {
         GoogleCredential credential = new GoogleCredential.Builder()

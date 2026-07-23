@@ -52,11 +52,13 @@ public class GoogleDriveController {
     private final SpaceAuthorization authorization;
     private final EncryptionService encryptionService;
     private final CurrentUser currentUser;
+    private final com.trove.auth.UserRepository userRepository;
     private final String webBaseUrl;
 
     public GoogleDriveController(GoogleDriveOAuthService oauthService, DriveSyncService driveSyncService,
                                 GoogleOAuthProperties props, SpaceAuthorization authorization,
                                 EncryptionService encryptionService, CurrentUser currentUser,
+                                com.trove.auth.UserRepository userRepository,
                                 @org.springframework.beans.factory.annotation.Value("${trove.web.base-url:http://localhost:4200}") String webBaseUrl) {
         this.oauthService = oauthService;
         this.driveSyncService = driveSyncService;
@@ -64,6 +66,7 @@ public class GoogleDriveController {
         this.authorization = authorization;
         this.encryptionService = encryptionService;
         this.currentUser = currentUser;
+        this.userRepository = userRepository;
         this.webBaseUrl = webBaseUrl;
     }
 
@@ -86,8 +89,11 @@ public class GoogleDriveController {
         if (!props.configured()) {
             throw new IllegalStateException("Google OAuth is not configured (set google.oauth.*)");
         }
-        authorization.requireOwner(spaceId, currentUser.requireUserId());
-        String state = encryptionService.encrypt(spaceId + "|" + UUID.randomUUID());
+        UUID userId = currentUser.requireUserId();
+        authorization.requireOwner(spaceId, userId);
+        // state carries who started the flow (so the public callback can record connected_by)
+        // plus a random nonce; the whole thing is AES-GCM encrypted, so it's tamper-evident.
+        String state = encryptionService.encrypt(spaceId + "|" + userId + "|" + UUID.randomUUID());
         return oauthService.authorizationUrl(state);
     }
 
@@ -101,8 +107,12 @@ public class GoogleDriveController {
             return backToApp("error");
         }
         UUID spaceId;
+        UUID connectedBy;
         try {
-            spaceId = UUID.fromString(encryptionService.decrypt(state).split("\\|")[0]);
+            String[] parts = encryptionService.decrypt(state).split("\\|");
+            spaceId = UUID.fromString(parts[0]);
+            // parts[1] is the initiating user (present since V15); older 2-part states have none.
+            connectedBy = parts.length >= 3 ? UUID.fromString(parts[1]) : null;
         } catch (Exception e) {
             return backToApp("error");
         }
@@ -111,7 +121,7 @@ public class GoogleDriveController {
             if (token.getRefreshToken() == null) {
                 return backToApp("noRefresh");
             }
-            driveSyncService.storeConnection(spaceId, null, token.getRefreshToken());
+            driveSyncService.storeConnection(spaceId, connectedBy, token.getRefreshToken());
             return backToApp("connected");
         } catch (Exception e) {
             return backToApp("error");
@@ -124,9 +134,16 @@ public class GoogleDriveController {
         authorization.requireCanRead(spaceId, currentUser.requireUserId());
         DriveConnection conn = driveSyncService.connection(spaceId);
         if (conn == null) {
-            return new StatusResponse(false, null, null);
+            return new StatusResponse(false, null, null, null, null, null);
         }
-        return new StatusResponse(true, conn.getConnectedAt(), conn.getLastSyncAt());
+        // Resolve who linked it to a friendly name for the UI (null-safe: the connector
+        // may be unknown on legacy connections made before we recorded connected_by).
+        String connectedByName = conn.getConnectedBy() == null ? null
+                : userRepository.findById(conn.getConnectedBy())
+                        .map(u -> u.getDisplayName() != null ? u.getDisplayName() : u.getEmail())
+                        .orElse(null);
+        return new StatusResponse(true, conn.getConnectedAt(), conn.getLastSyncAt(),
+                conn.getGoogleEmail(), conn.getGoogleAccountName(), connectedByName);
     }
 
     /** Trigger a sync now (owner only). */
@@ -143,6 +160,7 @@ public class GoogleDriveController {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(target)).build();
     }
 
-    public record StatusResponse(boolean connected, Instant connectedAt, Instant lastSyncAt) {
+    public record StatusResponse(boolean connected, Instant connectedAt, Instant lastSyncAt,
+                                 String googleEmail, String googleAccountName, String connectedByName) {
     }
 }

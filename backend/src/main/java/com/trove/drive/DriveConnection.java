@@ -37,6 +37,15 @@ public class DriveConnection extends BaseEntity {
     @Column(name = "connected_by")
     private UUID connectedBy;
 
+    // Which Google account this space's Drive is connected to — read from Drive's
+    // about.get at connect/sync time (drive.file scope covers it). Shown in the UI so
+    // an owner knows whose 15 GB backs the space; groundwork for Drive pooling (Phase 3).
+    @Column(name = "google_email")
+    private String googleEmail;
+
+    @Column(name = "google_account_name")
+    private String googleAccountName;
+
     @CreationTimestamp
     @Column(name = "connected_at", nullable = false, updatable = false)
     private Instant connectedAt;
@@ -61,6 +70,10 @@ public class DriveConnection extends BaseEntity {
     public void setRootFolderId(String rootFolderId) { this.rootFolderId = rootFolderId; }
     public UUID getConnectedBy() { return connectedBy; }
     public void setConnectedBy(UUID connectedBy) { this.connectedBy = connectedBy; }
+    public String getGoogleEmail() { return googleEmail; }
+    public void setGoogleEmail(String googleEmail) { this.googleEmail = googleEmail; }
+    public String getGoogleAccountName() { return googleAccountName; }
+    public void setGoogleAccountName(String googleAccountName) { this.googleAccountName = googleAccountName; }
     public Instant getConnectedAt() { return connectedAt; }
     public Instant getLastSyncAt() { return lastSyncAt; }
     public void setLastSyncAt(Instant lastSyncAt) { this.lastSyncAt = lastSyncAt; }

@@ -132,6 +132,9 @@ export interface DriveStatus {
   connected: boolean;
   connectedAt: string | null;
   lastSyncAt: string | null;
+  googleEmail: string | null;        // which Google account backs this space
+  googleAccountName: string | null;  // its display name, when Drive returns one
+  connectedByName: string | null;    // the Trove member who linked it
 }
 
 export interface SearchResult {
