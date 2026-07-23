@@ -120,13 +120,17 @@ import { TroveSelect, SelectOption } from '../../core/select';
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: var(--danger-soft); }
+      /* Trash + Upload are a matched pair on one line — neutralise the global button's
+         top margin and give the ghost the same box so they align and read as siblings. */
       .head-actions { display: flex; align-items: center; gap: 10px; }
+      .head-actions > * { margin: 0; }
       .btn-ghost {
         margin: 0; border: 1px solid var(--line); background: transparent; color: var(--muted);
-        border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+        border-radius: 8px; padding: 0.6rem 1.1rem; font-size: 0.95rem; font-weight: 600;
+        cursor: pointer; line-height: 1.2;
       }
       .btn-ghost:hover { background: var(--hover); color: var(--accent); }
-      .btn-ghost.sm { padding: 4px 12px; font-size: 12px; }
+      .btn-ghost.sm { padding: 4px 12px; font-size: 12px; line-height: 1.4; }
       .row-actions { display: flex; gap: 8px; white-space: nowrap; }
       .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
       .page-size { display: inline-block; width: 200px; }

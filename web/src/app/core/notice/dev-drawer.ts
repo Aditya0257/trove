@@ -210,8 +210,12 @@ import { SettingsService } from '../settings.service';
         margin-left: 4px; border-radius: 50%; background: #dfe6e5; color: #2c5aa0; font-size: 10px;
         font-weight: 700; cursor: help; position: relative; outline: none;
       }
+      /* Drop the bubble BELOW the icon (not above) — these tips sit on the top rows of the
+         drawer, so an upward bubble ran off the top of the screen. Anchored to the icon's
+         right edge and growing leftward so it never spills past the drawer's right edge. */
       .tip .bubble {
-        visibility: hidden; opacity: 0; position: absolute; bottom: 155%; left: 0; width: 220px;
+        visibility: hidden; opacity: 0; position: absolute; top: calc(100% + 8px); right: 0;
+        width: min(220px, 78vw);
         background: #222; color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 11px;
         font-weight: 400; line-height: 1.4; z-index: 30; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         pointer-events: none;
