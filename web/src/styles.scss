@@ -17,6 +17,9 @@
   --accent: #2f6f6a;                       /* teal used for links, chips, tips */
   --accent-soft: rgba(47, 111, 106, 0.10); /* translucent accent fill */
   --accent-line: rgba(47, 111, 106, 0.35); /* accent-tinted border */
+  --accent-2: #5658c9;                     /* indigo — a secondary toggle hue (e.g. granularity) */
+  --accent-2-soft: rgba(86, 88, 201, 0.10);
+  --accent-2-line: rgba(86, 88, 201, 0.35);
   --input-bg: #ffffff;
   --code-bg: #f1f3f5;
   --hover: rgba(0, 0, 0, 0.04);
@@ -46,6 +49,9 @@
   --accent: #5fb0a6;
   --accent-soft: rgba(95, 176, 166, 0.14);
   --accent-line: rgba(95, 176, 166, 0.38);
+  --accent-2: #8b8df0;                     /* indigo — brighter for dark surfaces */
+  --accent-2-soft: rgba(139, 141, 240, 0.16);
+  --accent-2-line: rgba(139, 141, 240, 0.42);
   --input-bg: #222735;
   --code-bg: #222735;
   --hover: rgba(255, 255, 255, 0.06);

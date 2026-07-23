@@ -87,16 +87,21 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
 
       <div class="row-between section-head">
         <h3>Over time</h3>
-        <div class="chart-ctrls">
-          <div class="ccy">
-            <button type="button" class="chip sm" [class.on]="trendType() === 'bar'" (click)="trendType.set('bar')">Bars</button>
-            <button type="button" class="chip sm" [class.on]="trendType() === 'wave'" (click)="trendType.set('wave')">Wave</button>
-          </div>
-          <div class="ccy">
-            <button type="button" class="chip sm" [class.on]="trendGran() === 'day'" (click)="trendGran.set('day')">Day</button>
-            <button type="button" class="chip sm" [class.on]="trendGran() === 'week'" (click)="trendGran.set('week')">Week</button>
-            <button type="button" class="chip sm" [class.on]="trendGran() === 'month'" (click)="trendGran.set('month')">Month</button>
-          </div>
+        <!-- Chart-type toggle: same teal chips as the category Bars/Donut, so "how to draw it"
+             looks identical in both sections. -->
+        <div class="ccy">
+          <button type="button" class="chip sm" [class.on]="trendType() === 'bar'" (click)="trendType.set('bar')">Bars</button>
+          <button type="button" class="chip sm" [class.on]="trendType() === 'wave'" (click)="trendType.set('wave')">Wave</button>
+        </div>
+      </div>
+      <!-- Granularity is a different kind of choice (timeframe, not chart style), so it sits on
+           its own row with a label and a distinct indigo accent. -->
+      <div class="gran-row">
+        <span class="gran-label">View by</span>
+        <div class="ccy">
+          <button type="button" class="chip sm gran" [class.on]="trendGran() === 'day'" (click)="trendGran.set('day')">Day</button>
+          <button type="button" class="chip sm gran" [class.on]="trendGran() === 'week'" (click)="trendGran.set('week')">Week</button>
+          <button type="button" class="chip sm gran" [class.on]="trendGran() === 'month'" (click)="trendGran.set('month')">Month</button>
         </div>
       </div>
       @if (byMonth().length) {
@@ -180,7 +185,13 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
       .trend-bar { width: 100%; background: linear-gradient(180deg, var(--accent), var(--brand)); border-radius: 7px 7px 0 0; min-height: 3px; transition: height 320ms; }
       .trend-val { font-size: 11px; font-weight: 600; }
       .trend-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
-      .chart-ctrls { display: flex; gap: 12px; flex-wrap: wrap; }
+
+      /* Granularity row — its own line, labelled, with a distinct indigo accent so it
+         reads as "timeframe" rather than "chart style" (which stays teal, up by the title). */
+      .gran-row { display: flex; align-items: center; gap: 10px; margin: 2px 0 4px; flex-wrap: wrap; }
+      .gran-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+      .chip.gran { border-color: var(--accent-2-line); color: var(--accent-2); }
+      .chip.gran.on { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
 
       /* Wave (smooth area) chart. */
       .wave-scroll { overflow-x: auto; margin: 10px 0; }
