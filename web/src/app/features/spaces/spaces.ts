@@ -5,6 +5,7 @@ import { SpaceContext } from '../../core/space.context';
 import { DriveStatus, IngestAddress, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
 import { DateTimePipe } from '../../core/datetime.pipe';
+import { TERMS } from '../../core/terms';
 
 @Component({
   selector: 'app-spaces',
@@ -64,8 +65,8 @@ import { DateTimePipe } from '../../core/datetime.pipe';
       <trove-help-card
         title="What is this address?"
         [open]="false"
-        user="This space has its own private email address (shown below). Email a document to it, or forward one that landed in your inbox (say a bill), and Trove saves the attachment straight into this space and reads it like a normal upload. It is for filing without opening the app: forward and forget. Treat the address like a password; if it leaks, press Rotate to swap it for a fresh one."
-        dev="The address carries a per-space secret token. Your mail provider delivers forwarded messages to the /api/ingest/email webhook, which matches the token to this space and runs each attachment through the same extraction pipeline as an upload. Real delivery needs the ingest domain's inbound mail routed to that endpoint (a deployment step); until that is set up the address is reserved but will not receive mail.">
+        user="This space has its own private email address (shown below). Put it in the To, CC or BCC line when you send or forward any document to it (say a bill sitting in your inbox), and Trove saves the attachment straight into this space and reads it just like a normal upload: it pulls out the merchant, amount, date and category, then leaves it in needs-review for you to confirm. It is for filing without opening the app: forward and forget. Treat the address like a password; if it ever leaks, press Rotate to swap it for a fresh one."
+        dev="The address carries a per-space secret token. Your mail provider delivers the message to the ingest webhook, which matches the token to this space and runs each attachment through the same pipeline as an upload (stored, read by the AI, left in needs-review). It reads the attachment, not the email body; the sender is kept only for provenance. Real delivery needs the ingest domain's inbound mail routed to the app (a deployment step); until then the address is reserved but will not receive mail.">
       </trove-help-card>
       @if (ingest(); as a) {
         <p>Forward documents to: <code>{{ a.address }}</code></p>
@@ -74,12 +75,12 @@ import { DateTimePipe } from '../../core/datetime.pipe';
     </div>
 
     <div class="card">
-      <h3>Google Drive backup</h3>
+      <h3>{{ terms.driveBackup }} backup</h3>
       <trove-help-card
-        title="About Google Drive backup"
+        [title]="'About ' + terms.driveBackup + ' backup'"
         [open]="false"
-        user="Keeps a human-browsable copy of this space's files in Google Drive, organised as Trove / space / category / month. If the app and database are ever gone, you can still open Drive and find every document."
-        dev="Tier-3 of the backup design (Cloudflare R2, then Backblaze B2, then Google Drive). A per-owner OAuth token lets a scheduled job mirror new files into the folder tree. The database is a rebuildable index; these files are a source of truth, so nothing is lost if it's wiped.">
+        [user]="driveHelpUser"
+        [dev]="driveHelpDev">
       </trove-help-card>
       @if (drive(); as d) {
         @if (d.connected) {
@@ -87,8 +88,8 @@ import { DateTimePipe } from '../../core/datetime.pipe';
           <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
           @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
         } @else {
-          <p class="muted">Not connected. Back this space up to the owner's Google Drive.</p>
-          <button (click)="connect()">Connect Google Drive</button>
+          <p class="muted">Not connected. Back this space up to the owner's {{ terms.driveBackup }}.</p>
+          <button (click)="connect()">Connect {{ terms.driveBackup }}</button>
         }
       } @else { <p class="muted">{{ driveError() || 'Loading…' }}</p> }
     </div>
@@ -114,6 +115,18 @@ import { DateTimePipe } from '../../core/datetime.pipe';
 export class Spaces {
   protected spaceCtx = inject(SpaceContext);
   private api = inject(ApiService);
+
+  /** Vendor-neutral labels (see core/terms.ts) so provider swaps are one-file changes. */
+  protected terms = TERMS;
+  protected driveHelpUser =
+    `Keeps a human-browsable copy of this space's files in ${TERMS.driveBackup}, organised as ` +
+    `Trove / space / category / month. If the app and ${TERMS.database} are ever gone, you can still ` +
+    `open ${TERMS.driveBackup} and find every document.`;
+  protected driveHelpDev =
+    `Tier-3 of the backup design: ${TERMS.objectStorage} first, then ${TERMS.mirrorStorage}, then ` +
+    `${TERMS.driveBackup}. A per-owner OAuth token lets a scheduled job mirror new files into the folder ` +
+    `tree. ${TERMS.database} is a rebuildable index; these files are a source of truth, so nothing is lost ` +
+    `if it is wiped.`;
 
   newName = '';
   members = signal<Member[]>([]);

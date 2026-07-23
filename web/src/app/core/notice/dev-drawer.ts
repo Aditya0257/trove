@@ -2,6 +2,7 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { DevLogService, DevLogEntry } from './dev-log.service';
 import { ApiService } from '../api.service';
 import { AiUsage } from '../models';
+import { TERMS } from '../terms';
 
 /**
  * The in-app "inspect" surface: a slide-over listing recent API calls with method,
@@ -36,21 +37,21 @@ import { AiUsage } from '../models';
           <div class="gauge">
             <div class="gauge-row">
               <span>All users today
-                <span class="tip" tabindex="0">i<span class="bubble">Total across everyone on the one shared Workers AI account today. Neurons are Cloudflare's billed unit; this is what counts toward the free {{ fmt(u.limitNeurons) }}/day limit.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">Total across everyone using {{ terms.aiService }} today. Measured in {{ terms.aiCredits }}, the unit it bills; this is what counts toward the free {{ fmt(u.limitNeurons) }}/day limit.</span></span>
               </span>
-              <span class="gauge-nums">{{ fmt(u.global.neurons) }} / {{ fmt(u.limitNeurons) }} neurons</span>
+              <span class="gauge-nums">{{ fmt(u.global.neurons) }} / {{ fmt(u.limitNeurons) }} {{ terms.aiCredits }}</span>
             </div>
             <div class="bar"><div class="fill" [style.width.%]="pct(u.global.neurons, u.limitNeurons)"></div></div>
-            <div class="gauge-sub">{{ fmt(u.global.tokens) }} tokens · {{ fmt(left(u.global.neurons, u.limitNeurons)) }} neurons left today</div>
+            <div class="gauge-sub">{{ fmt(u.global.tokens) }} tokens · {{ fmt(left(u.global.neurons, u.limitNeurons)) }} {{ terms.aiCredits }} left today</div>
 
             <div class="gauge-row two">
               <span>Your usage today
-                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today, a subset of the global total above. Each user is capped at {{ fmt(u.perUserLimitNeurons) }} neurons/day so one person can't drain the shared budget; over it, uploads still file via the free reader.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today, a subset of the global total above. Each user is capped at {{ fmt(u.perUserLimitNeurons) }} {{ terms.aiCredits }}/day so one person can't drain the shared budget; over it, uploads still file via {{ terms.aiReader }}'s free fallback.</span></span>
               </span>
-              <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.perUserLimitNeurons) }} neurons</span>
+              <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.perUserLimitNeurons) }} {{ terms.aiCredits }}</span>
             </div>
             <div class="bar"><div class="fill you" [style.width.%]="pct(u.user.neurons, u.perUserLimitNeurons)"></div></div>
-            <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens · {{ fmt(left(u.user.neurons, u.perUserLimitNeurons)) }} neurons left today</div>
+            <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens · {{ fmt(left(u.user.neurons, u.perUserLimitNeurons)) }} {{ terms.aiCredits }} left today</div>
 
             <div class="gauge-foot">
               <span class="dot"></span>Your usage updates instantly · the shared total refreshes every minute while this panel is open
@@ -94,7 +95,7 @@ import { AiUsage } from '../models';
                   <div class="trail" [attr.data-status]="a['status']">{{ a['provider'] }} · {{ a['status'] }}<!--
                     -->{{ a['confidencePct'] != null ? ' · ' + a['confidencePct'] + '%' : '' }} · {{ a['latencyMs'] }}ms<!--
                     -->{{ a['tokens'] != null ? ' · ' + a['tokens'] + ' tok' : '' }}<!--
-                    -->{{ a['neurons'] != null ? ' · ' + a['neurons'] + ' neurons' : '' }}<!--
+                    -->{{ a['neurons'] != null ? ' · ' + a['neurons'] + ' ' + terms.aiCredits : '' }}<!--
                     -->{{ a['reason'] ? ' · ' + a['reason'] : '' }}</div>
                 }
               }
@@ -102,7 +103,7 @@ import { AiUsage } from '../models';
                 <div class="db-panel">
                   <div class="db-head">
                     <span class="db-badge">DB</span>
-                    <span>Saved to Postgres (Neon): the extracted record</span>
+                    <span>Saved to {{ terms.database }}: the extracted record</span>
                   </div>
                   <pre class="json">{{ pretty(e.extracted) }}</pre>
                 </div>
@@ -241,6 +242,8 @@ export class DevDrawer {
   protected entries = this.log.entries;
   protected open = signal(false);
   protected usage = signal<AiUsage | null>(null);
+  /** Vendor-neutral labels (see core/terms.ts). */
+  protected terms = TERMS;
 
   /** How often the open drawer re-polls for the app-wide (global) figure. */
   private static readonly POLL_MS = 60_000;
@@ -293,7 +296,7 @@ export class DevDrawer {
     if (p === '/api/spaces') return M('Your spaces', 'Loading your spaces', 'personal + shared spaces you belong to', 'who can see which documents');
     if (p === '/api/categories') return M('Categories', 'Loading categories', 'global + space category taxonomy', 'how the vault is organised');
     if (p === '/api/search') return M('Search', 'Finding your documents', 'NL query → LLM/rule parse → filtered query', 'plain-English retrieval');
-    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', 'multipart → Cloudflare R2 object + sidecar JSON; async extraction queued (B2 mirror is a separate scheduled job)', 'an item enters the source-of-truth vault');
+    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', `multipart → ${TERMS.objectStorage} object + sidecar JSON; async extraction queued (${TERMS.mirrorStorage} is a separate scheduled job)`, 'an item enters the source-of-truth vault');
     if (p === '/api/documents' && m === 'GET') return M('List documents', 'Loading your documents', 'reads the rebuildable DB index', 'browse the vault');
     if (/^\/api\/documents\/[^/]+\/confirm$/.test(p)) return M('Confirm a document', 'Saving your reviewed details', 'human-review → status=confirmed; fires reminders + anomaly check', 'nothing is trusted until a human confirms');
     if (/^\/api\/documents\/[^/]+\/content$/.test(p)) return M('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes (no presigned URL)', 'sensitive PII stays encrypted at rest');
@@ -301,7 +304,7 @@ export class DevDrawer {
     if (p === '/api/reminders' && m === 'GET') return M('Reminders', 'Loading reminders', 'pending reminders for the space, soonest first', 'never miss a due date / warranty');
     if (/^\/api\/reminders\/[^/]+\/dismiss$/.test(p)) return M('Dismiss reminder', 'Dismissing a reminder', 'mark reminder dismissed', 'user acknowledged it');
     if (p.startsWith('/api/spend')) return M('Spend analytics', 'Loading your spend', 'aggregate confirmed documents by category/month', 'understand where money goes');
-    if (p.startsWith('/api/integrations/google-drive')) return M('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-navigable third copy of the data');
+    if (p.startsWith('/api/integrations/google-drive')) return M(TERMS.driveBackup, `Talking to ${TERMS.driveBackup}`, 'per-owner OAuth backup / sync', 'human-navigable third copy of the data');
     return M('API request', 'Working…', `${m} ${p}`, '-');
   }
 
