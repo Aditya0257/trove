@@ -50,6 +50,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -162,6 +163,17 @@ public class ExtractionWorker {
         doc.setExtra(extra);
         doc.setExtractionConfidence(result.confidence());
 
+        // Clipboard pastes land as "image.png" and screenshots as "Screenshot ….png". When
+        // we actually read something useful, give the file a meaningful name derived from the
+        // merchant (or category) + date — shown in the list AND used as the Drive filename.
+        // Cosmetic only: storage_key is unchanged, and the human can still rename on review.
+        String derived = deriveFilename(doc.getOriginalFilename(), doc.getMimeType(),
+                merchant != null ? merchant.getCanonicalName() : result.merchantName(),
+                category, doc.getDocDate());
+        if (derived != null) {
+            doc.setOriginalFilename(derived);
+        }
+
         documentRepository.save(doc);
 
         // Rewrite line items idempotently.
@@ -179,5 +191,71 @@ public class ExtractionWorker {
         log.info("Extracted document {} → category={} merchant={} confidence={}",
                 documentId, category.getCode(),
                 merchant != null ? merchant.getCanonicalName() : "(none)", result.confidence());
+    }
+
+    // Filename prefixes that mean "no real name" — clipboard pastes, screenshots, camera rolls.
+    private static final List<String> GENERIC_NAME_PREFIXES = List.of(
+            "image", "img", "unnamed", "clipboard", "pasted", "paste", "screenshot", "screen shot");
+
+    /**
+     * A meaningful filename derived from what we read, or null to keep the original.
+     * Only kicks in when the uploaded name is generic AND we have a merchant or a real
+     * (non-uncategorized) category, so a stub/empty read never renames anything.
+     */
+    private String deriveFilename(String current, String mimeType, String merchantName,
+                                  Category category, java.time.LocalDate docDate) {
+        if (!isGenericName(current)) {
+            return null;
+        }
+        String label = merchantName != null && !merchantName.isBlank() ? merchantName
+                : (category != null && !"uncategorized".equals(category.getCode()) ? category.getLabel() : null);
+        if (label == null || label.isBlank()) {
+            return null;
+        }
+        String base = slug(label);
+        if (base.isEmpty()) {
+            return null;
+        }
+        if (base.length() > 48) {
+            base = base.substring(0, 48).replaceAll("-+$", "");
+        }
+        if (docDate != null) {
+            base = base + "-" + docDate;   // ISO yyyy-MM-dd
+        }
+        return base + extensionOf(current, mimeType);
+    }
+
+    private boolean isGenericName(String name) {
+        if (name == null || name.isBlank()) {
+            return true;
+        }
+        String lower = name.trim().toLowerCase();
+        return GENERIC_NAME_PREFIXES.stream().anyMatch(lower::startsWith);
+    }
+
+    /** Lowercase, non-alphanumeric runs to single hyphens, trimmed of edge hyphens. */
+    private String slug(String s) {
+        return s.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-+|-+$)", "");
+    }
+
+    /** Extension from the original name, else inferred from the MIME type, else empty. */
+    private String extensionOf(String filename, String mimeType) {
+        if (filename != null) {
+            int dot = filename.lastIndexOf('.');
+            if (dot > 0 && dot < filename.length() - 1) {
+                return "." + filename.substring(dot + 1).toLowerCase();
+            }
+        }
+        if (mimeType == null) {
+            return "";
+        }
+        return switch (mimeType) {
+            case "image/png" -> ".png";
+            case "image/jpeg", "image/jpg" -> ".jpg";
+            case "image/webp" -> ".webp";
+            case "image/heic" -> ".heic";
+            case "application/pdf" -> ".pdf";
+            default -> "";
+        };
     }
 }

@@ -244,4 +244,5 @@ public class Document extends BaseEntity {
     public void setStatus(String status) { this.status = status; }
     public void setReviewedBy(UUID reviewedBy) { this.reviewedBy = reviewedBy; }
     public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+    public void setOriginalFilename(String originalFilename) { this.originalFilename = originalFilename; }
 }
