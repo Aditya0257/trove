@@ -24,7 +24,9 @@
  *  -----------------
  *  from/to are always supplied (the service substitutes wide defaults for nulls) to
  *  avoid null-typed bind parameters in native SQL. Rows with null amount/date are
- *  excluded so they don't skew totals.
+ *  excluded so they don't skew totals. The `email` category is excluded outright:
+ *  emails are notes (subject/topic), not spend — any number the extractor happened to
+ *  pull from an email screenshot (a sale price, a total) must never count as money out.
  * ============================================================================
  */
 package com.trove.analytics;
@@ -54,6 +56,7 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
             where d.space_id = :spaceId
               and d.status = 'confirmed'
               and d.amount is not null
+              and c.code <> 'email'
               and d.doc_date >= :from
               and d.doc_date <= :to
             group by c.code, c.label, coalesce(d.currency, 'INR')
@@ -75,6 +78,8 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
               and d.status = 'confirmed'
               and d.amount is not null
               and d.doc_date is not null
+              and (d.category_id is null
+                   or d.category_id not in (select c.id from category c where c.code = 'email'))
               and d.doc_date >= :from
               and d.doc_date <= :to
             group by 1, 2
