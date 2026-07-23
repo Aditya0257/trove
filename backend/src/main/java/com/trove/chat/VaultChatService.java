@@ -137,8 +137,12 @@ public class VaultChatService {
         }
         try {
             String answer = callChat(buildPrompt(question, context.toString()), userId);
-            return new ChatAnswer(answer.isBlank() ? "I couldn't compose an answer, but see the sources below."
-                    : answer, true, sources);
+            // The small model occasionally degenerates to just a citation marker ("[1]") or
+            // whitespace. Never surface that — fall back to a plain summary of the top match.
+            if (isEmptyAnswer(answer)) {
+                answer = fallbackAnswer(sources);
+            }
+            return new ChatAnswer(answer, true, sources);
         } catch (Exception e) {
             log.warn("Vault chat answer failed ('{}') — returning sources only: {}", question, e.getMessage());
             return new ChatAnswer("I hit a problem writing the answer, but here are the most relevant documents.",
@@ -218,8 +222,12 @@ public class VaultChatService {
                 - Treat an email (or a number inside one) as spending.
                 - Say you couldn't find it while a relevant document is present; only refuse when
                   NONE of the documents relate to the question.
+                - Answer with only a citation like "[1]". A citation SUPPORTS your sentence; it is
+                  never the whole answer.
 
-                Be concise and specific, and include the amount/date when asked.
+                Always write a full sentence that states the actual value in words, then cite it.
+                Example — if [1] is an electricity bill for 27.50 USD dated 2026-07-16, answer:
+                "Your last electricity bill was 27.50 USD on 2026-07-16 [1]."
 
                 Documents:
                 %s
@@ -254,6 +262,31 @@ public class VaultChatService {
             }
         }
         return null;
+    }
+
+    /** True when the model gave nothing usable — blank, or only citation markers/punctuation. */
+    private boolean isEmptyAnswer(String answer) {
+        if (answer == null) {
+            return true;
+        }
+        String stripped = answer.replaceAll("\\[\\d+\\]", "").replaceAll("[\\s\\p{Punct}]", "");
+        return stripped.isBlank();
+    }
+
+    /** Plain summary of the top match, used when the model fails to write a sentence. */
+    private String fallbackAnswer(List<Citation> sources) {
+        Citation top = sources.get(0);
+        StringBuilder b = new StringBuilder("The most relevant document is ").append(top.title());
+        if (top.docDate() != null) {
+            b.append(" from ").append(top.docDate());
+        }
+        if (top.amount() != null) {
+            b.append(", ").append(top.amount());
+            if (top.currency() != null) {
+                b.append(' ').append(top.currency());
+            }
+        }
+        return b.append(" [1]. Ask more specifically if that's not the one.").toString();
     }
 
     private String callChat(String prompt, UUID userId) throws Exception {
