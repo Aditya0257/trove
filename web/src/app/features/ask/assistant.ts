@@ -27,11 +27,21 @@ interface Turn {
         <div class="panel">
           <header>
             <span class="title">✦ Ask your vault</span>
+            <button type="button" class="icon" title="How this works" [class.on]="helpOpen()" (click)="helpOpen.set(!helpOpen())">ⓘ</button>
             <button type="button" class="icon" title="Re-index documents" (click)="reindex()" [disabled]="indexing()">⟳</button>
             <button type="button" class="icon" title="Close" (click)="open.set(false)">✕</button>
           </header>
 
           <div class="body" #body>
+            @if (helpOpen()) {
+              <div class="help">
+                <p class="help-user">{{ helpUser }}</p>
+                <div class="help-dev">
+                  <span class="help-dev-label">How it works</span>
+                  <p>{{ helpDev }}</p>
+                </div>
+              </div>
+            }
             @if (turns().length === 0) {
               <p class="hint">Ask about your documents — answers are built from your files and cite them.</p>
               <div class="examples">
@@ -107,8 +117,20 @@ interface Turn {
         border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
       }
       header .icon:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+      header .icon.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
 
       .body { flex: 1; overflow-y: auto; padding: 12px; }
+      /* Compact in-panel help — the floating widget's own take, lighter than the page help card. */
+      .help {
+        border: 1px solid var(--accent-line); background: var(--accent-soft);
+        border-radius: 10px; padding: 10px 11px; margin-bottom: 10px;
+      }
+      .help-user { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--ink); }
+      .help-dev { margin-top: 7px; border-top: 1px dashed var(--accent-line); padding-top: 7px; }
+      .help-dev-label {
+        font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+      }
+      .help-dev p { margin: 2px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
       .hint { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
       .examples { display: flex; flex-wrap: wrap; gap: 6px; }
       .chip {
@@ -148,7 +170,22 @@ export class AssistantWidget {
   private bodyRef = viewChild<ElementRef<HTMLElement>>('body');
 
   protected open = signal(false);
+  protected helpOpen = signal(false);
   protected q = '';
+
+  protected helpUser =
+    "Ask about your documents in plain English — \"when does my insurance renew?\", \"my last water bill\", " +
+    '"the fridge warranty". Answers are built only from your own files and cite the exact documents used, so ' +
+    "you can check them. If something isn't in your vault, it says so instead of guessing. It searches the " +
+    'space you\'re currently in.';
+  protected helpDev =
+    'Retrieval-augmented generation. Each document is embedded (Cloudflare bge-base, 768-dim) into pgvector on ' +
+    'Postgres; your question is embedded and matched by cosine similarity within the current space, then an LLM ' +
+    'writes a grounded, cited answer from only those documents. A tiny 1b classifier routes each question: simple ' +
+    'lookups go to a cheap model (llama-3.2-3b, ~3.6x cheaper), reasoning/comparison questions to a stronger one ' +
+    '(llama-3.1-8b). When the SHARED daily budget crosses 75% it drops everything to the light model so the free ' +
+    'tier stretches across more users, and it degrades to retrieval-only (sources, no written answer) once the ' +
+    'budget is fully spent.';
   protected loading = signal(false);
   protected indexing = signal(false);
   protected error = signal<string | null>(null);

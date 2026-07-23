@@ -59,10 +59,13 @@ public class ModelRouter {
         if (!props.isRoutingEnabled()) {
             return new Decision(props.getStandardModel(), "standard", "routing off");
         }
-        // Budget-aware: once the shared pool is mostly spent, conserve with the light model.
+        // Budget-aware: once the SHARED daily pool is mostly spent, conserve with the light
+        // model so the free tier stretches across more users. This looks ONLY at the global
+        // total + the global 10k/day limit — never an individual user's usage, so one heavy
+        // user is never singled out for a downgrade.
         double limit = props.getBudgetDowngradeFraction() * usage.dailyNeuronLimit();
         if (limit > 0 && usage.globalToday().neurons() >= limit) {
-            return new Decision(props.getLightModel(), "light", "budget conservation");
+            return new Decision(props.getLightModel(), "light", "budget conservation (shared pool)");
         }
         try {
             String verdict = chat.chat(props.getRouterModel(), classifyPrompt(question), 5, 0,
