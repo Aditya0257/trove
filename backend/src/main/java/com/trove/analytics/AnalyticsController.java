@@ -65,8 +65,9 @@ public class AnalyticsController {
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(value = "currency", required = false, defaultValue = "INR") String currency) {
-        return analyticsService.byMonth(resolveSpace(spaceId), currentUser.requireUserId(), from, to, currency);
+            @RequestParam(value = "currency", required = false, defaultValue = "INR") String currency,
+            @RequestParam(value = "granularity", required = false, defaultValue = "month") String granularity) {
+        return analyticsService.byMonth(resolveSpace(spaceId), currentUser.requireUserId(), from, to, currency, granularity);
     }
 
     /** Overall total + per-category breakdown. */

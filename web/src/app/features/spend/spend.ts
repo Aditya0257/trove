@@ -85,7 +85,14 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
         } @else { <p class="muted">No confirmed spend yet.</p> }
       }
 
-      <h3>By month</h3>
+      <div class="row-between section-head">
+        <h3>Over time</h3>
+        <div class="ccy">
+          <button type="button" class="chip sm" [class.on]="trendGran() === 'day'" (click)="trendGran.set('day')">Day</button>
+          <button type="button" class="chip sm" [class.on]="trendGran() === 'week'" (click)="trendGran.set('week')">Week</button>
+          <button type="button" class="chip sm" [class.on]="trendGran() === 'month'" (click)="trendGran.set('month')">Month</button>
+        </div>
+      </div>
       @if (byMonth().length) {
         <div class="trend">
           @for (m of byMonth(); track m.period) {
@@ -94,7 +101,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
                 <div class="trend-bar" [style.height.%]="pctOfMax(m.total, maxMonth())"></div>
               </div>
               <span class="trend-val">{{ compact(m.total) }}</span>
-              <span class="trend-label">{{ shortMonth(m.period) }}</span>
+              <span class="trend-label">{{ periodLabel(m.period) }}</span>
             </div>
           }
         </div>
@@ -168,6 +175,8 @@ export class Spend {
   protected readonly currencies = CURRENCIES;
   protected currency = signal<string>('INR');
   protected chartType = signal<'bar' | 'donut'>('bar');
+  protected trendGran = signal<'day' | 'week' | 'month'>('month');
+  private static readonly ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   /** Distinct, theme-neutral segment colours for the donut/legend. */
   private static readonly PALETTE = [
@@ -206,8 +215,9 @@ export class Spend {
     effect(() => {
       const sid = this.spaceCtx.currentSpaceId();
       const ccy = this.currency();
+      const gran = this.trendGran();
       this.api.spendSummary(sid, ccy).subscribe((s) => this.summary.set(s));
-      this.api.spendByMonth(sid, ccy).subscribe((m) => this.byMonth.set(m));
+      this.api.spendByMonth(sid, ccy, gran).subscribe((m) => this.byMonth.set(m));
       this.api.listAnomalies(sid).subscribe((a) => this.anomalies.set(a));
     });
   }
@@ -237,9 +247,23 @@ export class Spend {
   /** "2026-07" → "Jul 26". */
   protected shortMonth(period: string): string {
     const [y, m] = period.split('-');
-    const abbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const i = Number(m) - 1;
-    return i >= 0 && i < 12 ? `${abbr[i]} ${y.slice(2)}` : period;
+    return i >= 0 && i < 12 ? `${Spend.ABBR[i]} ${y.slice(2)}` : period;
+  }
+
+  /** Labels a period string according to the current granularity. */
+  protected periodLabel(period: string): string {
+    const g = this.trendGran();
+    if (g === 'day') {
+      const [, m, d] = period.split('-');
+      const i = Number(m) - 1;
+      return i >= 0 && i < 12 ? `${Number(d)} ${Spend.ABBR[i]}` : period;
+    }
+    if (g === 'week') {
+      const [y, w] = period.split('-W');
+      return w ? `W${w} ${y.slice(2)}` : period;
+    }
+    return this.shortMonth(period);
   }
 
   deltaPct(d: DocumentResponse): string {

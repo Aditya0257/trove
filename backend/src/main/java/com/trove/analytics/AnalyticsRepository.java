@@ -62,8 +62,11 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
                                         @Param("from") LocalDate from,
                                         @Param("to") LocalDate to);
 
+    // `fmt` is a Postgres to_char pattern chosen by the service per granularity
+    // (day: YYYY-MM-DD, week: IYYY-"W"IW, month: YYYY-MM) — all zero-padded so string
+    // ordering is chronological.
     @Query(value = """
-            select to_char(d.doc_date, 'YYYY-MM') as period,
+            select to_char(d.doc_date, :fmt) as period,
                    coalesce(d.currency, 'INR') as currency,
                    coalesce(sum(d.amount), 0) as total,
                    count(*) as count
@@ -74,9 +77,10 @@ public interface AnalyticsRepository extends Repository<Document, UUID> {
               and d.doc_date is not null
               and d.doc_date >= :from
               and d.doc_date <= :to
-            group by to_char(d.doc_date, 'YYYY-MM'), coalesce(d.currency, 'INR')
+            group by 1, 2
             """, nativeQuery = true)
-    List<MonthlySpend> spendByMonth(@Param("spaceId") UUID spaceId,
-                                    @Param("from") LocalDate from,
-                                    @Param("to") LocalDate to);
+    List<MonthlySpend> spendByPeriod(@Param("spaceId") UUID spaceId,
+                                     @Param("from") LocalDate from,
+                                     @Param("to") LocalDate to,
+                                     @Param("fmt") String fmt);
 }

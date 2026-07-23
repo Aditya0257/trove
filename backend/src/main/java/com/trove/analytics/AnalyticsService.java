@@ -75,14 +75,19 @@ public class AnalyticsService {
                 .toList();
     }
 
-    /** Spend by month (YYYY-MM), every amount converted to {@code displayCcy}. */
+    /** Spend over time at a granularity (day/week/month), converted to {@code displayCcy}. */
     @Transactional(readOnly = true)
     public List<MonthlySpendResponse> byMonth(UUID spaceId, UUID userId, LocalDate from, LocalDate to,
-                                              String displayCcy) {
+                                              String displayCcy, String granularity) {
         authorization.requireCanRead(spaceId, userId);
         String ccy = normalize(displayCcy);
+        String fmt = switch (granularity == null ? "" : granularity.toLowerCase()) {
+            case "day" -> "YYYY-MM-DD";
+            case "week" -> "IYYY-\"W\"IW";
+            default -> "YYYY-MM";
+        };
         Map<String, Agg> byPeriod = new LinkedHashMap<>();
-        for (MonthlySpend m : analyticsRepository.spendByMonth(spaceId, orMin(from), orMax(to))) {
+        for (MonthlySpend m : analyticsRepository.spendByPeriod(spaceId, orMin(from), orMax(to), fmt)) {
             Agg a = byPeriod.computeIfAbsent(m.getPeriod(), k -> new Agg(k));
             a.total = a.total.add(fx.convert(m.getTotal(), m.getCurrency(), ccy));
             a.count += m.getCount();
