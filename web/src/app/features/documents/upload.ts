@@ -87,8 +87,12 @@ interface Queued {
       </label>
       <label class="checkbox">
         <input type="checkbox" [checked]="settings.aiReading()" (change)="settings.toggleAiReading()" [disabled]="loading()" />
-        Read images with AI automatically (uses AI credits). Turn off to skip the wait and fill the details yourself.
+        Read images with AI automatically (uses AI credits).
       </label>
+      <p class="muted ai-hint">
+        A saved preference — it applies to every upload until you change it (here, or from the
+        dev panel's Pause button). Turn off to skip the wait and fill the details yourself.
+      </p>
 
       @if (loading()) {
         <p class="muted">Uploading {{ done() + 1 }} of {{ total() }}…</p>
@@ -142,6 +146,7 @@ interface Queued {
         margin: 4px 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 12.5px;
         color: var(--warn); background: rgba(184, 134, 11, 0.1); border: 1px solid rgba(184, 134, 11, 0.25);
       }
+      .ai-hint { margin: -2px 0 10px 26px; font-size: 12px; }
     `,
   ],
 })
