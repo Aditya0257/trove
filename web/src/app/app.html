@@ -1,5 +1,5 @@
-<header class="topbar">
-  <a class="brand" routerLink="/documents" aria-label="Trove home">
+<header class="topbar" [class.menu-open]="menuOpen()">
+  <a class="brand" routerLink="/documents" aria-label="Trove home" (click)="menuOpen.set(false)">
     <svg class="logo" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
       <rect x="3" y="4.5" width="18" height="15" rx="3.5" fill="var(--brand)" />
       <circle cx="12" cy="11" r="2.1" fill="#fff" />
@@ -7,31 +7,41 @@
     </svg>
     <span>Trove</span>
   </a>
+
   @if (auth.isLoggedIn()) {
-    <nav>
-      <a routerLink="/documents">Documents</a>
-      <a routerLink="/upload">Upload</a>
-      <a routerLink="/mail">Mail</a>
-      <a routerLink="/search">Search</a>
-      <a routerLink="/spend">Spend</a>
-      <a routerLink="/reminders">Reminders</a>
-      <a routerLink="/spaces">Spaces</a>
-    </nav>
+    <button class="hamburger" type="button" (click)="menuOpen.set(!menuOpen())"
+            [attr.aria-expanded]="menuOpen()" aria-label="Menu">
+      {{ menuOpen() ? '✕' : '☰' }}
+    </button>
   }
-  <span class="spacer"></span>
-  @if (auth.isLoggedIn() && spaceCtx.spaces().length) {
-    <trove-select class="space-select" [options]="spaceOptions()" ariaLabel="Current space"
-                  [ngModel]="spaceCtx.currentSpaceId()" (ngModelChange)="onSpaceChange($event)">
-    </trove-select>
-  }
-  <button class="theme-toggle" (click)="theme.toggle()"
-          [title]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
-    {{ theme.theme() === 'dark' ? '☀️' : '🌙' }}
-  </button>
-  @if (auth.isLoggedIn()) {
-    <span class="muted">{{ auth.user()?.email }}</span>
-    <button class="link" (click)="logout()">Sign out</button>
-  }
+
+  <div class="topbar-menu">
+    @if (auth.isLoggedIn()) {
+      <nav (click)="menuOpen.set(false)">
+        <a routerLink="/documents">Documents</a>
+        <a routerLink="/upload">Upload</a>
+        <a routerLink="/mail">Mail</a>
+        <a routerLink="/search">Search</a>
+        <a routerLink="/spend">Spend</a>
+        <a routerLink="/reminders">Reminders</a>
+        <a routerLink="/spaces">Spaces</a>
+      </nav>
+    }
+    <span class="spacer"></span>
+    @if (auth.isLoggedIn() && spaceCtx.spaces().length) {
+      <trove-select class="space-select" [options]="spaceOptions()" ariaLabel="Current space"
+                    [ngModel]="spaceCtx.currentSpaceId()" (ngModelChange)="onSpaceChange($event)">
+      </trove-select>
+    }
+    <button class="theme-toggle" (click)="theme.toggle()"
+            [title]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+      {{ theme.theme() === 'dark' ? '☀️' : '🌙' }}
+    </button>
+    @if (auth.isLoggedIn()) {
+      <span class="muted user-email">{{ auth.user()?.email }}</span>
+      <button class="link" (click)="logout()">Sign out</button>
+    }
+  </div>
 </header>
 
 <main class="container">

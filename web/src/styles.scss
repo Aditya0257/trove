@@ -79,6 +79,7 @@ html { font-size: 15px; }
 
 body {
   margin: 0;
+  overflow-x: hidden;               /* never let a stray wide child scroll the whole page sideways */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -101,19 +102,54 @@ body {
   z-index: 100;
 }
 .topbar .brand {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
   font-weight: 700; text-decoration: none; color: var(--ink); font-size: 1.1rem; letter-spacing: -0.01em;
 }
 .topbar .brand .logo { display: block; flex: none; }
+/* The menu holds the nav + right-hand controls; it's the growing row on desktop and
+   collapses into a dropdown under the bar on narrow screens. */
+.topbar-menu { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0; }
 .topbar nav { display: flex; gap: 1.15rem; }
-.topbar nav a { text-decoration: none; color: var(--muted); font-weight: 500; font-size: 0.95rem; }
+.topbar nav a { text-decoration: none; color: var(--muted); font-weight: 500; font-size: 0.95rem; white-space: nowrap; }
 .topbar nav a:hover { color: var(--ink); }
 .topbar .spacer { flex: 1; }
+.topbar .user-email { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Hamburger toggle — hidden on desktop, shown when the nav collapses. */
+.topbar .hamburger {
+  display: none; margin: 0 0 0 auto; padding: 0.25rem 0.55rem; background: transparent;
+  border: 1px solid var(--line); border-radius: 8px; font-size: 1.1rem; line-height: 1; cursor: pointer;
+  color: var(--ink);
+}
+.topbar .hamburger:hover { background: var(--hover); }
 .theme-toggle {
   margin: 0; padding: 0.3rem 0.5rem; background: transparent; border: 1px solid var(--line);
-  border-radius: 8px; font-size: 1rem; line-height: 1; cursor: pointer;
+  border-radius: 8px; font-size: 1rem; line-height: 1; cursor: pointer; flex: none;
 }
 .theme-toggle:hover { background: var(--hover); }
+
+/* Hide the email label before things get tight, so the inline nav fits down to ~1024px. */
+@media (max-width: 1200px) {
+  .topbar .user-email { display: none; }
+}
+
+/* Collapse the nav into a dropdown below the bar on narrow screens / small windows. */
+@media (max-width: 1024px) {
+  .topbar .hamburger { display: inline-flex; }
+  .topbar-menu {
+    display: none; position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 0.15rem;
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 0.5rem 1.25rem 0.9rem; box-shadow: 0 10px 24px var(--shadow);
+  }
+  .topbar.menu-open .topbar-menu { display: flex; }
+  .topbar-menu nav { flex-direction: column; gap: 0; }
+  .topbar-menu nav a { padding: 0.65rem 0.25rem; border-bottom: 1px solid var(--line); font-size: 1rem; }
+  .topbar-menu .spacer { display: none; }
+  .topbar-menu .user-email { display: block; max-width: none; padding: 0.5rem 0.25rem 0; font-size: 0.85rem; }
+  .topbar-menu .space-select { width: 100%; margin: 0.5rem 0; }
+  .topbar-menu .theme-toggle { align-self: flex-start; margin-top: 0.5rem; }
+  .topbar-menu .link { align-self: flex-start; padding: 0.5rem 0.25rem; margin: 0; }
+}
 
 .container { max-width: 880px; margin: 1.5rem auto; padding: 0 1rem; }
 

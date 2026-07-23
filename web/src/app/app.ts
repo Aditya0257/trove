@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
@@ -20,6 +20,9 @@ export class App {
   protected auth = inject(AuthService);
   protected spaceCtx = inject(SpaceContext);
   protected theme = inject(ThemeService);
+
+  /** Mobile nav: the topbar collapses into a hamburger menu at narrow widths. */
+  protected menuOpen = signal(false);
   private api = inject(ApiService);
   private notices = inject(NoticeService);
   private router = inject(Router);

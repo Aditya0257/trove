@@ -30,6 +30,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
         @if (trashLoading()) { <p class="muted">Loading…</p> }
         @else if (trash().length === 0) { <p class="muted">Trash is empty.</p> }
         @else {
+          <div class="table-scroll">
           <table>
             <thead>
               <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Deleted</th><th></th></tr>
@@ -50,6 +51,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
               }
             </tbody>
           </table>
+          </div>
           <p class="muted total">{{ trash().length }} in trash</p>
         }
       } @else {
@@ -71,6 +73,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
         </p>
       }
       @else {
+        <div class="table-scroll">
         <table>
           <thead>
             <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr>
@@ -89,6 +92,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
             }
           </tbody>
         </table>
+        </div>
 
         <div class="pager">
           <trove-select class="page-size" [ngModel]="pageSizeStr()" (ngModelChange)="setPageSize($event)"
@@ -108,6 +112,9 @@ import { TroveSelect, SelectOption } from '../../core/select';
   `,
   styles: [
     `
+      /* Let a wide table scroll inside the card instead of the page scrolling sideways. */
+      .table-scroll { overflow-x: auto; max-width: 100%; }
+      .table-scroll table { min-width: 560px; }
       .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
       .chip {
         border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
