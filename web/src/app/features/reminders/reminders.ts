@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { DocumentResponse, ReminderResponse } from '../../core/models';
@@ -36,7 +37,9 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
       </form>
       @if (error()) { <p class="error">{{ error() }}</p> }
 
-      @if (reminders().length) {
+      @if (loading()) {
+        <p class="muted">Loading…</p>
+      } @else if (reminders().length) {
         <table>
           <thead><tr><th>Type</th><th>Document</th><th>Remind on</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -73,6 +76,7 @@ export class Reminders {
 
   reminders = signal<ReminderResponse[]>([]);
   documents = signal<DocumentResponse[]>([]);
+  loading = signal(true);
   type = 'due';
   documentId = '';
   remindOn = '';
@@ -90,7 +94,6 @@ export class Reminders {
     effect(() => {
       const sid = this.spaceCtx.currentSpaceId();
       this.reload(sid);
-      this.api.listDocuments(sid).subscribe((d) => this.documents.set(d));
     });
   }
 
@@ -99,8 +102,21 @@ export class Reminders {
     return d ? d.originalFilename || d.id : id;
   }
 
+  /** Loads reminders AND documents together so the Document column shows filenames on
+   *  the first paint — never a flash of raw UUIDs while the names catch up. */
   private reload(spaceId?: string): void {
-    this.api.listReminders(spaceId).subscribe((r) => this.reminders.set(r));
+    this.loading.set(true);
+    forkJoin({
+      reminders: this.api.listReminders(spaceId),
+      documents: this.api.listDocuments(spaceId),
+    }).subscribe({
+      next: ({ reminders, documents }) => {
+        this.documents.set(documents);
+        this.reminders.set(reminders);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
+    });
   }
 
   create(): void {

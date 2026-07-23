@@ -27,10 +27,10 @@ interface Queued {
     <div class="card">
       <h1>Add documents</h1>
       <p class="muted">
-        Paste a screenshot ({{ pasteHint }}), drop images, or choose files — a bill,
+        Paste a screenshot ({{ pasteHint }}), drop images, or choose files: a bill,
         receipt, policy or ID. <b>Images are read automatically</b> and you just confirm the
         details next. PDFs and other non-image files are stored safely, but aren't auto-read
-        yet — you'll fill in their details yourself.
+        yet, so you'll fill in their details yourself.
       </p>
 
       <div
@@ -67,7 +67,7 @@ interface Queued {
           }
         </div>
         @if (hasNonImage()) {
-          <p class="note">ℹ Non-image files (PDF, etc.) are stored but not auto-read — you'll
+          <p class="note">ℹ Non-image files (PDF, etc.) are stored but not auto-read, so you'll
             enter their details manually on the review screen.</p>
         }
       }

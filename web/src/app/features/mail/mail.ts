@@ -254,9 +254,9 @@ export class Mail {
   /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
   readonly tips = {
     account: 'A short label to group your inboxes, like Personal or Office.',
-    address: "The email address whose inbox this is in, e.g. you@work.com — so you know exactly which inbox to open and search later.",
+    address: "The email address whose inbox this is in, e.g. you@work.com, so you know exactly which inbox to open and search later.",
     topic: 'The stable thing this is about (e.g. Plum Insurance). Groups emails together even when their subject lines change over time.',
-    subject: "The exact subject line, copied as-is. Prefer the exact text — you can paste it straight into that inbox's search to find the original email later.",
+    subject: "The exact subject line, copied as-is. Prefer the exact text, so you can paste it straight into that inbox's search to find the original email later.",
     date: 'The date the email arrived (as shown in your inbox).',
     notes: 'Anything extra you want to remember or find this by later, in your own words.',
   };

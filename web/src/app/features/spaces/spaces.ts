@@ -23,8 +23,10 @@ import { DateTimePipe } from '../../core/datetime.pipe';
     <div class="card">
       <h3>Members</h3>
       <trove-help-card
-        user="The people who can see and use this space. Roles: owner (full control, backup & billing), member (add and edit documents), viewer (read-only)."
-        dev="Membership lives in the space_member table; every request checks the caller's role against the space before returning anything. A personal space always has exactly one owner — you.">
+        title="About members"
+        [open]="false"
+        user="The people who can see and use this space. Roles: owner (full control, backup and billing), member (add and edit documents), viewer (read-only)."
+        dev="Membership lives in the space_member table; every request checks the caller's role against the space before returning anything. A personal space always has exactly one owner: you.">
       </trove-help-card>
       @if (membersError()) { <p class="muted">{{ membersError() }}</p> }
       @else {
@@ -60,7 +62,9 @@ import { DateTimePipe } from '../../core/datetime.pipe';
     <div class="card">
       <h3>Forward-to-file address</h3>
       <trove-help-card
-        user="A private email address for this space. Forward or CC any bill, receipt or ticket to it and Trove files the attachment for you — no app needed. Keep it secret: anyone with it can add documents here, so Rotate it if it ever leaks."
+        title="About forwarding to file"
+        [open]="false"
+        user="A private email address for this space. Forward or CC any bill, receipt or ticket to it and Trove files the attachment for you, no app needed. Keep it secret: anyone with it can add documents here, so Rotate it if it ever leaks."
         dev="The address embeds a per-space secret token. An inbound-mail webhook matches the token to this space, runs each attachment through the same extraction pipeline as a normal upload, and files it. Rotating mints a new token and invalidates the old address immediately.">
       </trove-help-card>
       @if (ingest(); as a) {
@@ -72,8 +76,10 @@ import { DateTimePipe } from '../../core/datetime.pipe';
     <div class="card">
       <h3>Google Drive backup</h3>
       <trove-help-card
+        title="About Google Drive backup"
+        [open]="false"
         user="Keeps a human-browsable copy of this space's files in Google Drive, organised as Trove / space / category / month. If the app and database are ever gone, you can still open Drive and find every document."
-        dev="Tier-3 of the backup design (Cloudflare R2 → Backblaze B2 → Google Drive). A per-owner OAuth token lets a scheduled job mirror new files into the folder tree. The database is a rebuildable index; these files are a source of truth, so nothing is lost if it's wiped.">
+        dev="Tier-3 of the backup design (Cloudflare R2, then Backblaze B2, then Google Drive). A per-owner OAuth token lets a scheduled job mirror new files into the folder tree. The database is a rebuildable index; these files are a source of truth, so nothing is lost if it's wiped.">
       </trove-help-card>
       @if (drive(); as d) {
         @if (d.connected) {
@@ -90,8 +96,10 @@ import { DateTimePipe } from '../../core/datetime.pipe';
     <div class="card">
       <h3>Export</h3>
       <trove-help-card
-        user="Downloads this whole space as one ZIP — manifest.json (every record, machine-readable), data.csv (open in Excel/Sheets), and files/ (your original images and PDFs). A large vault takes a little while to prepare, so give it a moment."
-        dev="Streamed and zipped server-side. The manifest is the complete record set for a lossless re-import, the CSV is a flattened human view, and files/ are the originals pulled from object storage. Uploading this ZIP back fully restores the system — the ultimate 'no provider outage can wipe me' guarantee.">
+        title="About export"
+        [open]="false"
+        user="Downloads this whole space as one ZIP containing manifest.json (every record, machine-readable), data.csv (open in Excel or Sheets), and files/ (your original images and PDFs). A large vault takes a little while to prepare, so give it a moment."
+        dev="Streamed and zipped server-side. The manifest is the complete record set for a lossless re-import, the CSV is a flattened human view, and files/ are the originals pulled from object storage. Uploading this ZIP back fully restores the system: the ultimate 'no provider outage can wipe me' guarantee.">
       </trove-help-card>
       <button (click)="exportZip()" [disabled]="exporting()">{{ exporting() ? 'Preparing…' : 'Download export' }}</button>
     </div>

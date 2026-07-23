@@ -45,7 +45,7 @@ import { AiUsage } from '../models';
 
             <div class="gauge-row two">
               <span>Your usage today
-                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today — a subset of the global total above. Each user is capped at {{ fmt(u.perUserLimitNeurons) }} neurons/day so one person can't drain the shared budget; over it, uploads still file via the free reader.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today, a subset of the global total above. Each user is capped at {{ fmt(u.perUserLimitNeurons) }} neurons/day so one person can't drain the shared budget; over it, uploads still file via the free reader.</span></span>
               </span>
               <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.perUserLimitNeurons) }} neurons</span>
             </div>
@@ -102,7 +102,7 @@ import { AiUsage } from '../models';
                 <div class="db-panel">
                   <div class="db-head">
                     <span class="db-badge">DB</span>
-                    <span>Saved to Postgres (Neon) — the extracted record</span>
+                    <span>Saved to Postgres (Neon): the extracted record</span>
                   </div>
                   <pre class="json">{{ pretty(e.extracted) }}</pre>
                 </div>
