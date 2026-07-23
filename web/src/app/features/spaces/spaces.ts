@@ -163,6 +163,21 @@ import { TroveSelect, SelectOption } from '../../core/select';
               @if (d.connectedByName) { <span class="muted"> · linked by {{ d.connectedByName }}</span> }
             </p>
           }
+          @if (d.storageLimitBytes) {
+            <div class="storage">
+              <div class="storage-bar" [title]="storageTitle(d)">
+                <span class="seg seg-trove" [style.width.%]="pctOf(d.troveBytes, d.storageLimitBytes)"></span>
+                <span class="seg seg-other" [style.width.%]="pctOther(d)"></span>
+              </div>
+              <p class="storage-text muted">
+                <span class="dot dot-trove"></span> Trove {{ fmtBytes(d.troveBytes) }}
+                <span class="dot dot-other"></span> other {{ fmtBytes((d.storageUsageBytes ?? 0) - (d.troveBytes ?? 0)) }}
+                · {{ fmtBytes(d.storageUsageBytes) }} of {{ fmtBytes(d.storageLimitBytes) }} used
+              </p>
+            </div>
+          } @else if (d.troveBytes) {
+            <p class="storage-text muted">Trove {{ fmtBytes(d.troveBytes) }} stored · account storage is unlimited</p>
+          }
           <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
           @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
         } @else {
@@ -197,6 +212,19 @@ import { TroveSelect, SelectOption } from '../../core/select';
         color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 8px;
       }
       .drive-account-email { font-weight: 600; font-family: monospace; }
+      /* Storage bar: Trove's share (accent) + other files (muted grey) over the free track. */
+      .storage { margin: 6px 0 12px; }
+      .storage-bar {
+        display: flex; height: 8px; width: 100%; border-radius: 999px; overflow: hidden;
+        background: var(--hover); border: 1px solid var(--line);
+      }
+      .storage-bar .seg { height: 100%; }
+      .seg-trove { background: var(--accent); }
+      .seg-other { background: var(--muted); opacity: 0.45; }
+      .storage-text { margin: 5px 0 0; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+      .dot-trove { background: var(--accent); }
+      .dot-other { background: var(--muted); opacity: 0.45; }
       /* Breathing room + a divider between the members table and the invite row. */
       .invite-form { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
       .invites { border-left: 3px solid var(--accent); }
@@ -445,6 +473,30 @@ export class Spaces {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid) return;
     this.api.driveAuthorizeUrl(sid).subscribe((r) => window.open(r.url, '_blank'));
+  }
+
+  // ── Drive storage bar helpers ──────────────────────────────────────────────
+  /** Percentage of `limit` taken by `part`, clamped 0–100 (0 when limit unknown). */
+  pctOf(part: number | null, limit: number | null): number {
+    if (!limit || !part) return 0;
+    return Math.min(100, Math.max(0, (part / limit) * 100));
+  }
+  /** Width of the "used by other apps/files" segment (total usage minus Trove's share). */
+  pctOther(d: DriveStatus): number {
+    const other = (d.storageUsageBytes ?? 0) - (d.troveBytes ?? 0);
+    return this.pctOf(other, d.storageLimitBytes);
+  }
+  /** Human-readable bytes: 1.2 GB, 940 MB, 512 KB. */
+  fmtBytes(n: number | null): string {
+    const b = n ?? 0;
+    if (b <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(b) / Math.log(1024)));
+    const v = b / Math.pow(1024, i);
+    return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+  }
+  storageTitle(d: DriveStatus): string {
+    return `Trove ${this.fmtBytes(d.troveBytes)} of ${this.fmtBytes(d.storageLimitBytes)} total`;
   }
 
   sync(): void {

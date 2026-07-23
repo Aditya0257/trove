@@ -134,7 +134,7 @@ public class GoogleDriveController {
         authorization.requireCanRead(spaceId, currentUser.requireUserId());
         DriveConnection conn = driveSyncService.connection(spaceId);
         if (conn == null) {
-            return new StatusResponse(false, null, null, null, null, null);
+            return new StatusResponse(false, null, null, null, null, null, null, null, null, null);
         }
         // Resolve who linked it to a friendly name for the UI (null-safe: the connector
         // may be unknown on legacy connections made before we recorded connected_by).
@@ -143,7 +143,9 @@ public class GoogleDriveController {
                         .map(u -> u.getDisplayName() != null ? u.getDisplayName() : u.getEmail())
                         .orElse(null);
         return new StatusResponse(true, conn.getConnectedAt(), conn.getLastSyncAt(),
-                conn.getGoogleEmail(), conn.getGoogleAccountName(), connectedByName);
+                conn.getGoogleEmail(), conn.getGoogleAccountName(), connectedByName,
+                conn.getStorageLimitBytes(), conn.getStorageUsageBytes(),
+                driveSyncService.troveBytes(spaceId), conn.getQuotaCheckedAt());
     }
 
     /** Trigger a sync now (owner only). */
@@ -161,6 +163,8 @@ public class GoogleDriveController {
     }
 
     public record StatusResponse(boolean connected, Instant connectedAt, Instant lastSyncAt,
-                                 String googleEmail, String googleAccountName, String connectedByName) {
+                                 String googleEmail, String googleAccountName, String connectedByName,
+                                 Long storageLimitBytes, Long storageUsageBytes, Long troveBytes,
+                                 Instant quotaCheckedAt) {
     }
 }

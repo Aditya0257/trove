@@ -83,23 +83,32 @@ public class GoogleDriveOAuthService {
     }
 
     /**
-     * The Google account behind a Drive client — its email and display name. Read from
-     * Drive's about.get, which the drive.file scope already permits (no extra consent).
-     * Returns nulls if Drive doesn't hand back user info rather than failing the connect.
+     * The Google account behind a Drive client — identity (email, name) and storage
+     * quota (limit, usage). Read from Drive's about.get in a single call, which the
+     * drive.file scope already permits (no extra consent). Returns an all-null record
+     * rather than throwing, so a metadata hiccup never blocks linking or syncing.
+     *
+     * storageQuota.limit is absent for unlimited/Workspace accounts — mapped to null.
      */
     public AccountInfo accountInfo(Drive drive) {
         try {
-            var user = drive.about().get().setFields("user(emailAddress,displayName)").execute().getUser();
-            return user == null ? AccountInfo.UNKNOWN
-                    : new AccountInfo(user.getEmailAddress(), user.getDisplayName());
+            var about = drive.about().get()
+                    .setFields("user(emailAddress,displayName),storageQuota(limit,usage)").execute();
+            var user = about.getUser();
+            var quota = about.getStorageQuota();
+            return new AccountInfo(
+                    user == null ? null : user.getEmailAddress(),
+                    user == null ? null : user.getDisplayName(),
+                    quota == null ? null : quota.getLimit(),
+                    quota == null ? null : quota.getUsage());
         } catch (Exception e) {
             return AccountInfo.UNKNOWN;
         }
     }
 
-    /** Google account identity (email + display name), either possibly null. */
-    public record AccountInfo(String email, String name) {
-        static final AccountInfo UNKNOWN = new AccountInfo(null, null);
+    /** Google account identity + storage quota; any field may be null. */
+    public record AccountInfo(String email, String name, Long limitBytes, Long usageBytes) {
+        static final AccountInfo UNKNOWN = new AccountInfo(null, null, null, null);
     }
 
     /** Builds an authenticated Drive client from a stored refresh token. */

@@ -46,6 +46,17 @@ public class DriveConnection extends BaseEntity {
     @Column(name = "google_account_name")
     private String googleAccountName;
 
+    // Cached storage quota of the Google account (bytes), read from Drive's about.get.
+    // limit is null for unlimited/Workspace accounts. Refreshed on connect and each sync.
+    @Column(name = "storage_limit_bytes")
+    private Long storageLimitBytes;
+
+    @Column(name = "storage_usage_bytes")
+    private Long storageUsageBytes;
+
+    @Column(name = "quota_checked_at")
+    private Instant quotaCheckedAt;
+
     @CreationTimestamp
     @Column(name = "connected_at", nullable = false, updatable = false)
     private Instant connectedAt;
@@ -74,6 +85,12 @@ public class DriveConnection extends BaseEntity {
     public void setGoogleEmail(String googleEmail) { this.googleEmail = googleEmail; }
     public String getGoogleAccountName() { return googleAccountName; }
     public void setGoogleAccountName(String googleAccountName) { this.googleAccountName = googleAccountName; }
+    public Long getStorageLimitBytes() { return storageLimitBytes; }
+    public void setStorageLimitBytes(Long storageLimitBytes) { this.storageLimitBytes = storageLimitBytes; }
+    public Long getStorageUsageBytes() { return storageUsageBytes; }
+    public void setStorageUsageBytes(Long storageUsageBytes) { this.storageUsageBytes = storageUsageBytes; }
+    public Instant getQuotaCheckedAt() { return quotaCheckedAt; }
+    public void setQuotaCheckedAt(Instant quotaCheckedAt) { this.quotaCheckedAt = quotaCheckedAt; }
     public Instant getConnectedAt() { return connectedAt; }
     public Instant getLastSyncAt() { return lastSyncAt; }
     public void setLastSyncAt(Instant lastSyncAt) { this.lastSyncAt = lastSyncAt; }

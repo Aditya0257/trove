@@ -135,6 +135,10 @@ export interface DriveStatus {
   googleEmail: string | null;        // which Google account backs this space
   googleAccountName: string | null;  // its display name, when Drive returns one
   connectedByName: string | null;    // the Trove member who linked it
+  storageLimitBytes: number | null;  // total Drive quota (null = unlimited)
+  storageUsageBytes: number | null;  // bytes used across the whole account
+  troveBytes: number | null;         // of that, how much Trove put there
+  quotaCheckedAt: string | null;     // when the quota was last read
 }
 
 export interface SearchResult {

@@ -26,4 +26,14 @@ interface DocumentSyncRepository extends JpaRepository<DocumentSync, DocumentSyn
     boolean existsByDocumentIdAndTarget(UUID documentId, String target);
 
     List<DocumentSync> findByDocumentIdIn(List<UUID> documentIds);
+
+    /** Total bytes Trove has pushed to a target for a space — sum of synced docs' sizes. */
+    @org.springframework.data.jpa.repository.Query(value = """
+            select coalesce(sum(d.size_bytes), 0)
+            from document d
+            join document_sync s on s.document_id = d.id and s.target = :target
+            where d.space_id = :spaceId
+            """, nativeQuery = true)
+    long troveBytesForSpace(@org.springframework.data.repository.query.Param("spaceId") UUID spaceId,
+                            @org.springframework.data.repository.query.Param("target") String target);
 }

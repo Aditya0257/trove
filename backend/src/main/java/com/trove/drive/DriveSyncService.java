@@ -109,13 +109,26 @@ public class DriveSyncService {
             conn.setRefreshTokenEnc(enc);
             conn.setConnectedBy(userId);
         }
-        // Ask Drive which account this token belongs to so the UI can show "connected as
-        // <email>". Best-effort: a failure here must not block linking the Drive.
-        GoogleDriveOAuthService.AccountInfo account = oauthService.accountInfo(oauthService.driveFor(refreshToken));
+        // Ask Drive which account this token belongs to (and its storage quota) so the UI
+        // can show "Trove uses X of Y". Best-effort: a failure here must not block linking.
+        applyAccountInfo(conn, oauthService.accountInfo(oauthService.driveFor(refreshToken)));
+        connectionRepository.save(conn);
+        log.info("Google Drive connected for space {} by user {} (account {})",
+                spaceId, userId, conn.getGoogleEmail());
+    }
+
+    /** Copies identity + storage quota from a fresh about.get onto the connection. */
+    private void applyAccountInfo(DriveConnection conn, GoogleDriveOAuthService.AccountInfo account) {
         conn.setGoogleEmail(account.email());
         conn.setGoogleAccountName(account.name());
-        connectionRepository.save(conn);
-        log.info("Google Drive connected for space {} by user {} (account {})", spaceId, userId, account.email());
+        conn.setStorageLimitBytes(account.limitBytes());
+        conn.setStorageUsageBytes(account.usageBytes());
+        conn.setQuotaCheckedAt(Instant.now());
+    }
+
+    /** Bytes Trove has stored in this space's Drive (sum of synced documents' sizes). */
+    public long troveBytes(UUID spaceId) {
+        return documentSyncRepository.troveBytesForSpace(spaceId, TARGET);
     }
 
     public boolean isConnected(UUID spaceId) {
@@ -168,6 +181,9 @@ public class DriveSyncService {
             }
 
             conn.setLastSyncAt(Instant.now());
+            // Refresh the cached quota while we hold a live Drive client — cheap, and keeps
+            // the "Trove uses X of Y" bar honest after we've just pushed new files.
+            applyAccountInfo(conn, oauthService.accountInfo(drive));
             connectionRepository.save(conn);
             backupRunService.success(run, "drive:space:" + spaceId, "synced=" + synced + " skipped=" + skipped);
             log.info("Drive sync for space {} — synced={} skipped={}", spaceId, synced, skipped);
