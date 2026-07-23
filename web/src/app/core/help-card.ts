@@ -35,9 +35,11 @@ import { Component, Input } from '@angular/core';
   `,
   styles: [
     `
+      /* A single accent touch (the left bar) reads as a callout without ringing the whole
+         box in green; the rest is a neutral, card-like surface. */
       .help-card {
-        border: 1px solid var(--accent-line); border-left: 3px solid var(--accent);
-        background: var(--accent-soft); border-radius: 10px; margin: 6px 0 14px; overflow: hidden;
+        border: 1px solid var(--line); border-left: 3px solid var(--accent);
+        background: var(--accent-soft); border-radius: 0 10px 10px 0; margin: 6px 0 14px; overflow: hidden;
       }
       .hc-head {
         margin: 0; width: 100%; display: flex; align-items: center; gap: 8px;

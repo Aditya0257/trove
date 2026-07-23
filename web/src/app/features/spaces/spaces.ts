@@ -62,10 +62,10 @@ import { DateTimePipe } from '../../core/datetime.pipe';
     <div class="card">
       <h3>Forward-to-file address</h3>
       <trove-help-card
-        title="About forwarding to file"
+        title="What is this address?"
         [open]="false"
-        user="A private email address for this space. Forward or CC any bill, receipt or ticket to it and Trove files the attachment for you, no app needed. Keep it secret: anyone with it can add documents here, so Rotate it if it ever leaks."
-        dev="The address embeds a per-space secret token. An inbound-mail webhook matches the token to this space, runs each attachment through the same extraction pipeline as a normal upload, and files it. Rotating mints a new token and invalidates the old address immediately.">
+        user="This space has its own private email address (shown below). Email a document to it, or forward one that landed in your inbox (say a bill), and Trove saves the attachment straight into this space and reads it like a normal upload. It is for filing without opening the app: forward and forget. Treat the address like a password; if it leaks, press Rotate to swap it for a fresh one."
+        dev="The address carries a per-space secret token. Your mail provider delivers forwarded messages to the /api/ingest/email webhook, which matches the token to this space and runs each attachment through the same extraction pipeline as an upload. Real delivery needs the ingest domain's inbound mail routed to that endpoint (a deployment step); until that is set up the address is reserved but will not receive mail.">
       </trove-help-card>
       @if (ingest(); as a) {
         <p>Forward documents to: <code>{{ a.address }}</code></p>
