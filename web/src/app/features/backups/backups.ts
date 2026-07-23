@@ -128,7 +128,12 @@ import { BackupRun, IntegrityReport } from '../../core/models';
       .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
       .tier { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
       .tier.warn { border-color: var(--danger-line, rgba(180,64,47,0.4)); }
-      .tier-h { font-size: 13px; font-weight: 600; display: flex; gap: 6px; align-items: baseline; }
+      /* Reserve two lines for the header so the numbers/bars line up across all cards,
+         even when a label like "Sidecar JSON · self-describing" wraps. */
+      .tier-h {
+        font-size: 13px; font-weight: 600; display: flex; gap: 6px; align-items: baseline;
+        flex-wrap: wrap; min-height: 2.6em; align-content: flex-start;
+      }
       .tier-h .muted { font-size: 11px; font-weight: 400; }
       .tier-n { font-size: 22px; font-weight: 700; margin: 6px 0; }
       .tier-sub { font-size: 12px; }
