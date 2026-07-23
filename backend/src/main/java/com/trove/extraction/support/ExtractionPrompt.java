@@ -71,16 +71,18 @@ public final class ExtractionPrompt {
               "lineItems": [                           // may be empty
                 { "description": string, "quantity": number or null, "amount": number or null }
               ],
-              "rawText": string,                       // ALL text you can read, top to bottom
               "extra": object,                         // every other useful field you find (see rules)
-              "confidence": number                     // 0..1, how sure you are overall
+              "confidence": number,                    // 0..1, how sure you are overall
+              "rawText": string                        // ALL legible text; keep this field LAST
             }
 
             Rules:
             - Pick the single best categoryCode from the allowed list; use "other" if none fit.
             - Never invent values. If unsure of a number or date, use null and lower the confidence.
             - amount and lineItems[].amount must be plain numbers (e.g. 1840.50), not "₹1,840.50".
-            - "rawText" must contain everything legible on the document — do not summarise or omit.
+            - "rawText" comes LAST and must contain everything legible (do not summarise). It is a
+              JSON string, so escape every double-quote as \\" and every newline as \\n — never put a
+              raw " or line break inside it, or the JSON will be invalid.
             - Fill "extra" generously with any labelled fields present, using clear camelCase keys,
               e.g. invoiceNumber, accountNumber, taxAmount, subtotal, billingPeriod, statementDate,
               paymentStatus, address, phone, email, gstin, policyNumber, referenceNumber. Include

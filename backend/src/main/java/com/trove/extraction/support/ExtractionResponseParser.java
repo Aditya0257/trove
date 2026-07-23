@@ -52,24 +52,63 @@ public final class ExtractionResponseParser {
         }
         String json = extractJsonObject(modelText);
         try {
-            JsonNode root = mapper.readTree(json);
-            return new ExtractionResult(
-                    text(root, "categoryCode"),
-                    text(root, "merchantName"),
-                    date(root, "docDate"),
-                    number(root, "amount"),
-                    text(root, "currency"),
-                    date(root, "dueDate"),
-                    lineItems(root.get("lineItems")),
-                    text(root, "rawText"),
-                    extra(mapper, root.get("extra")),
-                    confidence(root.get("confidence"))
-            );
-        } catch (IllegalArgumentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Could not parse model JSON: " + e.getMessage(), e);
+            return build(readLenient(json, mapper), mapper);
+        } catch (Exception first) {
+            // Salvage: the long, free-form rawText often contains unescaped quotes or
+            // newlines that break strict JSON. Drop rawText (it's requested last for
+            // exactly this reason) and parse the structured fields that precede it, so a
+            // messy rawText never loses the merchant/amount/date/line-items.
+            String salvaged = dropRawText(json);
+            if (salvaged != null) {
+                try {
+                    return build(readLenient(salvaged, mapper), mapper);
+                } catch (Exception ignored) {
+                    // fall through to the original error
+                }
+            }
+            if (first instanceof IllegalArgumentException iae) {
+                throw iae;
+            }
+            throw new IllegalArgumentException("Could not parse model JSON: " + first.getMessage(), first);
         }
+    }
+
+    /** Reads JSON tolerantly — allows unescaped control chars and single quotes, common
+     *  model slips that would otherwise sink an otherwise-fine object. */
+    private static JsonNode readLenient(String json, ObjectMapper mapper) throws Exception {
+        return mapper.reader()
+                .with(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS)
+                .with(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES)
+                .readTree(json);
+    }
+
+    /** Cuts the JSON just before "rawText" and closes the object, dropping rawText (and
+     *  anything after it) so the structured fields before it can still be parsed. */
+    private static String dropRawText(String json) {
+        int i = json.indexOf("\"rawText\"");
+        if (i <= 0) {
+            return null;
+        }
+        String head = json.substring(0, i).stripTrailing();
+        if (head.endsWith(",")) {
+            head = head.substring(0, head.length() - 1);
+        }
+        return head + "}";
+    }
+
+    private static ExtractionResult build(JsonNode root, ObjectMapper mapper) {
+        return new ExtractionResult(
+                text(root, "categoryCode"),
+                text(root, "merchantName"),
+                date(root, "docDate"),
+                number(root, "amount"),
+                text(root, "currency"),
+                date(root, "dueDate"),
+                lineItems(root.get("lineItems")),
+                text(root, "rawText"),
+                extra(mapper, root.get("extra")),
+                confidence(root.get("confidence"))
+        );
     }
 
     /** Returns the outermost {...} substring so surrounding prose/fences don't break parsing. */

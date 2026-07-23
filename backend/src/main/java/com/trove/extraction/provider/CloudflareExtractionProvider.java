@@ -111,20 +111,22 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         try {
             return withUsage(callOnce(url, toSend, sendMime, model, false, tokens, credits), tokens[0], credits[0]);
         } catch (ExtractionException e) {
-            // The vision model sometimes ignores the JSON instruction and replies in prose
-            // ("**Document Details** ..."). Retry once with a blunt JSON-only directive —
-            // the output is non-deterministic, so a stricter second attempt usually complies.
-            if (isNoJson(e)) {
-                log.info("Cloudflare replied in prose, not JSON; retrying once with a stricter instruction");
+            // The vision model sometimes ignores the JSON instruction (replies in prose) or
+            // emits malformed JSON. Retry once with a blunt JSON-only directive — the output
+            // is non-deterministic, so a stricter second attempt usually returns clean JSON.
+            if (isParseFailure(e)) {
+                log.info("Cloudflare returned unparseable output; retrying once with a stricter instruction");
                 return withUsage(callOnce(url, toSend, sendMime, model, true, tokens, credits), tokens[0], credits[0]);
             }
             throw e;
         }
     }
 
-    /** True when the failure was "the model didn't return JSON" (retryable via a stricter prompt). */
-    private static boolean isNoJson(ExtractionException e) {
-        return e.getMessage() != null && e.getMessage().contains("No JSON object found");
+    /** True when the model's output couldn't be parsed (no JSON, or malformed JSON) —
+     *  retryable via a stricter prompt. */
+    private static boolean isParseFailure(ExtractionException e) {
+        String m = e.getMessage();
+        return m != null && (m.contains("No JSON object found") || m.contains("Could not parse model JSON"));
     }
 
     /** Records the accumulated token/credit usage on the result so the worker bills it. */
