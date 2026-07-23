@@ -104,7 +104,28 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         byte[] toSend = downscaleIfLarge(fileBytes, mimeType);
         String sendMime = toSend == fileBytes ? mimeType : "image/jpeg";
 
-        String body = buildRequestBody(toSend, sendMime, model);
+        try {
+            return callOnce(url, toSend, sendMime, model, false);
+        } catch (ExtractionException e) {
+            // The vision model sometimes ignores the JSON instruction and replies in prose
+            // ("**Document Details** ..."). Retry once with a blunt JSON-only directive —
+            // the output is non-deterministic, so a stricter second attempt usually complies.
+            if (isNoJson(e)) {
+                log.info("Cloudflare replied in prose, not JSON; retrying once with a stricter instruction");
+                return callOnce(url, toSend, sendMime, model, true);
+            }
+            throw e;
+        }
+    }
+
+    /** True when the failure was "the model didn't return JSON" (retryable via a stricter prompt). */
+    private static boolean isNoJson(ExtractionException e) {
+        return e.getMessage() != null && e.getMessage().contains("No JSON object found");
+    }
+
+    /** One Cloudflare call + parse. `strict` appends a hardened JSON-only directive. */
+    private ExtractionResult callOnce(String url, byte[] img, String mime, String model, boolean strict) {
+        String body = buildRequestBody(img, mime, model, strict);
         HttpResponse<String> resp;
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))
@@ -192,14 +213,21 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
      *     flat image[] form yields "Unable to add image…". Using the standard
      *     content-parts schema here means a future model swap needs no code change.
      */
-    private String buildRequestBody(byte[] fileBytes, String mimeType, String model) {
+    /** Appended on a retry to bully a prose-happy model back into raw JSON. */
+    private static final String STRICT_JSON =
+            "\n\nCRITICAL: Output ONLY the raw JSON object described above. Begin your reply with { and "
+            + "end with }. Do NOT use markdown, headings, bold (**), bullet points, or any prose or "
+            + "explanation. Return the JSON and nothing else.";
+
+    private String buildRequestBody(byte[] fileBytes, String mimeType, String model, boolean strict) {
+        String instruction = strict ? ExtractionPrompt.INSTRUCTION + STRICT_JSON : ExtractionPrompt.INSTRUCTION;
         ObjectNode root = mapper.createObjectNode();
         if (model != null && model.toLowerCase().contains("llava")) {
             ArrayNode image = root.putArray("image");
             for (byte b : fileBytes) {
                 image.add(b & 0xFF);
             }
-            root.put("prompt", ExtractionPrompt.INSTRUCTION);
+            root.put("prompt", instruction);
             root.put("max_tokens", 2048);
             return root.toString();
         }
@@ -207,7 +235,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
                 + java.util.Base64.getEncoder().encodeToString(fileBytes);
         ArrayNode messages = root.putArray("messages");
         ArrayNode content = messages.addObject().put("role", "user").putArray("content");
-        content.addObject().put("type", "text").put("text", ExtractionPrompt.INSTRUCTION);
+        content.addObject().put("type", "text").put("text", instruction);
         content.addObject().put("type", "image_url")
                 .putObject("image_url").put("url", dataUri);
         root.put("max_tokens", 2048);
