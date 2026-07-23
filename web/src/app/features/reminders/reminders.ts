@@ -5,10 +5,11 @@ import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { DocumentResponse, ReminderResponse } from '../../core/models';
+import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-reminders',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TroveSelect],
   template: `
     <div class="card">
       <h1>Reminders</h1>
@@ -18,19 +19,10 @@ import { DocumentResponse, ReminderResponse } from '../../core/models';
 
       <form (ngSubmit)="create()" class="inline-form">
         <label>Type
-          <select name="type" [(ngModel)]="type">
-            <option value="due">due</option>
-            <option value="renewal">renewal</option>
-            <option value="warranty_expiry">warranty_expiry</option>
-          </select>
+          <trove-select name="type" [(ngModel)]="type" [options]="typeOptions" ariaLabel="Reminder type"></trove-select>
         </label>
         <label>For document (optional)
-          <select name="documentId" [(ngModel)]="documentId">
-            <option value="">(none)</option>
-            @for (d of documents(); track d.id) {
-              <option [value]="d.id">{{ d.originalFilename || d.id }}{{ d.merchant ? ' · ' + d.merchant : '' }}</option>
-            }
-          </select>
+          <trove-select name="documentId" [(ngModel)]="documentId" [options]="docOptions()" ariaLabel="For document"></trove-select>
         </label>
         <label>Remind on <input type="date" name="remindOn" [(ngModel)]="remindOn" required /></label>
         <button type="submit" [disabled]="!remindOn">Add reminder</button>
@@ -84,6 +76,21 @@ export class Reminders {
 
   private readonly today = new Date().toISOString().slice(0, 10);
   dueCount = computed(() => this.reminders().filter((r) => this.isDue(r)).length);
+
+  protected typeOptions: SelectOption[] = [
+    { value: 'due', label: 'Due' },
+    { value: 'renewal', label: 'Renewal' },
+    { value: 'warranty_expiry', label: 'Warranty expiry' },
+  ];
+  /** "(none)" plus each document (filename + merchant as the second line). */
+  protected docOptions = computed<SelectOption[]>(() => [
+    { value: '', label: '(none)' },
+    ...this.documents().map((d) => ({
+      value: d.id,
+      label: d.originalFilename || d.id,
+      sub: d.merchant || undefined,
+    })),
+  ]);
 
   /** Pending and on/before today = the user should act on it now. */
   isDue(r: ReminderResponse): boolean {

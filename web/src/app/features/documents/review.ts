@@ -1,14 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
 import { NoticeService } from '../../core/notice/notice.service';
+import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-review',
-  imports: [FormsModule],
+  imports: [FormsModule, TroveSelect],
   template: `
     @if (!doc()) {
       <div class="card"><p class="muted">Loading…</p></div>
@@ -53,10 +54,8 @@ import { NoticeService } from '../../core/notice/notice.service';
         <form (ngSubmit)="confirm()">
           <label>
             <span class="lbl">Category <span class="tip" tabindex="0">i<span class="bubble">{{ tips.category }}</span></span></span>
-            <select name="category" [(ngModel)]="form.category">
-              <option value="" disabled>Choose a category…</option>
-              @for (c of categories(); track c.code) { <option [value]="c.code">{{ c.label }}</option> }
-            </select>
+            <trove-select name="category" [(ngModel)]="form.category" [options]="categoryOptions()"
+              placeholder="Choose a category…" ariaLabel="Category"></trove-select>
           </label>
           <label>
             <span class="lbl">Merchant <span class="tip" tabindex="0">i<span class="bubble">{{ tips.merchant }}</span></span></span>
@@ -173,6 +172,9 @@ export class Review {
   private id = '';
   doc = signal<DocumentResponse | null>(null);
   categories = signal<Category[]>([]);
+  protected categoryOptions = computed<SelectOption[]>(() =>
+    this.categories().map((c) => ({ value: c.code, label: c.label })),
+  );
   reading = signal(false);
   saving = signal(false);
   error = signal<string | null>(null);

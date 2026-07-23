@@ -1,14 +1,16 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { MoneyPipe } from '../../core/money.pipe';
 import { NoticeService } from '../../core/notice/notice.service';
 import { Category, DocumentResponse } from '../../core/models';
+import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-doc-list',
-  imports: [RouterLink, MoneyPipe],
+  imports: [RouterLink, MoneyPipe, FormsModule, TroveSelect],
   template: `
     <div class="card">
       <div class="row-between">
@@ -53,12 +55,8 @@ import { Category, DocumentResponse } from '../../core/models';
         </table>
 
         <div class="pager">
-          <select (change)="setPageSize($any($event.target).value)">
-            <option value="25" [selected]="pageSize() === 25">25 per page</option>
-            <option value="50" [selected]="pageSize() === 50">50 per page</option>
-            <option value="100" [selected]="pageSize() === 100">100 per page</option>
-            <option value="0" [selected]="pageSize() === 0">All (for Ctrl/⌘+F)</option>
-          </select>
+          <trove-select class="page-size" [ngModel]="pageSizeStr()" (ngModelChange)="setPageSize($event)"
+            [options]="pageSizeOptions" ariaLabel="Page size"></trove-select>
           @if (pageSize() !== 0 && totalPages() > 1) {
             <div class="pages">
               <button type="button" [disabled]="page() === 0" (click)="page.set(page() - 1)">‹ Prev</button>
@@ -86,7 +84,7 @@ import { Category, DocumentResponse } from '../../core/models';
       }
       .del:hover { background: var(--danger-soft); }
       .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
-      .pager select { padding: 6px 8px; border-radius: 8px; }
+      .page-size { display: inline-block; width: 200px; }
       .pages { display: flex; align-items: center; gap: 10px; }
       /* Override the global brand button (light text on brand fill): these are neutral
          nav buttons on a white row, so give them a dark label + no stray top margin. */
@@ -117,6 +115,13 @@ export class DocList {
   /** Page size (0 = show All, so browser find works on the full list). */
   pageSize = signal(25);
   page = signal(0);
+  protected pageSizeStr = computed(() => String(this.pageSize()));
+  protected pageSizeOptions: SelectOption[] = [
+    { value: '25', label: '25 per page' },
+    { value: '50', label: '50 per page' },
+    { value: '100', label: '100 per page' },
+    { value: '0', label: 'All (for Ctrl/⌘+F)' },
+  ];
 
   /** The slice of documents shown on the current page. */
   pagedDocs = computed(() => {

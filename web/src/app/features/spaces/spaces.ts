@@ -6,10 +6,11 @@ import { DriveStatus, IngestAddress, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { TERMS } from '../../core/terms';
+import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-spaces',
-  imports: [FormsModule, HelpCard, DateTimePipe],
+  imports: [FormsModule, HelpCard, DateTimePipe, TroveSelect],
   template: `
     <div class="card">
       <h1>Spaces</h1>
@@ -48,11 +49,7 @@ import { TERMS } from '../../core/terms';
         <form (ngSubmit)="addMember()" class="inline-form invite-form">
           <label>Invite by email <input name="email" [(ngModel)]="memberEmail" /></label>
           <label>Role
-            <select name="role" [(ngModel)]="memberRole">
-              <option value="member">member</option>
-              <option value="viewer">viewer</option>
-              <option value="owner">owner</option>
-            </select>
+            <trove-select name="role" [(ngModel)]="memberRole" [options]="roleOptions" ariaLabel="Role"></trove-select>
           </label>
           <button type="submit" [disabled]="!memberEmail.trim()">Add</button>
         </form>
@@ -120,6 +117,11 @@ export class Spaces {
 
   /** Vendor-neutral labels (see core/terms.ts) so provider swaps are one-file changes. */
   protected terms = TERMS;
+  protected roleOptions: SelectOption[] = [
+    { value: 'member', label: 'member' },
+    { value: 'viewer', label: 'viewer' },
+    { value: 'owner', label: 'owner' },
+  ];
   protected driveHelpUser =
     `Keeps a human-browsable copy of this space's files in ${TERMS.driveBackup}, organised as ` +
     `Trove / space / category / month. If the app and ${TERMS.database} are ever gone, you can still ` +
