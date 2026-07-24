@@ -10,7 +10,7 @@ import { NoticeService } from '../../core/notice/notice.service';
 import { ConfirmService } from '../../core/confirm.service';
 import { HelpCard } from '../../core/help-card';
 import { InfoTip } from '../../core/info-tip';
-import { Category, DocumentResponse } from '../../core/models';
+import { Category, DocumentResponse, ReminderResponse } from '../../core/models';
 import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
@@ -71,6 +71,17 @@ import { TroveSelect, SelectOption } from '../../core/select';
           <p class="muted total">{{ trash().length }} in trash</p>
         }
       } @else {
+
+      @if (upcomingReminders().length) {
+        <a routerLink="/reminders" class="reminder-strip" [class.overdue]="hasOverdue()">
+          <span class="rs-icon">🔔</span>
+          <span class="rs-text">
+            <b>{{ upcomingReminders().length }}</b> reminder{{ upcomingReminders().length > 1 ? 's' : '' }} to act on -
+            {{ reminderSummary() }}
+          </span>
+          <span class="rs-cta">View all →</span>
+        </a>
+      }
 
       <div class="cats">
         <button type="button" class="chip" [class.on]="category === ''" (click)="setCategory('')">All</button>
@@ -142,6 +153,18 @@ import { TroveSelect, SelectOption } from '../../core/select';
       /* Let a wide table scroll inside the card instead of the page scrolling sideways. */
       .table-scroll { overflow-x: auto; max-width: 100%; }
       .table-scroll table { min-width: 560px; }
+      /* A calm nudge above the list: reminders that need attention, linking to the page. */
+      .reminder-strip {
+        display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 14px;
+        border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: 10px;
+        text-decoration: none; color: var(--ink); font-size: 13px;
+      }
+      .reminder-strip:hover { filter: brightness(1.02); border-color: var(--accent); }
+      .reminder-strip.overdue { border-color: var(--danger-line); background: var(--danger-soft); }
+      .rs-icon { font-size: 15px; flex: none; }
+      .rs-text { flex: 1; line-height: 1.4; }
+      .rs-cta { flex: none; color: var(--accent); font-weight: 600; white-space: nowrap; }
+      .reminder-strip.overdue .rs-cta { color: var(--danger); }
       .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
       .chip {
         border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
@@ -191,6 +214,37 @@ export class DocList {
   docs = signal<DocumentResponse[]>([]);
   category = '';
   loading = signal(false);
+
+  // ── Upcoming reminders nudge ───────────────────────────────────────────────
+  reminders = signal<ReminderResponse[]>([]);
+  private readonly today = new Date().toISOString().slice(0, 10);
+  /** 30 days out, ISO date - the horizon for "coming up". */
+  private readonly horizon = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+
+  /** Reminders that still need attention: pending, and due within the next 30 days (or overdue),
+   *  soonest first. Sent/dismissed ones have run their course and are left to the Reminders page. */
+  upcomingReminders = computed(() =>
+    this.reminders()
+      .filter((r) => r.status === 'pending' && r.remindOn <= this.horizon)
+      .sort((a, b) => a.remindOn.localeCompare(b.remindOn)),
+  );
+  /** True if any upcoming reminder is already on/before today - shown in red. */
+  hasOverdue = computed(() => this.upcomingReminders().some((r) => r.remindOn <= this.today));
+
+  /** The nearest few reminders as one line: "Payment due 2026-08-01, Renewal 2026-08-15, +2 more". */
+  reminderSummary = computed(() => {
+    const up = this.upcomingReminders();
+    const parts = up.slice(0, 3).map((r) => `${this.rType(r.type)} ${r.remindOn}`);
+    return parts.join(', ') + (up.length > 3 ? `, +${up.length - 3} more` : '');
+  });
+
+  /** Reader-friendly reminder type label. */
+  protected rType(t: string): string {
+    return t === 'due' ? 'Payment due'
+      : t === 'renewal' ? 'Renewal'
+      : t === 'warranty_expiry' ? 'Warranty expiry'
+      : t;
+  }
 
   protected trashHelpUser =
     'Deleting never erases anything straight away. A deleted document moves to Trash and is hidden from your ' +
@@ -335,6 +389,7 @@ export class DocList {
     effect(() => {
       const sid = this.spaceCtx.currentSpaceId();
       this.api.listCategories(sid).subscribe((c) => this.categories.set(c));
+      this.api.listReminders(sid).subscribe({ next: (r) => this.reminders.set(r), error: () => this.reminders.set([]) });
       this.load();
     });
     // Trash view is driven by ?view=trash, so the top-nav "Documents" link (which clears
