@@ -109,6 +109,10 @@ import { TroveSelect, SelectOption } from '../../core/select';
                 <td>
                   @if (m.status === 'active') {
                     {{ m.role }}
+                  } @else if (m.status === 'pending' && m.selfRequested) {
+                    <span class="badge">wants to join</span>
+                    <button type="button" class="approve" (click)="approveMember(m)">Approve</button>
+                    <button type="button" class="dismiss" title="Decline" (click)="dismiss(m)">✕</button>
                   } @else if (m.status === 'pending') {
                     <span class="badge">invite sent · {{ m.role }}</span>
                   } @else {
@@ -128,6 +132,23 @@ import { TroveSelect, SelectOption } from '../../core/select';
           <button type="submit" [disabled]="!memberEmail.trim()">Add</button>
         </form>
         @if (memberMsg()) { <p class="muted">{{ memberMsg() }}</p> }
+
+        <div class="join-link">
+          <div class="join-head">
+            <span>Or share a join link</span>
+            <trove-info-tip text="Send this link to someone; opening it lets them REQUEST to join, and you approve them above. It never auto-adds anyone. Rotate to invalidate the old link, or Revoke to turn it off."></trove-info-tip>
+          </div>
+          @if (joinUrl()) {
+            <div class="join-row">
+              <input readonly [value]="joinUrl()" (focus)="selectAll($event)" />
+              <button type="button" class="btn-ghost sm" (click)="copyJoinLink()">Copy</button>
+              <button type="button" class="btn-ghost sm" (click)="rotateJoinLink()">Rotate</button>
+              <button type="button" class="btn-ghost sm" (click)="revokeJoinLink()">Revoke</button>
+            </div>
+          } @else {
+            <button type="button" class="btn-ghost" (click)="getJoinLink()">Get join link</button>
+          }
+        </div>
       }
     </div>
 
@@ -295,6 +316,12 @@ import { TroveSelect, SelectOption } from '../../core/select';
       .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
       .btn-ghost:hover { background: var(--hover); }
       .tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+      .approve { margin: 0 0 0 8px; padding: 3px 12px; background: var(--accent); color: var(--brand-ink); border: 0; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+      .approve:hover { filter: brightness(1.05); }
+      .join-link { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+      .join-head { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
+      .join-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .join-row input { flex: 1; min-width: 220px; margin: 0; font-family: monospace; font-size: 12px; }
       .dismiss { margin: 0 0 0 8px; padding: 2px 8px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 12px; }
       .dismiss:hover { color: var(--danger); border-color: var(--danger-line); }
       .space-bio { margin: 6px 0 0; }
@@ -503,6 +530,51 @@ export class Spaces {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid) return;
     this.api.removeMember(sid, m.userId).subscribe({ next: () => this.loadSpace(sid) });
+  }
+
+  approveMember(m: Member): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    this.api.approveMember(sid, m.userId).subscribe({
+      next: () => {
+        this.notices.show({ level: 'success', code: 'MEMBER_APPROVED', userMessage: `${m.email || 'Member'} approved.` });
+        this.loadSpace(sid);
+      },
+      error: (e) => this.notices.show({ level: 'error', code: 'APPROVE_FAIL', userMessage: e?.error?.message ?? 'Could not approve.' }),
+    });
+  }
+
+  // ── join link (owner) ──────────────────────────────────────────────────────
+  joinUrl = signal<string | null>(null);
+
+  getJoinLink(): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    this.api.spaceJoinLink(sid).subscribe({ next: (r) => this.joinUrl.set(r.url) });
+  }
+  rotateJoinLink(): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    this.api.rotateSpaceJoinLink(sid).subscribe({
+      next: (r) => { this.joinUrl.set(r.url); this.notices.show({ level: 'info', code: 'LINK_ROTATED', userMessage: 'Old link invalidated; new one ready.' }); },
+    });
+  }
+  revokeJoinLink(): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (!sid) return;
+    this.api.revokeSpaceJoinLink(sid).subscribe({
+      next: () => { this.joinUrl.set(null); this.notices.show({ level: 'info', code: 'LINK_REVOKED', userMessage: 'Join link turned off.' }); },
+    });
+  }
+  copyJoinLink(): void {
+    const url = this.joinUrl();
+    if (url) {
+      navigator.clipboard?.writeText(url);
+      this.notices.show({ level: 'success', code: 'LINK_COPIED', userMessage: 'Join link copied.' });
+    }
+  }
+  selectAll(e: Event): void {
+    (e.target as HTMLInputElement)?.select();
   }
 
   private loadSpace(sid: string): void {

@@ -158,6 +158,65 @@ public class SpaceService {
         return memberRepository.findByUserIdAndStatus(userId, MembershipStatus.PENDING);
     }
 
+    // ── request-to-join link ─────────────────────────────────────────────────
+
+    /** The space's join-link token (owner-only). Creates one on first call, or rotates it. */
+    @Transactional
+    public String joinToken(UUID spaceId, UUID actingUserId, boolean rotate) {
+        authorization.requireOwner(spaceId, actingUserId);
+        Space space = getSpace(spaceId);
+        if (rotate || space.getJoinToken() == null) {
+            space.setJoinToken(randomToken());
+            spaceRepository.save(space);
+        }
+        return space.getJoinToken();
+    }
+
+    /** Revokes the join link so it can't be used again (owner-only). */
+    @Transactional
+    public void revokeJoinToken(UUID spaceId, UUID actingUserId) {
+        authorization.requireOwner(spaceId, actingUserId);
+        Space space = getSpace(spaceId);
+        space.setJoinToken(null);
+        spaceRepository.save(space);
+    }
+
+    /**
+     * A logged-in user opens a join link: creates (or resets) their membership to PENDING.
+     * Never auto-joins - the owner still approves. Already-active members are a no-op.
+     */
+    @Transactional
+    public Space requestJoin(String token, UUID userId) {
+        Space space = spaceRepository.findByJoinToken(token == null ? "" : token.trim())
+                .orElseThrow(() -> new NotFoundException("This join link is invalid or has been revoked"));
+        var existing = memberRepository.findBySpaceIdAndUserId(space.getId(), userId);
+        if (existing.isPresent() && MembershipStatus.ACTIVE.equals(existing.get().getStatus())) {
+            return space;   // already in the space
+        }
+        SpaceMember member = existing.orElseGet(() -> new SpaceMember(space.getId(), userId, SpaceRole.MEMBER));
+        member.setStatus(MembershipStatus.PENDING);
+        member.setInvitedBy(null);   // self-requested (not invited by the owner)
+        memberRepository.save(member);
+        return space;
+    }
+
+    /** Owner approves a pending member (invited or self-requested via a link). */
+    @Transactional
+    public SpaceMember approveMember(UUID spaceId, UUID actingUserId, UUID targetUserId) {
+        authorization.requireOwner(spaceId, actingUserId);
+        SpaceMember member = memberRepository.findBySpaceIdAndUserId(spaceId, targetUserId)
+                .filter(m -> MembershipStatus.PENDING.equals(m.getStatus()))
+                .orElseThrow(() -> new NotFoundException("No pending request for this user"));
+        member.setStatus(MembershipStatus.ACTIVE);
+        return memberRepository.save(member);
+    }
+
+    private String randomToken() {
+        byte[] b = new byte[24];
+        new java.security.SecureRandom().nextBytes(b);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(b);
+    }
+
     /**
      * Removes a member from a space (owner-only). Used both to remove an active member
      * and to dismiss a declined invite row. The owner can't remove themselves (a space

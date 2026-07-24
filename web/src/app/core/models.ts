@@ -88,6 +88,7 @@ export interface Member {
   email: string | null;
   role: 'owner' | 'member' | 'viewer';
   status: 'active' | 'pending' | 'declined';
+  selfRequested: boolean;   // pending + came via a join link (owner approves), not an invite
   joinedAt: string;
 }
 

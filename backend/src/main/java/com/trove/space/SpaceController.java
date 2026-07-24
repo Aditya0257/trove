@@ -29,6 +29,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,12 +52,16 @@ public class SpaceController {
     private final SpaceService spaceService;
     private final CurrentUser currentUser;
     private final UserRepository userRepository;
+    private final String webBaseUrl;
 
     public SpaceController(SpaceService spaceService, CurrentUser currentUser,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           @org.springframework.beans.factory.annotation.Value(
+                                   "${trove.web.base-url:http://localhost:4200}") String webBaseUrl) {
         this.spaceService = spaceService;
         this.currentUser = currentUser;
         this.userRepository = userRepository;
+        this.webBaseUrl = webBaseUrl;
     }
 
     /** Create a shared space (caller becomes owner). */
@@ -114,6 +119,51 @@ public class SpaceController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Approve a pending member (invited or self-requested via link). Owner only. */
+    @PostMapping("/{id}/members/{userId}/approve")
+    public MemberResponse approveMember(@PathVariable UUID id, @PathVariable UUID userId) {
+        SpaceMember m = spaceService.approveMember(id, currentUser.requireUserId(), userId);
+        return MemberResponse.of(m, userRepository.findById(m.getUserId()).orElse(null));
+    }
+
+    // ── request-to-join link ─────────────────────────────────────────────────
+
+    /** Get (creating on first call) the space's join link. Owner only. */
+    @GetMapping("/{id}/join-link")
+    public JoinLink joinLink(@PathVariable UUID id) {
+        return joinLinkFor(spaceService.joinToken(id, currentUser.requireUserId(), false));
+    }
+
+    /** Rotate the join link (old link stops working). Owner only. */
+    @PostMapping("/{id}/join-link/rotate")
+    public JoinLink rotateJoinLink(@PathVariable UUID id) {
+        return joinLinkFor(spaceService.joinToken(id, currentUser.requireUserId(), true));
+    }
+
+    /** Revoke the join link entirely. Owner only. */
+    @DeleteMapping("/{id}/join-link")
+    public ResponseEntity<Void> revokeJoinLink(@PathVariable UUID id) {
+        spaceService.revokeJoinToken(id, currentUser.requireUserId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** A logged-in user requests to join a space via a share token (creates a pending request). */
+    @PostMapping("/join")
+    public JoinResult requestJoin(@RequestParam("token") String token) {
+        Space s = spaceService.requestJoin(token, currentUser.requireUserId());
+        return new JoinResult(s.getId(), s.getName());
+    }
+
+    private JoinLink joinLinkFor(String token) {
+        return new JoinLink(token, webBaseUrl.replaceAll("/+$", "") + "/join?token=" + token);
+    }
+
+    public record JoinLink(String token, String url) {
+    }
+
+    public record JoinResult(UUID spaceId, String spaceName) {
+    }
+
     /** The caller's outstanding invitations (pending), with who invited them. */
     @GetMapping("/invitations")
     public List<InvitationResponse> invitations() {
@@ -164,7 +214,7 @@ public class SpaceController {
     }
 
     public record MemberResponse(UUID userId, String displayName, String email, String role,
-                                 String status, Instant joinedAt) {
+                                 String status, boolean selfRequested, Instant joinedAt) {
         static MemberResponse of(SpaceMember m, User u) {
             return new MemberResponse(
                     m.getUserId(),
@@ -172,6 +222,7 @@ public class SpaceController {
                     u != null ? u.getEmail() : null,
                     m.getRole(),
                     m.getStatus(),
+                    m.getInvitedBy() == null,   // pending + no inviter = came via a join link
                     m.getJoinedAt());
         }
     }

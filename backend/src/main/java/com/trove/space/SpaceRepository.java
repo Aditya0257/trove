@@ -11,9 +11,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SpaceRepository extends JpaRepository<Space, UUID> {
+
+    /** Resolve a space from its active join-link token. */
+    Optional<Space> findByJoinToken(String joinToken);
 
     /** All spaces the given user is a member of, via space_member. */
     @Query("""

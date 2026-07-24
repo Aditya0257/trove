@@ -63,6 +63,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/backups/backups').then((m) => m.Backups),
   },
   {
+    path: 'join',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/spaces/join').then((m) => m.Join),
+  },
+  {
     path: 'spaces',
     canActivate: [authGuard],
     loadComponent: () => import('./features/spaces/spaces').then((m) => m.Spaces),

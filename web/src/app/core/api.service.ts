@@ -154,6 +154,24 @@ export class ApiService {
   removeMember(spaceId: string, userId: string) {
     return this.http.delete<void>(`${API_BASE}/api/spaces/${spaceId}/members/${userId}`);
   }
+  approveMember(spaceId: string, userId: string) {
+    return this.http.post<Member>(`${API_BASE}/api/spaces/${spaceId}/members/${userId}/approve`, {});
+  }
+
+  // --- space join link ---
+  spaceJoinLink(spaceId: string) {
+    return this.http.get<{ token: string; url: string }>(`${API_BASE}/api/spaces/${spaceId}/join-link`);
+  }
+  rotateSpaceJoinLink(spaceId: string) {
+    return this.http.post<{ token: string; url: string }>(`${API_BASE}/api/spaces/${spaceId}/join-link/rotate`, {});
+  }
+  revokeSpaceJoinLink(spaceId: string) {
+    return this.http.delete<void>(`${API_BASE}/api/spaces/${spaceId}/join-link`);
+  }
+  requestJoinSpace(token: string) {
+    return this.http.post<{ spaceId: string; spaceName: string }>(
+      `${API_BASE}/api/spaces/join${this.qs({ token })}`, {});
+  }
 
   // --- space invitations (accept/decline flow) ---
   listInvitations() {

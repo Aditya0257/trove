@@ -48,6 +48,11 @@ public class Space extends BaseEntity {
     @Column(name = "drive_sync_mode", nullable = false)
     private String driveSyncMode = "rotate";
 
+    // Revocable "request to join" link token (null = no active link). Opening the link
+    // creates a PENDING membership the owner must approve; it never auto-joins.
+    @Column(name = "join_token")
+    private String joinToken;
+
     protected Space() {
         // for JPA
     }
@@ -67,4 +72,6 @@ public class Space extends BaseEntity {
     public Instant getCreatedAt() { return createdAt; }
     public String getDriveSyncMode() { return driveSyncMode; }
     public void setDriveSyncMode(String driveSyncMode) { this.driveSyncMode = driveSyncMode; }
+    public String getJoinToken() { return joinToken; }
+    public void setJoinToken(String joinToken) { this.joinToken = joinToken; }
 }
