@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { NoticeService } from '../../core/notice/notice.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { PendingUser } from '../../core/models';
 
@@ -59,6 +60,7 @@ import { PendingUser } from '../../core/models';
 export class Admin {
   protected auth = inject(AuthService);
   private notices = inject(NoticeService);
+  private confirm = inject(ConfirmService);
 
   pending = signal<PendingUser[]>([]);
   loading = signal(false);
@@ -89,7 +91,11 @@ export class Admin {
   }
 
   reject(u: PendingUser): void {
-    if (!confirm(`Decline access for ${u.email}?`)) return;
+    this.confirm.ask({ title: 'Decline access?', message: `Decline access for ${u.email}?`, confirmLabel: 'Decline', danger: true })
+      .then((ok) => { if (ok) this.rejectConfirmed(u); });
+  }
+
+  private rejectConfirmed(u: PendingUser): void {
     this.busy.set(true);
     this.auth.adminReject(u.id).subscribe({
       next: () => {

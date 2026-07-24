@@ -5,6 +5,7 @@ import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { AuthService } from '../../core/auth.service';
 import { NoticeService } from '../../core/notice/notice.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { DriveConnectionView, DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
 import { InfoTip } from '../../core/info-tip';
@@ -347,6 +348,7 @@ export class Spaces {
   private api = inject(ApiService);
   private auth = inject(AuthService);
   private notices = inject(NoticeService);
+  private confirm = inject(ConfirmService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -678,15 +680,18 @@ export class Spaces {
   disconnect(connectionId: string): void {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid) return;
-    if (!confirm('Unlink this Drive from the space? Files already backed up stay in the Drive - ' +
-                 'Trove just stops syncing to it. Use "+ Connect another Drive" afterwards to link a different one.')) {
-      return;
-    }
-    this.api.driveDisconnect(sid, connectionId).subscribe({
-      next: () => { this.notices.show({ level: 'info', code: 'DRIVE_DISCONNECTED', userMessage: 'Drive unlinked from this space.' }); this.reloadDrive(sid); },
-      // Always refresh - even on error the card must reflect reality, so a stale row can't
-      // linger and keep failing.
-      error: (e) => { this.notices.show({ level: 'error', code: 'DRIVE_DISCONNECT', userMessage: e?.error?.message ?? 'Could not unlink this Drive.' }); this.reloadDrive(sid); },
+    this.confirm.ask({
+      title: 'Unlink this Drive?',
+      message: 'Files already backed up stay in the Drive - Trove just stops syncing to it. '
+        + 'Use "+ Connect another Drive" afterwards to link a different one.',
+      confirmLabel: 'Unlink',
+    }).then((ok) => {
+      if (!ok) return;
+      this.api.driveDisconnect(sid, connectionId).subscribe({
+        next: () => { this.notices.show({ level: 'info', code: 'DRIVE_DISCONNECTED', userMessage: 'Drive unlinked from this space.' }); this.reloadDrive(sid); },
+        // Always refresh - even on error the card must reflect reality, so a stale row can't linger.
+        error: (e) => { this.notices.show({ level: 'error', code: 'DRIVE_DISCONNECT', userMessage: e?.error?.message ?? 'Could not unlink this Drive.' }); this.reloadDrive(sid); },
+      });
     });
   }
 

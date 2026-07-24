@@ -6,6 +6,7 @@ import { SpaceContext } from '../../core/space.context';
 import { MoneyPipe } from '../../core/money.pipe';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { NoticeService } from '../../core/notice/notice.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { Category, DocumentResponse } from '../../core/models';
 import { TroveSelect, SelectOption } from '../../core/select';
 
@@ -194,6 +195,7 @@ export class DocList {
   });
 
   private notices = inject(NoticeService);
+  private confirm = inject(ConfirmService);
 
   setPageSize(value: string): void {
     this.pageSize.set(Number(value));
@@ -208,14 +210,18 @@ export class DocList {
 
   remove(d: DocumentResponse): void {
     const name = d.merchant || d.originalFilename || 'this document';
-    if (!confirm(`Move "${name}" to Trash? It stays recoverable for 30 days before it's permanently removed.`)) {
-      return;
-    }
-    this.api.deleteDocument(d.id).subscribe({
-      next: () => {
-        this.docs.update((list) => list.filter((x) => x.id !== d.id));
-        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash - recoverable for 30 days.' });
-      },
+    this.confirm.ask({
+      title: 'Move to Trash?',
+      message: `"${name}" stays recoverable for 30 days before it's permanently removed.`,
+      confirmLabel: 'Move to Trash',
+    }).then((ok) => {
+      if (!ok) return;
+      this.api.deleteDocument(d.id).subscribe({
+        next: () => {
+          this.docs.update((list) => list.filter((x) => x.id !== d.id));
+          this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash - recoverable for 30 days.' });
+        },
+      });
     });
   }
 
@@ -250,9 +256,17 @@ export class DocList {
 
   purge(d: DocumentResponse): void {
     const name = d.merchant || d.originalFilename || 'this document';
-    if (!confirm(`Permanently delete "${name}"? This clears it from live storage and can't be undone.`)) {
-      return;
-    }
+    this.confirm.ask({
+      title: 'Delete forever?',
+      message: `"${name}" will be cleared from live storage. This can't be undone.`,
+      confirmLabel: 'Delete forever', danger: true,
+    }).then((ok) => {
+      if (!ok) return;
+      this.purgeConfirmed(d);
+    });
+  }
+
+  private purgeConfirmed(d: DocumentResponse): void {
     this.api.purgeDocument(d.id).subscribe({
       next: () => {
         this.trash.update((list) => list.filter((x) => x.id !== d.id));

@@ -10,10 +10,11 @@ import { TroveSelect, SelectOption } from './core/select';
 import { NoticeToast } from './core/notice/notice-toast';
 import { DevDrawer } from './core/notice/dev-drawer';
 import { AssistantWidget } from './features/ask/assistant';
+import { ConfirmDialog } from './core/confirm-dialog';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, TroveSelect, NoticeToast, DevDrawer, AssistantWidget],
+  imports: [RouterOutlet, RouterLink, FormsModule, TroveSelect, NoticeToast, DevDrawer, AssistantWidget, ConfirmDialog],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

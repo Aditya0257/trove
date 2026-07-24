@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { DocumentResponse } from '../../core/models';
 
 /**
@@ -126,6 +127,7 @@ export class MailDetail {
   private router = inject(Router);
   private spaceCtx = inject(SpaceContext);
   private notices = inject(NoticeService);
+  private confirm = inject(ConfirmService);
   private location = inject(Location);
 
   private bundleId = '';
@@ -224,20 +226,24 @@ export class MailDetail {
   }
 
   remove(): void {
-    if (!confirm(`Delete this email and its ${this.docs().length} screenshot(s)?`)) {
-      return;
-    }
-    let done = 0;
-    const list = this.docs();
-    for (const d of list) {
-      this.api.deleteDocument(d.id).subscribe({
-        next: () => {
-          if (++done === list.length) {
-            this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Email deleted.' });
-            this.router.navigate(['/mail']);
-          }
-        },
-      });
-    }
+    this.confirm.ask({
+      title: 'Delete this email?',
+      message: `This moves the email and its ${this.docs().length} screenshot(s) to Trash.`,
+      confirmLabel: 'Delete', danger: true,
+    }).then((ok) => {
+      if (!ok) return;
+      let done = 0;
+      const list = this.docs();
+      for (const d of list) {
+        this.api.deleteDocument(d.id).subscribe({
+          next: () => {
+            if (++done === list.length) {
+              this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Email deleted.' });
+              this.router.navigate(['/mail']);
+            }
+          },
+        });
+      }
+    });
   }
 }

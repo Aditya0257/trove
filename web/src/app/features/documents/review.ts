@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
 import { NoticeService } from '../../core/notice/notice.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { TroveSelect, SelectOption } from '../../core/select';
 import { CURRENCY_OPTIONS } from '../../core/currencies';
 
@@ -206,6 +207,7 @@ export class Review {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private notices = inject(NoticeService);
+  private dialog = inject(ConfirmService);
   private location = inject(Location);
 
   /** Still awaiting the human's first confirmation (drives the read notices). */
@@ -380,14 +382,18 @@ export class Review {
     const d = this.doc();
     if (!d) return;
     const name = d.merchant || d.originalFilename || 'this document';
-    if (!confirm(`Delete "${name}"? This removes it from your vault.`)) {
-      return;
-    }
-    this.api.deleteDocument(d.id).subscribe({
-      next: () => {
-        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Document deleted.' });
-        this.router.navigate(['/documents']);
-      },
+    this.dialog.ask({
+      title: 'Move to Trash?',
+      message: `"${name}" stays recoverable in Trash for 30 days.`,
+      confirmLabel: 'Move to Trash',
+    }).then((ok) => {
+      if (!ok) return;
+      this.api.deleteDocument(d.id).subscribe({
+        next: () => {
+          this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash.' });
+          this.router.navigate(['/documents']);
+        },
+      });
     });
   }
 
