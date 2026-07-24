@@ -42,10 +42,14 @@ import { TroveSelect, SelectOption } from '../../core/select';
         <label>New shared space <input name="newName" [(ngModel)]="newName" placeholder="e.g. Household" /></label>
         <button type="submit" [disabled]="!newName.trim()">Create</button>
       </form>
-      <p class="muted">Current space: <b>{{ spaceCtx.current()?.name || '-' }}</b>
-        ({{ spaceCtx.current()?.kind }}). Switch spaces from the top-right selector.</p>
-      @if (spaceCtx.current()?.description) {
-        <p class="space-bio">{{ spaceCtx.current()?.description }}</p>
+      @if (!spaceCtx.loaded()) {
+        <p class="muted">Loading your spaces…</p>
+      } @else {
+        <p class="muted">Current space: <b>{{ spaceCtx.current()?.name || '-' }}</b>
+          ({{ spaceCtx.current()?.kind }}). Switch spaces from the top-right selector.</p>
+        @if (spaceCtx.current()?.description) {
+          <p class="space-bio">{{ spaceCtx.current()?.description }}</p>
+        }
       }
     </div>
 
@@ -96,7 +100,8 @@ import { TroveSelect, SelectOption } from '../../core/select';
         user="The people who can see and use this space. Roles: owner (full control, backup and billing), member (add and edit documents), viewer (read-only)."
         dev="Membership lives in the space_member table; every request checks the caller's role against the space before returning anything. A personal space always has exactly one owner: you.">
       </trove-help-card>
-      @if (membersError()) { <p class="muted">{{ membersError() }}</p> }
+      @if (!spaceCtx.loaded()) { <p class="muted">Loading…</p> }
+      @else if (membersError()) { <p class="muted">{{ membersError() }}</p> }
       @else {
         <table>
           <thead><tr><th>User</th><th>Role</th></tr></thead>
@@ -421,6 +426,11 @@ export class Spaces {
   exporting = signal(false);
 
   constructor() {
+    // Self-heal: if we landed here before the user's spaces finished loading (a slow
+    // or briefly-failed first load after login), ask for them now. load() is guarded
+    // against overlapping calls, so this is safe to call whenever spaces aren't in yet.
+    if (!this.spaceCtx.loaded()) this.spaceCtx.load();
+
     effect(() => {
       const sid = this.spaceCtx.currentSpaceId();
       if (sid) {
