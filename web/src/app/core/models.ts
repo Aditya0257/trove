@@ -107,13 +107,18 @@ export interface IngestAddress {
   address: string;
 }
 
+export type ReminderRecurrence = 'none' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+
 export interface ReminderResponse {
   id: string;
   documentId: string | null;
   spaceId: string;
   type: 'due' | 'renewal' | 'warranty_expiry';
+  title: string | null;
   remindOn: string;
-  status: 'pending' | 'sent' | 'dismissed';
+  recurrence: ReminderRecurrence;
+  status: 'pending' | 'sent' | 'dismissed' | 'done';
+  completedAt: string | null;
   createdAt: string;
 }
 

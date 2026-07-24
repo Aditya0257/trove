@@ -125,8 +125,23 @@ export class ApiService {
   listReminders(spaceId?: string, status?: string) {
     return this.http.get<ReminderResponse[]>(`${API_BASE}/api/reminders${this.qs({ spaceId, status })}`);
   }
-  createReminder(body: { type: string; remindOn: string; documentId?: string }, spaceId?: string) {
+  createReminder(
+    body: { type: string; remindOn: string; documentId?: string; title?: string; recurrence?: string },
+    spaceId?: string,
+  ) {
     return this.http.post<ReminderResponse>(`${API_BASE}/api/reminders${this.qs({ spaceId })}`, body);
+  }
+  updateReminder(
+    id: string,
+    body: { type: string; remindOn: string; title?: string; recurrence?: string; documentId?: string },
+  ) {
+    return this.http.patch<ReminderResponse>(`${API_BASE}/api/reminders/${id}`, body);
+  }
+  snoozeReminder(id: string, days: number) {
+    return this.http.post<ReminderResponse>(`${API_BASE}/api/reminders/${id}/snooze${this.qs({ days: String(days) })}`, {});
+  }
+  doneReminder(id: string) {
+    return this.http.post<ReminderResponse>(`${API_BASE}/api/reminders/${id}/done`, {});
   }
   dismissReminder(id: string) {
     return this.http.post<ReminderResponse>(`${API_BASE}/api/reminders/${id}/dismiss`, {});

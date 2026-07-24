@@ -221,11 +221,11 @@ export class DocList {
   /** 30 days out, ISO date - the horizon for "coming up". */
   private readonly horizon = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
 
-  /** Reminders that still need attention: pending, and due within the next 30 days (or overdue),
-   *  soonest first. Sent/dismissed ones have run their course and are left to the Reminders page. */
+  /** Reminders that still need attention: still open (pending or notified-but-not-handled) and
+   *  due within the next 30 days (or overdue), soonest first. Done/dismissed ones are left out. */
   upcomingReminders = computed(() =>
     this.reminders()
-      .filter((r) => r.status === 'pending' && r.remindOn <= this.horizon)
+      .filter((r) => (r.status === 'pending' || r.status === 'sent') && r.remindOn <= this.horizon)
       .sort((a, b) => a.remindOn.localeCompare(b.remindOn)),
   );
   /** True if any upcoming reminder is already on/before today - shown in red. */
