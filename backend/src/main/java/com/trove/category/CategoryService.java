@@ -63,7 +63,7 @@ public class CategoryService {
         }
         return repository.findBySpaceIdIsNullAndCode(FALLBACK_CODE)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Fallback category '" + FALLBACK_CODE + "' is missing — check Flyway seed V6."));
+                        "Fallback category '" + FALLBACK_CODE + "' is missing - check Flyway seed V6."));
     }
 
     /**

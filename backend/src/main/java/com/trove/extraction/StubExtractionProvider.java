@@ -49,14 +49,14 @@ public class StubExtractionProvider implements ExtractionProvider {
     public ExtractionResult extract(byte[] fileBytes, String mimeType) {
         return new ExtractionResult(
                 "uncategorized",  // don't guess a category
-                null,             // merchant — user fills in
+                null,             // merchant - user fills in
                 null,             // docDate
                 null,             // amount
                 null,             // currency
                 null,             // dueDate
                 List.of(),        // no line items
-                null,             // rawText — nothing was read
-                Map.of("note", "Automatic reading unavailable — fields left blank for you to fill."),
+                null,             // rawText - nothing was read
+                Map.of("note", "Automatic reading unavailable - fields left blank for you to fill."),
                 BigDecimal.ZERO   // confidence 0 → clearly "not read"
         );
     }

@@ -43,7 +43,7 @@ public class DriveSyncJob {
             try {
                 driveSyncService.sync(spaceId);
             } catch (Exception e) {
-                log.warn("Scheduled Drive sync failed for space {} — {}", spaceId, e.getMessage());
+                log.warn("Scheduled Drive sync failed for space {} - {}", spaceId, e.getMessage());
             }
         }
     }

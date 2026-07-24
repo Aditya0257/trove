@@ -97,7 +97,7 @@ public class RebuildService {
             String detail = "scanned=" + scanned + " rebuilt=" + rebuilt
                     + " skipped=" + skipped + " failed=" + failed;
             backupRunService.success(run, "bucket", detail);
-            log.info("DR rebuild complete — {}", detail);
+            log.info("DR rebuild complete - {}", detail);
             return new RebuildSummary(scanned, rebuilt, skipped, failed);
         } catch (Exception e) {
             backupRunService.fail(run, e.getMessage());

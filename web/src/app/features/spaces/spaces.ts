@@ -171,9 +171,9 @@ import { TroveSelect, SelectOption } from '../../core/select';
           </div>
           <p class="muted small mode-hint">
             @if (d.mode === 'mirror') {
-              Every document is copied into <b>all</b> linked Drives — a redundant, independent backup.
+              Every document is copied into <b>all</b> linked Drives - a redundant, independent backup.
             } @else {
-              Documents fill the <b>active</b> Drive, then roll to the next when it is full — pooled capacity.
+              Documents fill the <b>active</b> Drive, then roll to the next when it is full - pooled capacity.
             }
           </p>
 
@@ -223,7 +223,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
             @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
           </div>
         } @else {
-          <p class="muted">Not connected. Back this space up into a member's {{ terms.driveBackup }} — anyone in the space can link their own.</p>
+          <p class="muted">Not connected. Back this space up into a member's {{ terms.driveBackup }} - anyone in the space can link their own.</p>
           <div class="drive-foot">
             <button (click)="connect()">Connect {{ terms.driveBackup }}</button>
             <trove-info-tip text="Opens Google's consent screen to link a Drive. Trove only touches files it creates (drive.file scope) and backs this space's documents into it."></trove-info-tip>
@@ -360,7 +360,7 @@ export class Spaces {
     `nothing is lost if it is wiped.`;
 
   protected drivePoolHelpUser =
-    `A space can back up into more than one ${TERMS.driveBackup} at once — anyone in the space can link ` +
+    `A space can back up into more than one ${TERMS.driveBackup} at once - anyone in the space can link ` +
     `their own, so you pool everyone's free 15 GB. Two modes: Rotate fills the active Drive and rolls to ` +
     `the next when it is nearly full (more total room); Mirror copies every document into all linked Drives ` +
     `(a second, independent backup of everything). Each Drive shows how much of its space Trove is using; ` +
@@ -371,7 +371,7 @@ export class Spaces {
     `Pooling: the Drive connection is many-per-space; the folder-id cache and per-document sync state are ` +
     `keyed per connection (each Drive has its own Trove tree and its own copy of a file). Rotate syncs to ` +
     `the active connection and rolls to the next once account usage crosses 98% of quota; Mirror syncs every ` +
-    `document into every connection. Scope stays drive.file only — account identity and storage quota come ` +
+    `document into every connection. Scope stays drive.file only - account identity and storage quota come ` +
     `from about.get (no extra consent). Members link via write access; activating a Drive and changing the ` +
     `mode are owner-only. Soft-delete, restore and the 30-day purge reflect into Drive through document ` +
     `lifecycle events: the file moves to _Deleted on delete, back to its category/month folder on restore, ` +
@@ -536,7 +536,7 @@ export class Spaces {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid || !this.memberEmail.trim()) return;
     this.api.addMember(sid, this.memberEmail.trim(), this.memberRole).subscribe({
-      next: () => { this.memberMsg.set('Invitation sent — waiting for them to accept.'); this.memberEmail = ''; this.loadSpace(sid); },
+      next: () => { this.memberMsg.set('Invitation sent - waiting for them to accept.'); this.memberEmail = ''; this.loadSpace(sid); },
       error: (e) => this.memberMsg.set(e?.error?.message ?? 'Could not add member'),
     });
   }
@@ -554,7 +554,7 @@ export class Spaces {
   }
 
   // ── Drive storage bar helpers ──────────────────────────────────────────────
-  /** Percentage of `limit` taken by `part`, clamped 0–100 (0 when limit unknown). */
+  /** Percentage of `limit` taken by `part`, clamped 0-100 (0 when limit unknown). */
   pctOf(part: number | null, limit: number | null): number {
     if (!limit || !part) return 0;
     return Math.min(100, Math.max(0, (part / limit) * 100));
@@ -606,13 +606,13 @@ export class Spaces {
   disconnect(connectionId: string): void {
     const sid = this.spaceCtx.currentSpaceId();
     if (!sid) return;
-    if (!confirm('Unlink this Drive from the space? Files already backed up stay in the Drive — ' +
+    if (!confirm('Unlink this Drive from the space? Files already backed up stay in the Drive - ' +
                  'Trove just stops syncing to it. Use "+ Connect another Drive" afterwards to link a different one.')) {
       return;
     }
     this.api.driveDisconnect(sid, connectionId).subscribe({
       next: () => { this.notices.show({ level: 'info', code: 'DRIVE_DISCONNECTED', userMessage: 'Drive unlinked from this space.' }); this.reloadDrive(sid); },
-      // Always refresh — even on error the card must reflect reality, so a stale row can't
+      // Always refresh - even on error the card must reflect reality, so a stale row can't
       // linger and keep failing.
       error: (e) => { this.notices.show({ level: 'error', code: 'DRIVE_DISCONNECT', userMessage: e?.error?.message ?? 'Could not unlink this Drive.' }); this.reloadDrive(sid); },
     });

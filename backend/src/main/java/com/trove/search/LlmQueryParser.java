@@ -89,7 +89,7 @@ public class LlmQueryParser {
         // skip the LLM and let SearchService fall back to the free rule-based parser.
         String block = usage.blockReason(userId);
         if (block != null) {
-            log.info("Search LLM skipped — {} — falling back to rules", block);
+            log.info("Search LLM skipped - {} - falling back to rules", block);
             return Optional.empty();
         }
         try {
@@ -98,7 +98,7 @@ public class LlmQueryParser {
                     : callOllama(buildPrompt(text));
             return Optional.of(toQuery(extractJson(json)));
         } catch (Exception e) {
-            log.warn("LLM query parse failed ('{}') — falling back to rules: {}", text, e.getMessage());
+            log.warn("LLM query parse failed ('{}') - falling back to rules: {}", text, e.getMessage());
             return Optional.empty();
         }
     }

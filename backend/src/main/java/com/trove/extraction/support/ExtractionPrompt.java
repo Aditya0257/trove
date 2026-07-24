@@ -46,16 +46,16 @@ public final class ExtractionPrompt {
     public static final String INSTRUCTION = """
             You are a meticulous document-understanding assistant for a personal document vault.
             Read the attached document (a bill, receipt, invoice, policy, ticket, or ID) and extract
-            its key fields. The image is often a PHOTO taken by hand — it may be at an angle, held in
+            its key fields. The image is often a PHOTO taken by hand - it may be at an angle, held in
             fingers, on a cluttered surface, folded, faint (thermal paper), or slightly blurred. Read
             whatever you can regardless; ignore fingers, background and glare.
 
-            OUTPUT FORMAT — THIS IS STRICT:
+            OUTPUT FORMAT - THIS IS STRICT:
             Return EXACTLY ONE JSON object and nothing else. Your entire reply MUST begin with the
             character { and end with the character }.
             Do NOT reply in any of these ways:
               - NOT prose, sentences, explanations, commentary, or reasoning
-              - NOT markdown of any kind — no **bold**, no # or ## headings, no bullet or numbered lists
+              - NOT markdown of any kind - no **bold**, no # or ## headings, no bullet or numbered lists
               - NOT code fences or backticks (no ```json, no ``` at all)
               - NOT HTML or XML tags
               - NOT plain text, and NOT a label such as "Document Details", "Here is", or "Answer:"
@@ -86,7 +86,7 @@ public final class ExtractionPrompt {
             - Never invent values. If unsure of a number or date, use null and lower the confidence.
             - amount and lineItems[].amount must be plain numbers (e.g. 1840.50), not "₹1,840.50".
             - "rawText" comes LAST and must contain everything legible (do not summarise). It is a
-              JSON string, so escape every double-quote as \\" and every newline as \\n — never put a
+              JSON string, so escape every double-quote as \\" and every newline as \\n - never put a
               raw " or line break inside it, or the JSON will be invalid.
             - Fill "extra" generously with any labelled fields present, using clear camelCase keys,
               e.g. invoiceNumber, accountNumber, taxAmount, subtotal, billingPeriod, statementDate,

@@ -8,7 +8,7 @@ import { InfoTip } from '../../core/info-tip';
 import { BackupRun, IntegrityReport } from '../../core/models';
 
 /**
- * Backups & integrity dashboard — verifies the "three copies, zero data loss" promise
+ * Backups & integrity dashboard - verifies the "three copies, zero data loss" promise
  * rather than assuming it: per-tier coverage for the current space, the documents with
  * gaps, global object-store stats, and the recent backup/verification history.
  */
@@ -21,7 +21,7 @@ import { BackupRun, IntegrityReport } from '../../core/models';
         <h1>Backups &amp; integrity</h1>
         <div class="head-actions">
           <trove-info-tip align="right"
-            text="Re-checks every document right now: confirms the live file, its sidecar, the mirror and Drive copy all exist. Read-only — it changes nothing.">
+            text="Re-checks every document right now: confirms the live file, its sidecar, the mirror and Drive copy all exist. Read-only - it changes nothing.">
           </trove-info-tip>
           <button type="button" class="btn-ghost" (click)="verify()" [disabled]="loading()">
             {{ loading() ? 'Verifying…' : 'Verify now' }}
@@ -34,7 +34,7 @@ import { BackupRun, IntegrityReport } from '../../core/models';
         <!-- Headline health -->
         @if (r.criticalCount > 0) {
           <div class="banner bad">
-            ⚠ {{ r.criticalCount }} document(s) are missing their live copy — investigate below.
+            ⚠ {{ r.criticalCount }} document(s) are missing their live copy - investigate below.
           </div>
         } @else if (r.documents === 0) {
           <div class="banner ok">No documents in this space yet.</div>
@@ -46,7 +46,7 @@ import { BackupRun, IntegrityReport } from '../../core/models';
         <div class="tiers">
           <div class="tier" [class.warn]="r.primaryOk < r.documents">
             <div class="tier-h">Live copy <span class="tier-tag">R2</span></div>
-            <div class="tier-desc">The working store — live reads &amp; writes.</div>
+            <div class="tier-desc">The working store - live reads &amp; writes.</div>
             <div class="tier-n">{{ r.primaryOk }}/{{ r.documents }}</div>
             <div class="bar"><span [style.width.%]="pct(r.primaryOk, r.documents)"></span></div>
           </div>
@@ -82,13 +82,13 @@ import { BackupRun, IntegrityReport } from '../../core/models';
           <div><span class="k">Referenced by the index</span><span class="v">{{ r.storage.indexedKeys }}</span></div>
           <div>
             <span class="k">Orphan files
-              <trove-info-tip text="Files in R2 with no database row — usually left after a delete or a DB rebuild. Harmless: they don't affect your documents."></trove-info-tip>
+              <trove-info-tip text="Files in R2 with no database row - usually left after a delete or a DB rebuild. Harmless: they don't affect your documents."></trove-info-tip>
             </span>
             <span class="v">{{ r.storage.orphanObjects }}</span>
           </div>
           <div>
             <span class="k">Rebuildable from sidecar
-              <trove-info-tip text="Of those orphans, how many carry a sidecar JSON — enough to recreate their database row. Proof the DB is a rebuildable index, not the source of truth."></trove-info-tip>
+              <trove-info-tip text="Of those orphans, how many carry a sidecar JSON - enough to recreate their database row. Proof the DB is a rebuildable index, not the source of truth."></trove-info-tip>
             </span>
             <span class="v">{{ r.storage.rebuildableOrphans }}</span>
           </div>
@@ -150,14 +150,14 @@ import { BackupRun, IntegrityReport } from '../../core/models';
       .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
       .tier { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
       .tier.warn { border-color: var(--danger-line, rgba(180,64,47,0.4)); }
-      /* Every card has the same anatomy — one-line title, a fixed-height description,
-         then the number + bar — so all four numbers/bars sit on the same baseline. */
+      /* Every card has the same anatomy - one-line title, a fixed-height description,
+         then the number + bar - so all four numbers/bars sit on the same baseline. */
       .tier-h { font-size: 13px; font-weight: 600; display: flex; gap: 6px; align-items: baseline; white-space: nowrap; }
       .tier-tag {
         font-size: 10px; font-weight: 700; letter-spacing: 0.03em; color: var(--muted);
         background: var(--hover); border-radius: 5px; padding: 1px 6px;
       }
-      /* Mini in-card help — a distinct indigo tint (not the usual grey), two lines reserved. */
+      /* Mini in-card help - a distinct indigo tint (not the usual grey), two lines reserved. */
       .tier-desc {
         color: var(--accent-2); font-size: 11px; line-height: 1.35; margin: 5px 0 0;
         min-height: 2.7em; opacity: 0.9;
@@ -199,14 +199,14 @@ export class Backups {
   protected error = signal<string | null>(null);
 
   protected helpUser =
-    'Your documents are kept in three independent places — the live store, a second-cloud mirror, and ' +
-    'Google Drive — so no single outage can lose them. This page checks that every document is actually ' +
+    'Your documents are kept in three independent places - the live store, a second-cloud mirror, and ' +
+    'Google Drive - so no single outage can lose them. This page checks that every document is actually ' +
     'present in each place and flags anything that has drifted, so "nothing is lost" is something you can see, ' +
     'not just trust.';
   protected helpDev =
     'Verification, not assumption. It lists R2 (and B2) once and membership-checks every document\'s object + ' +
     'sidecar keys; Drive coverage comes from per-document sync records. Orphans (objects with no DB row) show ' +
-    'the database is a rebuildable index — orphaned sidecars are exactly what a rebuild reads back. A daily job ' +
+    'the database is a rebuildable index - orphaned sidecars are exactly what a rebuild reads back. A daily job ' +
     'runs the same check vault-wide and records it as a backup_run (FAILED if any live object is missing), so ' +
     'drift is caught and visible over time.';
 

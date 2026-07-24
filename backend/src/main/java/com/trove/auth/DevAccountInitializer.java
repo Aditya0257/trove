@@ -67,7 +67,7 @@ public class DevAccountInitializer implements ApplicationRunner {
             if (PLACEHOLDER.equals(user.getPasswordHash())) {
                 user.setPasswordHash(passwordEncoder.encode(devPassword));
                 userRepository.save(user);
-                log.info("Dev login enabled — email='{}' password='{}' (configure trove.dev.default-password to change/disable)",
+                log.info("Dev login enabled - email='{}' password='{}' (configure trove.dev.default-password to change/disable)",
                         user.getEmail(), devPassword);
             }
         });

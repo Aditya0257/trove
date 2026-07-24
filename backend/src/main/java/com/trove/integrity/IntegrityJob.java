@@ -50,14 +50,14 @@ public class IntegrityJob {
                     + " missingSidecar=" + c.missingSidecar() + " orphans=" + c.orphanObjects();
             if (c.missingPrimary() > 0) {
                 backupRunService.fail(runRow, detail);
-                log.warn("Integrity check FOUND MISSING PRIMARY objects — {}", detail);
+                log.warn("Integrity check FOUND MISSING PRIMARY objects - {}", detail);
             } else {
                 backupRunService.success(runRow, "vault", detail);
-                log.info("Integrity check OK — {}", detail);
+                log.info("Integrity check OK - {}", detail);
             }
         } catch (Exception e) {
             backupRunService.fail(runRow, e.getMessage());
-            log.warn("Integrity check errored — {}", e.getMessage());
+            log.warn("Integrity check errored - {}", e.getMessage());
         }
     }
 }

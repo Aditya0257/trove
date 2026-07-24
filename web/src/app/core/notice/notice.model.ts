@@ -1,5 +1,5 @@
 /**
- * Notice — the client twin of the backend ApiNotice (D23).
+ * Notice - the client twin of the backend ApiNotice (D23).
  *
  * The two-channel feedback unit: a calm `userMessage` for everyone and a precise
  * `devNote` for the curious/developer, plus a `level`, machine `code`, and free-form

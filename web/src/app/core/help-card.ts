@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 
 /**
- * A feature-level explainer — the two-channel Notice philosophy (D23) applied to help:
+ * A feature-level explainer - the two-channel Notice philosophy (D23) applied to help:
  * a plain "What this is" for everyone, and a "How it works" for anyone who wants the
  * technical/system-design detail. It's a collapsible card with a compact header, so a
  * repeat user isn't forced to re-read a paragraph every visit; set [open]="false" for

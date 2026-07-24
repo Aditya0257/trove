@@ -168,7 +168,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
       .chip.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
       .small { font-size: 12px; }
 
-      /* Category breakdown — horizontal bars. */
+      /* Category breakdown - horizontal bars. */
       .bars { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 6px; }
       .bar-row { display: flex; align-items: center; gap: 10px; }
       .bar-label { flex: 0 0 130px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -178,7 +178,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
       .detail-table { margin: 4px 0 8px; }
       .detail-table summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 
-      /* Monthly trend — vertical bars. */
+      /* Monthly trend - vertical bars. */
       .trend { display: flex; align-items: flex-end; gap: 14px; margin: 10px 0; overflow-x: auto; padding-bottom: 4px; }
       .trend-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 0 60px; }
       .trend-bar-wrap { display: flex; align-items: flex-end; height: 120px; width: 44px; }
@@ -186,7 +186,7 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models'
       .trend-val { font-size: 11px; font-weight: 600; }
       .trend-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
-      /* Granularity row — its own line, labelled, with a distinct indigo accent so it
+      /* Granularity row - its own line, labelled, with a distinct indigo accent so it
          reads as "timeframe" rather than "chart style" (which stays teal, up by the title). */
       .gran-row { display: flex; align-items: center; gap: 10px; margin: 2px 0 4px; flex-wrap: wrap; }
       .gran-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }

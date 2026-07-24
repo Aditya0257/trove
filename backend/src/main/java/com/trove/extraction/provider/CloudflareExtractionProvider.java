@@ -213,7 +213,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
                 // Surface what the model actually said, so a failure like this is diagnosable
                 // from the developer trail instead of a bare "No JSON object found".
                 throw ExtractionException.transientError(LABEL,
-                        e.getMessage() + " — model returned: " + truncate(text), e);
+                        e.getMessage() + " - model returned: " + truncate(text), e);
             }
         } catch (ExtractionException e) {
             throw e; // already a well-formed provider error (e.g. the parse-failure above)
@@ -277,7 +277,7 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
         try {
             BufferedImage img = ImageIO.read(new ByteArrayInputStream(fileBytes));
             if (img == null) {
-                return fileBytes; // unreadable format — let the API try the raw bytes
+                return fileBytes; // unreadable format - let the API try the raw bytes
             }
             int longest = Math.max(img.getWidth(), img.getHeight());
             if (longest <= MAX_IMAGE_EDGE) {

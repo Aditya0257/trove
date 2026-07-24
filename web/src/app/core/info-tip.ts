@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 
 /**
- * A small round "?" that reveals a short explanation on hover/focus — for telling the
+ * A small round "?" that reveals a short explanation on hover/focus - for telling the
  * user what a button/metric does BEFORE they click. Lighter than the collapsible
  * help-card; use it inline next to a control or a label.
  *

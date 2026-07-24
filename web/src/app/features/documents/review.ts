@@ -240,7 +240,7 @@ export class Review {
     vital: false,
   };
 
-  /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
+  /** Field help - shown on hover/focus of the info icon (Salesforce-style). */
   readonly tips = {
     category: 'The kind of document (electricity, shopping, insurance, and so on). It drives spend tracking, reminders and search.',
     merchant: 'Who issued it: the store, biller or company printed on the document.',
@@ -271,7 +271,7 @@ export class Review {
     return (this.doc()?.extra?.['extractionMeta'] as Record<string, unknown>) ?? {};
   }
 
-  /** True when nothing was really read — fell back to the stub, or confidence 0. */
+  /** True when nothing was really read - fell back to the stub, or confidence 0. */
   failedRead(): boolean {
     return this.extractionMeta()['fellBack'] === true || this.doc()?.extractionConfidence === 0;
   }
@@ -292,7 +292,7 @@ export class Review {
     return this.doc()?.extra?.['extractionSkipped'] === true;
   }
 
-  /** Internal `extra` keys that are plumbing, not document data — hidden from the trail. */
+  /** Internal `extra` keys that are plumbing, not document data - hidden from the trail. */
   private static readonly INTERNAL_EXTRA = new Set([
     'extractionMeta', 'extractionProvider', 'extractionModel', 'extractionAccepted',
     'aiTokens', 'aiNeurons', 'notes', 'extractionSkipped', 'anomaly',
@@ -305,7 +305,7 @@ export class Review {
   rawText(): string {
     return this.doc()?.rawText ?? '';
   }
-  /** The model's type-specific extra fields (account no., invoice no., tax…) — the extra
+  /** The model's type-specific extra fields (account no., invoice no., tax…) - the extra
    *  value the AI read that doesn't map to a core field. Plumbing keys are filtered out. */
   extraEntries(): [string, string][] {
     const ex = this.doc()?.extra ?? {};

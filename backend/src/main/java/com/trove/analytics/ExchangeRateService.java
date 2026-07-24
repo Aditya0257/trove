@@ -93,7 +93,7 @@ public class ExchangeRateService {
         Double rf = rates.get(f);
         Double rt = rates.get(t);
         if (rf == null || rt == null || rf == 0) {
-            return amount; // unknown pair — leave as-is rather than distort
+            return amount; // unknown pair - leave as-is rather than distort
         }
         return amount.divide(BigDecimal.valueOf(rf), 6, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(rt))
@@ -112,7 +112,7 @@ public class ExchangeRateService {
                     .timeout(Duration.ofSeconds(15)).GET().build();
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() / 100 != 2) {
-                log.warn("FX refresh skipped — rates endpoint HTTP {}", resp.statusCode());
+                log.warn("FX refresh skipped - rates endpoint HTTP {}", resp.statusCode());
                 return;
             }
             JsonNode ratesNode = mapper.readTree(resp.body()).path("rates");
@@ -126,10 +126,10 @@ public class ExchangeRateService {
             if (parsed.containsKey("USD") && parsed.size() >= 2) {
                 rates = parsed;
                 asOf = Instant.now();
-                log.info("Exchange rates refreshed — {}", parsed);
+                log.info("Exchange rates refreshed - {}", parsed);
             }
         } catch (Exception e) {
-            log.warn("FX refresh failed — keeping existing rates: {}", e.getMessage());
+            log.warn("FX refresh failed - keeping existing rates: {}", e.getMessage());
         }
     }
 }

@@ -33,7 +33,7 @@ public class MirrorJob {
         try {
             mirrorService.mirror();
         } catch (Exception e) {
-            log.warn("Scheduled mirror failed — {}", e.getMessage());
+            log.warn("Scheduled mirror failed - {}", e.getMessage());
         }
     }
 }

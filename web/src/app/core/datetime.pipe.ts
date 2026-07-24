@@ -1,8 +1,8 @@
 import { Pipe, PipeTransform } from '@angular/core';
 
 /**
- * Formats an ISO timestamp into a readable, fully-detailed local string —
- * e.g. "23 Jul 2026, 1:25:58 PM IST" — instead of the raw machine form. Keeps the
+ * Formats an ISO timestamp into a readable, fully-detailed local string -
+ * e.g. "23 Jul 2026, 1:25:58 PM IST" - instead of the raw machine form. Keeps the
  * full detail (date, seconds, timezone) the raw value had, just legible.
  */
 @Pipe({ name: 'prettyDate', standalone: true })

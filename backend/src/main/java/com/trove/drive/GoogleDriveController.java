@@ -186,7 +186,7 @@ public class GoogleDriveController {
                 .filter(c -> c.getId().equals(connectionId)).findFirst()
                 .orElse(null);
         if (conn == null) {
-            return;   // already unlinked — nothing to do
+            return;   // already unlinked - nothing to do
         }
         if (!SpaceRole.OWNER.equals(role) && !userId.equals(conn.getConnectedBy())) {
             throw new ForbiddenException("Only the owner or the member who linked it can remove this Drive");

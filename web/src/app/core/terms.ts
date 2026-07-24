@@ -1,9 +1,9 @@
 /**
- * Provider / infrastructure vocabulary — the ONE place vendor names live.
+ * Provider / infrastructure vocabulary - the ONE place vendor names live.
  *
  * The rest of the app never hardcodes "Cloudflare R2", "Backblaze B2", "Workers AI",
  * "Neon", etc. It uses these vendor-neutral labels instead, so end users see plain
- * language and — if a provider is ever swapped — only this file changes.
+ * language and - if a provider is ever swapped - only this file changes.
  *
  * Keep the values generic. The single real product name we intentionally keep is the
  * user's cloud drive, because they literally connect their own account to it; even that

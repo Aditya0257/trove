@@ -19,12 +19,12 @@ interface MailEntry {
 }
 
 /**
- * Mail — file the important emails you screenshot (tax paid, subscription renewed) so
+ * Mail - file the important emails you screenshot (tax paid, subscription renewed) so
  * you can actually find them later. Paste/drop the screenshots, tag them with which
  * account (personal/office), a subject and the email's date; Trove stores them under
  * the "email" category, grouped as one entry, and lists them by account/date.
  *
- * Reuses the whole document pipeline — each screenshot is a normal document with
+ * Reuses the whole document pipeline - each screenshot is a normal document with
  * category "email" and the mail metadata in `extra`; a shared `mailBundleId` groups
  * the screenshots of one email. Confirming right after upload is safe: the extractor
  * never overwrites a confirmed document.
@@ -113,7 +113,7 @@ interface MailEntry {
           </label>
           <label class="checkbox">
             <input type="checkbox" name="aiRead" [(ngModel)]="aiRead" />
-            Also read the text with AI (optional — makes the email body searchable; uses AI credits)
+            Also read the text with AI (optional - makes the email body searchable; uses AI credits)
           </label>
 
           @if (saving()) { <p class="muted">Reading &amp; filing {{ done() + 1 }} of {{ total() }}…</p> }
@@ -256,7 +256,7 @@ export class Mail {
     [...new Set(this.entries().map((e) => e.address).filter((a) => !!a))],
   );
 
-  /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
+  /** Field help - shown on hover/focus of the info icon (Salesforce-style). */
   readonly tips = {
     account: 'A short label to group your inboxes, like Personal or Office.',
     address: "The email address whose inbox this is in, e.g. you@work.com, so you know exactly which inbox to open and search later.",

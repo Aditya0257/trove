@@ -53,7 +53,7 @@ export class App {
               this.notices.show({
                 level: 'info',
                 code: 'INVITES',
-                userMessage: `You have ${invs.length} space invitation${invs.length > 1 ? 's' : ''} waiting — open Spaces to accept or decline.`,
+                userMessage: `You have ${invs.length} space invitation${invs.length > 1 ? 's' : ''} waiting - open Spaces to accept or decline.`,
               });
             }
           },

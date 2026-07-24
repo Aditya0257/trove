@@ -16,8 +16,8 @@ interface Queued {
 }
 
 /**
- * Upload screen. Three ways in — paste a screenshot (Cmd/Ctrl+V), drag images onto
- * the drop zone, or the file picker — and several at once. Each queued image shows a
+ * Upload screen. Three ways in - paste a screenshot (Cmd/Ctrl+V), drag images onto
+ * the drop zone, or the file picker - and several at once. Each queued image shows a
  * thumbnail; uploading pushes them through the read pipeline one by one. A single
  * upload goes straight to its review; a batch lands on the documents list where each
  * needs-review item is one tap away.
@@ -90,7 +90,7 @@ interface Queued {
         Read images with AI automatically (uses AI credits).
       </label>
       <p class="muted ai-hint">
-        A saved preference — it applies to every upload until you change it (here, or from the
+        A saved preference - it applies to every upload until you change it (here, or from the
         dev panel's Pause button). Turn off to skip the wait and fill the details yourself.
       </p>
 
@@ -258,7 +258,7 @@ export class Upload {
         }
         ids.push(doc.id);
       } catch (e: unknown) {
-        // A duplicate (409) means this exact file is already in the vault — open the
+        // A duplicate (409) means this exact file is already in the vault - open the
         // existing document rather than dead-ending. Its id rides in the error body.
         const err = e as {
           status?: number;

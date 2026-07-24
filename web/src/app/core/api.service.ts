@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { map } from 'rxjs';
 import { API_BASE } from './config';
 
-/** Display order for categories — by everyday usefulness, financial kinds clustered,
+/** Display order for categories - by everyday usefulness, financial kinds clustered,
  *  with the catch-all buckets pinned to the end. Codes not listed sort alphabetically
  *  just before "other". */
 const CATEGORY_ORDER = [
@@ -36,7 +36,7 @@ import {
 } from './models';
 
 /**
- * Wrapper over the Trove REST API (see docs/API.md). `spaceId` is optional — when
+ * Wrapper over the Trove REST API (see docs/API.md). `spaceId` is optional - when
  * omitted the backend uses the caller's personal space.
  */
 @Injectable({ providedIn: 'root' })
@@ -89,7 +89,7 @@ export class ApiService {
     return doc.fileUrl.startsWith('http') ? doc.fileUrl : `${API_BASE}${doc.fileUrl}`;
   }
 
-  /** Fetches file bytes via the API (auth header attached) — needed for vital docs,
+  /** Fetches file bytes via the API (auth header attached) - needed for vital docs,
    *  which are served from /content and can't be opened as a plain link. */
   getContent(id: string) {
     return this.http.get(`${API_BASE}/api/documents/${id}/content`, { responseType: 'blob' });

@@ -44,7 +44,7 @@ public class DocumentPurgeJob {
         try {
             documentService.purgeExpired(retentionDays);
         } catch (Exception e) {
-            log.warn("Trash purge sweep failed — {}", e.getMessage());
+            log.warn("Trash purge sweep failed - {}", e.getMessage());
         }
     }
 }

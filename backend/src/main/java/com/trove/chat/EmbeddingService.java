@@ -85,7 +85,7 @@ public class EmbeddingService {
                     """, doc.getId(), doc.getSpaceId(), toVectorLiteral(vec), provider.model());
             return true;
         } catch (Exception e) {
-            log.warn("Embedding index failed for document {} — {}", documentId, e.getMessage());
+            log.warn("Embedding index failed for document {} - {}", documentId, e.getMessage());
             return false;
         }
     }

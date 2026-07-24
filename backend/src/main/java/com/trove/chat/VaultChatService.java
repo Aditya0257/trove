@@ -135,7 +135,7 @@ public class VaultChatService {
             }
             return new ChatAnswer(answer, true, sources);
         } catch (Exception e) {
-            log.warn("Vault chat answer failed ('{}') — returning sources only: {}", question, e.getMessage());
+            log.warn("Vault chat answer failed ('{}') - returning sources only: {}", question, e.getMessage());
             return new ChatAnswer("I hit a problem writing the answer, but here are the most relevant documents.",
                     false, sources);
         }
@@ -193,15 +193,15 @@ public class VaultChatService {
                 question using ONLY the documents below, and cite the ones you use by number
                 like [1] or [2].
 
-                Documents come in different KINDS — read each by its fields:
+                Documents come in different KINDS - read each by its fields:
                 - Bills / receipts / purchases: have Merchant, Date and Amount (money spent).
                 - Emails (category Email): have Subject, Sender/Topic, Account and Date. They are
-                  saved notes, NOT spending — an email's numbers are never an amount paid.
+                  saved notes, NOT spending - an email's numbers are never an amount paid.
                 - IDs, policies, warranties, subscriptions: may have a Due/Expiry date.
 
                 Do:
                 - Use Date for "last / latest / most recent" (newest) and "first / oldest" (earliest).
-                - Add Amounts for totals or "how much" — bills only, never emails.
+                - Add Amounts for totals or "how much" - bills only, never emails.
                 - Use Subject / Sender/Topic / Account to answer questions about emails.
                 - Use the Due/Expiry date for "expires", "renews", "due".
                 - Honour exclusions: for "not X", "except X", "other than X", leave those documents out.
@@ -217,7 +217,7 @@ public class VaultChatService {
                   never the whole answer.
 
                 Always write a full sentence that states the actual value in words, then cite it.
-                Example — if [1] is an electricity bill for 27.50 USD dated 2026-07-16, answer:
+                Example - if [1] is an electricity bill for 27.50 USD dated 2026-07-16, answer:
                 "Your last electricity bill was 27.50 USD on 2026-07-16 [1]."
 
                 Documents:

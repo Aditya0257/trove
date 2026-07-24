@@ -91,11 +91,11 @@ public class ExtractionWorker {
     public void process(UUID documentId) {
         Document doc = documentRepository.findById(documentId).orElse(null);
         if (doc == null) {
-            log.warn("Extraction skipped — document {} no longer exists", documentId);
+            log.warn("Extraction skipped - document {} no longer exists", documentId);
             return;
         }
         if (doc.getExtractionConfidence() != null) {
-            log.debug("Extraction skipped — document {} already extracted", documentId);
+            log.debug("Extraction skipped - document {} already extracted", documentId);
             return;
         }
         // Never overwrite a human-confirmed document. Besides being the right invariant
@@ -103,7 +103,7 @@ public class ExtractionWorker {
         // upload — e.g. filing email screenshots — set their own category/fields without
         // a late extraction run clobbering them.
         if (DocumentStatus.CONFIRMED.equals(doc.getStatus())) {
-            log.debug("Extraction skipped — document {} already confirmed", documentId);
+            log.debug("Extraction skipped - document {} already confirmed", documentId);
             return;
         }
 
@@ -113,7 +113,7 @@ public class ExtractionWorker {
         // reads the document instead — the upload still lands in needs_review.
         String block = aiUsage.blockReason(doc.getUploadedBy());
         if (block != null) {
-            log.info("AI extraction budget reached for document {} — {}", documentId, block);
+            log.info("AI extraction budget reached for document {} - {}", documentId, block);
         }
         // The engine walks the configured provider fallback chain and returns the
         // first acceptable result (or a best-effort/stub result). See DECISIONS.md → D9.

@@ -127,7 +127,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: var(--danger-soft); }
-      /* Trash + Upload are a matched pair on one line — neutralise the global button's
+      /* Trash + Upload are a matched pair on one line - neutralise the global button's
          top margin and give the ghost the same box so they align and read as siblings. */
       .head-actions { display: flex; align-items: center; gap: 10px; }
       .head-actions > * { margin: 0; }
@@ -164,7 +164,7 @@ export class DocList {
   loading = signal(false);
 
   /** Emails have their own home in the Mail section, so they're kept out of Documents
-   *  entirely — no "Email" filter chip, and never listed under "All". */
+   *  entirely - no "Email" filter chip, and never listed under "All". */
   visibleCategories = computed(() => this.categories().filter((c) => c.code !== 'email'));
   visibleDocs = computed(() => this.docs().filter((d) => d.category !== 'email'));
 
@@ -214,7 +214,7 @@ export class DocList {
     this.api.deleteDocument(d.id).subscribe({
       next: () => {
         this.docs.update((list) => list.filter((x) => x.id !== d.id));
-        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash — recoverable for 30 days.' });
+        this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash - recoverable for 30 days.' });
       },
     });
   }

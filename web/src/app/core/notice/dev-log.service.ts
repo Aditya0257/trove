@@ -17,11 +17,11 @@ export interface DevLogEntry {
 
 /**
  * Records every request and mirrors it to the browser console in a clean, grouped,
- * monospace format (no emoji) — the "inspect" experience for a developer, plus a
+ * monospace format (no emoji) - the "inspect" experience for a developer, plus a
  * live feed for the in-app Developer drawer. Bounded to the last 100 calls.
  *
  * Nothing sensitive is stored or printed: method, path, status, timing, request-id,
- * and the notice/extraction trail only — never headers or tokens.
+ * and the notice/extraction trail only - never headers or tokens.
  */
 @Injectable({ providedIn: 'root' })
 export class DevLogService {
@@ -39,7 +39,7 @@ export class DevLogService {
     this._entries.set([]);
   }
 
-  /** Grouped, styled console output — legible at a glance, expandable for detail. */
+  /** Grouped, styled console output - legible at a glance, expandable for detail. */
   private toConsole(e: DevLogEntry): void {
     const ok = e.status >= 200 && e.status < 300;
     const statusColor = e.status === 0 ? '#c0392b' : ok ? '#2e7d5b' : '#b8860b';

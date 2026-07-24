@@ -1,7 +1,7 @@
-/* Trove web — minimal global styles (functional, not a design system). */
+/* Trove web - minimal global styles (functional, not a design system). */
 
 /* ---------------------------------------------------------------------------
- * Theme tokens — the single source of truth for colour (like a Flutter ThemeData).
+ * Theme tokens - the single source of truth for colour (like a Flutter ThemeData).
  * Components reference var(--token); they never hardcode hex. Light values live in
  * :root; dark mode just overrides the same names under [data-theme="dark"], so
  * flipping one attribute on <html> recolours the whole app instantly.
@@ -17,7 +17,7 @@
   --accent: #2f6f6a;                       /* teal used for links, chips, tips */
   --accent-soft: rgba(47, 111, 106, 0.10); /* translucent accent fill */
   --accent-line: rgba(47, 111, 106, 0.35); /* accent-tinted border */
-  --accent-2: #5658c9;                     /* indigo — a secondary toggle hue (e.g. granularity) */
+  --accent-2: #5658c9;                     /* indigo - a secondary toggle hue (e.g. granularity) */
   --accent-2-soft: rgba(86, 88, 201, 0.10);
   --accent-2-line: rgba(86, 88, 201, 0.35);
   --input-bg: #ffffff;
@@ -49,7 +49,7 @@
   --accent: #5fb0a6;
   --accent-soft: rgba(95, 176, 166, 0.14);
   --accent-line: rgba(95, 176, 166, 0.38);
-  --accent-2: #8b8df0;                     /* indigo — brighter for dark surfaces */
+  --accent-2: #8b8df0;                     /* indigo - brighter for dark surfaces */
   --accent-2-soft: rgba(139, 141, 240, 0.16);
   --accent-2-line: rgba(139, 141, 240, 0.42);
   --input-bg: #222735;
@@ -114,7 +114,7 @@ body {
 .topbar nav a:hover { color: var(--ink); }
 .topbar .spacer { flex: 1; }
 .topbar .user-email { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Hamburger toggle — hidden on desktop, shown when the nav collapses. */
+/* Hamburger toggle - hidden on desktop, shown when the nav collapses. */
 .topbar .hamburger {
   display: none; margin: 0 0 0 auto; padding: 0.25rem 0.55rem; background: transparent;
   border: 1px solid var(--line); border-radius: 8px; font-size: 1.1rem; line-height: 1; cursor: pointer;

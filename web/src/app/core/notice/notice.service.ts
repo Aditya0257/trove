@@ -4,7 +4,7 @@ import { Notice } from './notice.model';
 /**
  * Holds the single active toast. Anything (interceptor, a component, a guard) can
  * push a Notice here; the root renders whatever `current` holds and it self-clears
- * after a level-dependent delay. Kept deliberately dumb — pure transport, no styling.
+ * after a level-dependent delay. Kept deliberately dumb - pure transport, no styling.
  */
 @Injectable({ providedIn: 'root' })
 export class NoticeService {

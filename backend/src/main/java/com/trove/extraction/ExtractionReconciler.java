@@ -72,7 +72,7 @@ public class ExtractionReconciler implements ApplicationRunner {
         if (pending.isEmpty()) {
             return;
         }
-        log.info("Extraction reconciler ({}) found {} un-extracted document(s) — re-dispatching",
+        log.info("Extraction reconciler ({}) found {} un-extracted document(s) - re-dispatching",
                 trigger, pending.size());
         pending.forEach(doc -> dispatcher.dispatch(doc.getId()));
     }

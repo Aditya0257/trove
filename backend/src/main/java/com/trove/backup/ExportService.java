@@ -119,7 +119,7 @@ public class ExportService {
             byte[] bytes = baos.toByteArray();
             backupRunService.success(run, "zip:" + bytes.length + "B",
                     "documents=" + docs.size());
-            log.info("Exported space {} — {} documents, {} bytes", spaceId, docs.size(), bytes.length);
+            log.info("Exported space {} - {} documents, {} bytes", spaceId, docs.size(), bytes.length);
             return bytes;
         } catch (Exception e) {
             backupRunService.fail(run, e.getMessage());

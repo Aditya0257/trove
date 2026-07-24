@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 
 /**
  * Small user-controllable settings, persisted to localStorage. Currently just the
- * AI-reading toggle: when off, uploads skip the vision model — the document is stored
+ * AI-reading toggle: when off, uploads skip the vision model - the document is stored
  * and left for manual entry, with no wait and no credits spent. Handy when you'd
  * rather type the details yourself, or to stop consuming the shared daily budget.
  */

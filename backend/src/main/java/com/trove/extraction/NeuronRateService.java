@@ -112,7 +112,7 @@ public class NeuronRateService {
     @Scheduled(initialDelay = 20_000, fixedDelay = 7L * 24 * 60 * 60 * 1000)
     public void refresh() {
         if (cf.getAccountId().isBlank() || cf.getApiToken().isBlank()) {
-            return; // Cloudflare not configured — nothing to fetch; defaults apply.
+            return; // Cloudflare not configured - nothing to fetch; defaults apply.
         }
         try {
             String url = "https://api.cloudflare.com/client/v4/accounts/%s/ai/models/search?per_page=200"
@@ -123,16 +123,16 @@ public class NeuronRateService {
                     .GET().build();
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() / 100 != 2) {
-                log.warn("Neuron rate refresh skipped — Cloudflare models API HTTP {}", resp.statusCode());
+                log.warn("Neuron rate refresh skipped - Cloudflare models API HTTP {}", resp.statusCode());
                 return;
             }
             Map<String, double[]> parsed = parse(mapper.readTree(resp.body()).path("result"));
             if (!parsed.isEmpty()) {
                 live = parsed;
-                log.info("Neuron rates refreshed from Cloudflare — {} models priced", parsed.size());
+                log.info("Neuron rates refreshed from Cloudflare - {} models priced", parsed.size());
             }
         } catch (Exception e) {
-            log.warn("Neuron rate refresh failed — keeping existing rates: {}", e.getMessage());
+            log.warn("Neuron rate refresh failed - keeping existing rates: {}", e.getMessage());
         }
     }
 

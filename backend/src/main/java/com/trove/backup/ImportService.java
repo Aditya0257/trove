@@ -80,7 +80,7 @@ public class ImportService {
             RebuildService.RebuildSummary summary = rebuildService.rebuild();
             backupRunService.success(run, "bucket",
                     "restoredObjects=" + restoredObjects + " " + summary);
-            log.info("Import complete — {} objects restored, {}", restoredObjects, summary);
+            log.info("Import complete - {} objects restored, {}", restoredObjects, summary);
             return summary;
         } catch (Exception e) {
             backupRunService.fail(run, e.getMessage());

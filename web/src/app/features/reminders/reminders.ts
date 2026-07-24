@@ -110,7 +110,7 @@ export class Reminders {
   }
 
   /** Loads reminders AND documents together so the Document column shows filenames on
-   *  the first paint — never a flash of raw UUIDs while the names catch up. */
+   *  the first paint - never a flash of raw UUIDs while the names catch up. */
   private reload(spaceId?: string): void {
     this.loading.set(true);
     forkJoin({

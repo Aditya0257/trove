@@ -20,7 +20,7 @@ interface AnswerPart {
 }
 
 /**
- * Floating "Ask your vault" assistant — a launcher pinned bottom-right that opens a chat
+ * Floating "Ask your vault" assistant - a launcher pinned bottom-right that opens a chat
  * panel over any page. Grounded RAG answers with citations back to source documents.
  * Mounted once in the app shell (like the notice toast + dev drawer).
  */
@@ -49,7 +49,7 @@ interface AnswerPart {
               </div>
             }
             @if (turns().length === 0) {
-              <p class="hint">Ask about your documents — answers are built from your files and cite them.</p>
+              <p class="hint">Ask about your documents - answers are built from your files and cite them.</p>
               <div class="examples">
                 @for (ex of examples; track ex) {
                   <button type="button" class="chip" (click)="ask(ex)" [disabled]="loading()">{{ ex }}</button>
@@ -87,7 +87,7 @@ interface AnswerPart {
                   </div>
                 }
 
-                <!-- The rest it considered but didn't cite — collapsed to reduce noise. -->
+                <!-- The rest it considered but didn't cite - collapsed to reduce noise. -->
                 @if (otherSources(t).length) {
                   <button type="button" class="more" (click)="toggleOthers(ti)">
                     {{ isExpanded(ti) ? '▾ Hide' : '▸ ' + otherSources(t).length + ' more considered' }}
@@ -157,7 +157,7 @@ interface AnswerPart {
       header .icon.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
 
       .body { flex: 1; overflow-y: auto; padding: 12px; }
-      /* Compact in-panel help — the floating widget's own take, lighter than the page help card. */
+      /* Compact in-panel help - the floating widget's own take, lighter than the page help card. */
       .help {
         border: 1px solid var(--accent-line); background: var(--accent-soft);
         border-radius: 10px; padding: 10px 11px; margin-bottom: 10px;
@@ -235,7 +235,7 @@ export class AssistantWidget {
   protected q = '';
 
   protected helpUser =
-    "Ask about your documents in plain English — \"when does my insurance renew?\", \"my last water bill\", " +
+    "Ask about your documents in plain English - \"when does my insurance renew?\", \"my last water bill\", " +
     '"the fridge warranty". Answers are built only from your own files and cite the exact documents used, so ' +
     "you can check them. If something isn't in your vault, it says so instead of guessing. It searches the " +
     'space you\'re currently in.';
@@ -340,7 +340,7 @@ export class AssistantWidget {
       next: (r) => {
         this.notices.show({
           level: 'success', code: 'REINDEXED',
-          userMessage: r.indexed > 0 ? `Indexed ${r.indexed} document(s) — ask away.` : 'Everything is already indexed.',
+          userMessage: r.indexed > 0 ? `Indexed ${r.indexed} document(s) - ask away.` : 'Everything is already indexed.',
         });
         this.indexing.set(false);
       },

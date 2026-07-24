@@ -55,7 +55,7 @@ public class ExtractionDispatcher {
             worker.process(documentId);
         } catch (Exception e) {
             // Left un-extracted (confidence stays NULL) → the reconciler will retry.
-            log.error("Async extraction failed for document {} — will be retried by the reconciler",
+            log.error("Async extraction failed for document {} - will be retried by the reconciler",
                     documentId, e);
         }
     }

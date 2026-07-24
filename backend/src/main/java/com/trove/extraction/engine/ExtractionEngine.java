@@ -98,14 +98,14 @@ public class ExtractionEngine {
 
             ExtractionProvider provider = providers.get(step.getProvider());
             if (provider == null) {
-                log.warn("Extraction step '{}' skipped — no provider bean named '{}'",
+                log.warn("Extraction step '{}' skipped - no provider bean named '{}'",
                         label, step.getProvider());
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                         ExtractionAttempt.SKIPPED_NO_BEAN, "no provider bean registered", null, 0, null, null));
                 continue;
             }
             if (breaker.isOpen(label, nowMillis)) {
-                log.info("Extraction step '{}' skipped — circuit breaker open", label);
+                log.info("Extraction step '{}' skipped - circuit breaker open", label);
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                         ExtractionAttempt.SKIPPED_BREAKER, "circuit breaker open (recent failures)", null, 0, null, null));
                 continue;
@@ -114,9 +114,9 @@ public class ExtractionEngine {
             // skip every billed provider and let the free stub finish the pipeline. The
             // stub itself is never gated (it costs nothing).
             if (!aiAllowed && !STUB.equals(step.getProvider())) {
-                log.info("Extraction step '{}' skipped — daily AI budget reached", label);
+                log.info("Extraction step '{}' skipped - daily AI budget reached", label);
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
-                        ExtractionAttempt.SKIPPED_BUDGET, "daily AI budget reached — using the free reader", null, 0, null, null));
+                        ExtractionAttempt.SKIPPED_BUDGET, "daily AI budget reached - using the free reader", null, 0, null, null));
                 continue;
             }
 
@@ -144,7 +144,7 @@ public class ExtractionEngine {
                     bestProvider = step.getProvider();
                     bestModel = step.getModel();
                 }
-                log.info("Extraction step '{}' below threshold (confidence={}) — trying next",
+                log.info("Extraction step '{}' below threshold (confidence={}) - trying next",
                         label, result.confidence());
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                         ExtractionAttempt.BELOW_THRESHOLD, "below the acceptance bar", pct(result), ms, tokensOf(result), neuronsOf(result)));
@@ -155,16 +155,16 @@ public class ExtractionEngine {
                     breaker.recordQuotaFailure(label, nowMillis,
                             props.getBreaker().getFailureThreshold(),
                             props.getBreaker().getCooldownSeconds());
-                    log.warn("Extraction step '{}' quota-exhausted — {}", label, e.getMessage());
+                    log.warn("Extraction step '{}' quota-exhausted - {}", label, e.getMessage());
                     attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                             ExtractionAttempt.QUOTA, "free daily allowance reached", null, ms, null, null));
                 } else {
-                    log.warn("Extraction step '{}' failed (transient) — {}", label, e.getMessage());
+                    log.warn("Extraction step '{}' failed (transient) - {}", label, e.getMessage());
                     attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                             ExtractionAttempt.TRANSIENT, shorten(e.getMessage()), null, ms, null, null));
                 }
             } catch (Exception e) {
-                log.warn("Extraction step '{}' errored unexpectedly — {}", label, e.toString());
+                log.warn("Extraction step '{}' errored unexpectedly - {}", label, e.toString());
                 attempts.add(new ExtractionAttempt(label, step.getProvider(), step.getModel(),
                         ExtractionAttempt.ERROR, shorten(e.getClass().getSimpleName()), null, elapsedMs(startNanos), null, null));
             }
@@ -172,14 +172,14 @@ public class ExtractionEngine {
 
         // Nothing cleared the bar: return the best-effort result if we have one.
         if (best != null) {
-            log.info("No step cleared the acceptance bar — using best-effort result from '{}'", bestProvider);
+            log.info("No step cleared the acceptance bar - using best-effort result from '{}'", bestProvider);
             return new ExtractionOutcome(best, bestProvider, bestModel, false, attempts);
         }
 
         // Absolute last resort: the stub never fails, so the pipeline always completes.
         ExtractionProvider stub = providers.get(STUB);
         if (stub != null) {
-            log.info("No step produced a result — falling back to stub");
+            log.info("No step produced a result - falling back to stub");
             return new ExtractionOutcome(stub.extract(fileBytes, mimeType), STUB, null, false, attempts);
         }
 

@@ -78,7 +78,7 @@ public class ModelRouter {
             }
             return new Decision(props.getStandardModel(), "standard", "classifier unclear → default up");
         } catch (Exception e) {
-            log.warn("Model classifier failed — defaulting to standard: {}", e.getMessage());
+            log.warn("Model classifier failed - defaulting to standard: {}", e.getMessage());
             return new Decision(props.getStandardModel(), "standard", "classifier error → default up");
         }
     }

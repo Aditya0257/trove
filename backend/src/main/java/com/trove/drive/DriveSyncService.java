@@ -233,7 +233,7 @@ public class DriveSyncService {
             }
             backupRunService.success(run, "drive:space:" + spaceId,
                     "mode=" + mode + " targets=" + targets.size() + " synced=" + synced + " skipped=" + skipped);
-            log.info("Drive sync for space {} — mode={} targets={} synced={} skipped={}",
+            log.info("Drive sync for space {} - mode={} targets={} synced={} skipped={}",
                     spaceId, mode, targets.size(), synced, skipped);
             return new DriveSyncSummary(synced, skipped);
         } catch (Exception e) {
@@ -399,7 +399,7 @@ public class DriveSyncService {
                 Drive drive = oauthService.driveFor(encryptionService.decrypt(conn.getRefreshTokenEnc()));
                 action.run(drive, conn, s.getExternalId());
             } catch (Exception e) {
-                log.warn("Drive trash op failed for doc {} on connection {} — {}",
+                log.warn("Drive trash op failed for doc {} on connection {} - {}",
                         documentId, s.getConnectionId(), e.getMessage());
             }
         }

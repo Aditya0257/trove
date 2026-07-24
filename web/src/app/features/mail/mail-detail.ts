@@ -8,7 +8,7 @@ import { NoticeService } from '../../core/notice/notice.service';
 import { DocumentResponse } from '../../core/models';
 
 /**
- * Mail detail — an email as one thing, not a stray receipt. Shows every screenshot in
+ * Mail detail - an email as one thing, not a stray receipt. Shows every screenshot in
  * the bundle (each openable), and edits the email's own fields (account, subject, date,
  * notes) rather than the generic bill form. Save applies to all screenshots in the
  * bundle; Delete removes the whole email.
@@ -134,7 +134,7 @@ export class MailDetail {
   saving = signal(false);
   form = { account: '', address: '', topic: '', subject: '', date: '', notes: '' };
 
-  /** Field help — shown on hover/focus of the info icon (Salesforce-style). */
+  /** Field help - shown on hover/focus of the info icon (Salesforce-style). */
   readonly tips = {
     account: 'A short label to group your inboxes, like Personal or Office.',
     address: "The email address whose inbox this is in, e.g. you@work.com, so you know exactly which inbox to open and search later.",

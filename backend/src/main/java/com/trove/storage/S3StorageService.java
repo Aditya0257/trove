@@ -97,7 +97,7 @@ public class S3StorageService implements StorageService {
             s3.headBucket(HeadBucketRequest.builder().bucket(bucket).build());
             log.info("Object storage bucket '{}' is present.", bucket);
         } catch (NoSuchBucketException e) {
-            log.info("Bucket '{}' not found — creating it.", bucket);
+            log.info("Bucket '{}' not found - creating it.", bucket);
             s3.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
         }
     }

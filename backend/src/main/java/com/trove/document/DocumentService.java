@@ -376,7 +376,7 @@ public class DocumentService {
             try {
                 purge(doc);
             } catch (Exception e) {
-                log.warn("Could not purge expired document {} — {}", doc.getId(), e.getMessage());
+                log.warn("Could not purge expired document {} - {}", doc.getId(), e.getMessage());
             }
         }
         if (!expired.isEmpty()) {

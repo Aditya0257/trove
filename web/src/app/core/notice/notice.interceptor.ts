@@ -17,7 +17,7 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
   const start = performance.now();
 
   // The drawer polls /api/ai-usage to refresh its gauge; logging that call would add a
-  // trail entry, which retriggers the refresh, which polls again — an infinite loop that
+  // trail entry, which retriggers the refresh, which polls again - an infinite loop that
   // floods the backend. Background polls are also just noise in the trail, so skip both
   // the log entry and any error toast for them.
   const isBackgroundPoll = req.url.includes('/api/ai-usage');
@@ -56,7 +56,7 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
   );
 };
 
-/** The key stored fields of a document response — the "JSON in the DB" for the drawer. */
+/** The key stored fields of a document response - the "JSON in the DB" for the drawer. */
 function extractedOf(body: unknown): Record<string, unknown> | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;

@@ -143,7 +143,7 @@ public class IntegrityService {
         long live = 0;   // objects outside the trash
         for (String key : r2) {
             if (key.startsWith(TRASH_PREFIX)) {
-                continue;   // intentional, transient — not an orphan
+                continue;   // intentional, transient - not an orphan
             }
             live++;
             if (!known.contains(key)) {

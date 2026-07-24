@@ -96,7 +96,7 @@ public class MirrorService {
             }
             backupRunService.success(run, "mirror:" + props.getBucket(),
                     "copied=" + copied + " skipped=" + skipped);
-            log.info("Mirror complete — copied={} skipped={} to bucket {}", copied, skipped, props.getBucket());
+            log.info("Mirror complete - copied={} skipped={} to bucket {}", copied, skipped, props.getBucket());
             return new MirrorSummary(copied, skipped);
         } catch (Exception e) {
             backupRunService.fail(run, e.getMessage());

@@ -61,7 +61,7 @@ public class BrevoEmailSender implements EmailSender {
     @Override
     public boolean send(List<String> to, String subject, String textBody) {
         if (!props.isConfigured()) {
-            log.info("Email not configured (trove.email.*) — skipping send of '{}'", subject);
+            log.info("Email not configured (trove.email.*) - skipping send of '{}'", subject);
             return false;
         }
         if (to == null || to.isEmpty()) {

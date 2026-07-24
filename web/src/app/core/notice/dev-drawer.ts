@@ -7,8 +7,8 @@ import { SettingsService } from '../settings.service';
 
 /**
  * The in-app "inspect" surface: a slide-over listing recent API calls with method,
- * path, status, client round-trip, the server request-id, the notice, and — for
- * document reads — the extraction chain trail. Complements the styled console for
+ * path, status, client round-trip, the server request-id, the notice, and - for
+ * document reads - the extraction chain trail. Complements the styled console for
  * when the console isn't handy (e.g. on a phone-sized browser). Toggled by a small
  * corner pill. Mounted once at the app root.
  */
@@ -63,16 +63,16 @@ import { SettingsService } from '../settings.service';
             </button>
             <div class="ai-toggle-note">
               {{ settings.aiReading()
-                ? 'Uploads are read by the AI. Pause to stop spending credits — uploads then wait for no read and you fill the details yourself.'
+                ? 'Uploads are read by the AI. Pause to stop spending credits - uploads then wait for no read and you fill the details yourself.'
                 : 'AI reading is OFF. New uploads are stored and go straight to the review form for manual entry, with no wait and no credits.' }}
             </div>
 
             <details class="ai-where">
               <summary>Where AI credits are spent</summary>
               <ul>
-                <li><b>Uploading images</b> — only while "Read images with AI" is on. Images only; PDFs and other non-image files never use AI.</li>
-                <li><b>Mail</b> — only if you tick "read with AI" when filing an email (off by default).</li>
-                <li><b>Search</b> — each plain-English search; it falls back to keyword rules when the daily budget is spent.</li>
+                <li><b>Uploading images</b> - only while "Read images with AI" is on. Images only; PDFs and other non-image files never use AI.</li>
+                <li><b>Mail</b> - only if you tick "read with AI" when filing an email (off by default).</li>
+                <li><b>Search</b> - each plain-English search; it falls back to keyword rules when the daily budget is spent.</li>
                 <li>A hard-to-read scan may cost <b>2 calls</b> (one automatic retry).</li>
                 <li>Confirming, editing, deleting, backups and everything else use <b>no</b> AI.</li>
               </ul>
@@ -190,7 +190,7 @@ import { SettingsService } from '../settings.service';
       .detail { padding: 6px 0 4px 4px; font-size: 12px; }
       .kv { display: flex; gap: 8px; margin: 2px 0; }
       .kv > span:first-child { width: 46px; color: #8a8a8a; font-weight: 700; }
-      /* Pin code chips to the detail text size — the global code rule (0.85rem) renders
+      /* Pin code chips to the detail text size - the global code rule (0.85rem) renders
          larger than the 12px detail and looks out of place here. */
       .kv code {
         font-family: monospace; font-size: 11.5px; background: rgba(0, 0, 0, 0.05);
@@ -299,7 +299,7 @@ export class DevDrawer {
     });
 
     // The global bar moves when OTHER users consume AI, which no local event can tell
-    // us about — so poll lightly, but ONLY while the drawer is open (the poll stops the
+    // us about - so poll lightly, but ONLY while the drawer is open (the poll stops the
     // moment it closes). Two indexed SELECTs at 60s is negligible even for all users at
     // once; no websocket needed at this scale.
     effect((onCleanup) => {
@@ -316,12 +316,12 @@ export class DevDrawer {
   protected path = (e: DevLogEntry) => e.url.replace(/^https?:\/\/[^/]+/, '');
   protected ok = (e: DevLogEntry) => e.status >= 200 && e.status < 300;
 
-  /** Local wall-clock (24-hour) — shows in the viewer's timezone, e.g. IST. */
+  /** Local wall-clock (24-hour) - shows in the viewer's timezone, e.g. IST. */
   protected time = (at: number) =>
     new Date(at).toLocaleTimeString('en-GB', { hour12: false });
 
   /**
-   * Three-lens meaning for a call — what it means to the user, the developer, and the
+   * Three-lens meaning for a call - what it means to the user, the developer, and the
    * business. Short by design; the goal is to read the drawer and understand the flow.
    */
   protected meaning(e: DevLogEntry): { label: string; user: string; dev: string; business: string } {

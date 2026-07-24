@@ -11,7 +11,7 @@ export interface SelectOption {
 }
 
 /**
- * A fully themed dropdown that replaces the native <select> — because a native
+ * A fully themed dropdown that replaces the native <select> - because a native
  * option list is drawn by the OS and can't be styled to match the app. This renders
  * its own button + popup list, so it honours the light/dark tokens, supports a
  * secondary line per option (name + email), and is keyboard accessible (Up/Down,
@@ -79,7 +79,7 @@ export interface SelectOption {
 })
 export class TroveSelect implements ControlValueAccessor {
   // Signal-backed so the displayed label reacts when the options change (e.g. a space
-  // is renamed) — a plain @Input wouldn't re-run the `selected` computed.
+  // is renamed) - a plain @Input wouldn't re-run the `selected` computed.
   private _options = signal<SelectOption[]>([]);
   @Input() set options(v: SelectOption[]) {
     this._options.set(v ?? []);
