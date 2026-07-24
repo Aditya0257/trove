@@ -46,7 +46,18 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
   late String? _category = widget.doc.category;
   late DateTime? _docDate = widget.doc.docDate;
   late DateTime? _dueDate = widget.doc.dueDate;
+  late DateTime? _warrantyUntil = _parseIso(widget.doc.extra?['warrantyUntil']);
+  late bool _vital = widget.doc.vital;
   bool _busy = false;
+
+  static DateTime? _parseIso(Object? v) =>
+      (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
+
+  /// The anomaly verdict stored on the document at its last confirm, if flagged.
+  Map<String, dynamic>? get _anomaly {
+    final a = widget.doc.extra?['anomaly'];
+    return (a is Map && a['anomaly'] == true) ? a.cast<String, dynamic>() : null;
+  }
 
   @override
   void dispose() {
@@ -71,9 +82,34 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
     }
   }
 
+  /// Set the warranty end date to N years from the document date (or today).
+  void _setWarranty(int years) {
+    final base = _docDate ?? DateTime.now();
+    setState(() => _warrantyUntil = DateTime(base.year + years, base.month, base.day));
+  }
+
+  Future<void> _pickWarranty() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _warrantyUntil ?? now,
+      firstDate: DateTime(now.year - 20),
+      lastDate: DateTime(now.year + 30),
+    );
+    if (picked != null) setState(() => _warrantyUntil = picked);
+  }
+
   Future<void> _confirm() async {
     setState(() => _busy = true);
     try {
+      // Confirm replaces `extra` on the backend, so send the existing map plus the
+      // warranty date (or drop the key when cleared) to preserve the extraction trail.
+      final extra = {...?widget.doc.extra};
+      if (_warrantyUntil != null) {
+        extra['warrantyUntil'] = _iso(_warrantyUntil);
+      } else {
+        extra.remove('warrantyUntil');
+      }
       await ref.read(documentsApiProvider).confirm(
             widget.doc.id,
             category: _category,
@@ -82,6 +118,8 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
             currency: _currency.text.trim().isEmpty ? null : _currency.text.trim(),
             docDate: _iso(_docDate),
             dueDate: _iso(_dueDate),
+            vital: _vital,
+            extra: extra,
           );
       NoticeCenter.instance.show(Notice.local(
         level: NoticeLevel.success,
@@ -120,6 +158,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
               ),
               child: Text(notice.userMessage),
             ),
+          _anomalyBanner(scheme),
           categories.when(
             loading: () => const LinearProgressIndicator(),
             error: (_, __) => _categoryFallback(),
@@ -171,6 +210,25 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
               Expanded(child: _dateField('Due date', _dueDate, () => _pickDate(true))),
             ],
           ),
+          const SizedBox(height: 12),
+          _dateField('Warranty until (optional)', _warrantyUntil, _pickWarranty),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton(onPressed: () => _setWarranty(1), child: const Text('+1 year')),
+              OutlinedButton(onPressed: () => _setWarranty(2), child: const Text('+2 years')),
+              if (_warrantyUntil != null)
+                TextButton(
+                  onPressed: () => setState(() => _warrantyUntil = null),
+                  child: const Text('Clear'),
+                ),
+            ],
+          ),
+          Text(
+            'For a purchase with a warranty (earbuds, a phone). Trove reminds you before it expires.',
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+          ),
           if ((widget.doc.rawText ?? '').isNotEmpty) ...[
             const SizedBox(height: 8),
             ExpansionTile(
@@ -185,7 +243,15 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
               ],
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _vital,
+            onChanged: (v) => setState(() => _vital = v),
+            title: const Text('Vital / sensitive'),
+            subtitle: const Text('Encrypt at rest (passport, ID, policy)'),
+          ),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: _busy ? null : _confirm,
             child: _busy
@@ -195,6 +261,31 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                 : const Text('Confirm'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// A warn banner when this bill was flagged higher-than-usual for its category.
+  Widget _anomalyBanner(ColorScheme scheme) {
+    final a = _anomaly;
+    if (a == null) return const SizedBox.shrink();
+    final pct = (((a['deltaPct'] as num?) ?? 0) * 100).round();
+    final avg = a['average'];
+    final avgText = avg is num
+        ? ' (you normally pay around ${avg.toStringAsFixed(2)} ${widget.doc.currency ?? ''})'.trimRight()
+        : '';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.noticeColor(scheme, NoticeLevel.warning).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(
+            color: AppTheme.noticeColor(scheme, NoticeLevel.warning), width: 3,),),
+      ),
+      child: Text(
+        'This is about $pct% higher than usual for this category$avgText. Worth a second look before you confirm.',
       ),
     );
   }

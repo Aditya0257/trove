@@ -68,6 +68,8 @@ class DocumentsApi {
     double? amount,
     String? currency,
     String? dueDate,
+    bool? vital,
+    Map<String, dynamic>? extra,
   }) async {
     final body = <String, dynamic>{
       if (category != null) 'category': category,
@@ -76,6 +78,10 @@ class DocumentsApi {
       if (amount != null) 'amount': amount,
       if (currency != null) 'currency': currency,
       if (dueDate != null) 'dueDate': dueDate,
+      if (vital != null) 'vital': vital,
+      // Confirm replaces `extra` wholesale on the backend, so callers pass the full map
+      // (existing keys + any edits) to avoid wiping the extraction trail / anomaly.
+      if (extra != null) 'extra': extra,
     };
     final data = await _api.post('/api/documents/$id/confirm', body: body)
         as Map<String, dynamic>;
