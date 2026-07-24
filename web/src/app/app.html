@@ -39,7 +39,7 @@
       {{ theme.theme() === 'dark' ? '☀️' : '🌙' }}
     </button>
     @if (auth.isLoggedIn()) {
-      <span class="muted user-email">{{ auth.user()?.email }}</span>
+      <a class="muted user-email" routerLink="/security" title="Account security">{{ auth.user()?.email }}</a>
       <button class="link" (click)="logout()">Sign out</button>
     }
   </div>

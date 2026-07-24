@@ -1,10 +1,11 @@
 /** Shapes returned by the Trove API (see docs/API.md). */
 
 export interface AuthResponse {
-  token: string;
+  token: string | null;         // null when a second factor is still required
   userId: string;
   email: string;
   displayName: string;
+  twoFactorRequired?: boolean;  // true = password ok, now supply the authenticator code
 }
 
 export interface LineItem {

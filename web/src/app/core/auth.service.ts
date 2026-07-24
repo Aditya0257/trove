@@ -19,10 +19,33 @@ export class AuthService {
   readonly user = signal<AuthResponse | null>(readUser());
   readonly isLoggedIn = computed(() => !!this.token());
 
-  login(email: string, password: string) {
+  login(email: string, password: string, code?: string) {
     return this.http
-      .post<AuthResponse>(`${API_BASE}/api/auth/login`, { email, password })
-      .pipe(tap((r) => this.store(r)));
+      .post<AuthResponse>(`${API_BASE}/api/auth/login`, { email, password, code })
+      // Only persist a real session; a twoFactorRequired response carries no token.
+      .pipe(tap((r) => { if (r.token) this.store(r); }));
+  }
+
+  // --- password reset ---
+  forgotPassword(email: string) {
+    return this.http.post<void>(`${API_BASE}/api/auth/forgot-password`, { email });
+  }
+  resetPassword(token: string, newPassword: string) {
+    return this.http.post<void>(`${API_BASE}/api/auth/reset-password`, { token, newPassword });
+  }
+
+  // --- TOTP 2FA (authenticated) ---
+  twoFactorSetup() {
+    return this.http.post<{ secret: string; otpauthUri: string }>(`${API_BASE}/api/auth/2fa/setup`, {});
+  }
+  twoFactorEnable(code: string) {
+    return this.http.post<void>(`${API_BASE}/api/auth/2fa/enable`, { code });
+  }
+  twoFactorDisable(code: string) {
+    return this.http.post<void>(`${API_BASE}/api/auth/2fa/disable`, { code });
+  }
+  twoFactorStatus() {
+    return this.http.get<{ enabled: boolean }>(`${API_BASE}/api/auth/2fa/status`);
   }
 
   register(email: string, displayName: string, password: string) {
@@ -39,7 +62,7 @@ export class AuthService {
   }
 
   private store(r: AuthResponse): void {
-    localStorage.setItem(TOKEN_KEY, r.token);
+    localStorage.setItem(TOKEN_KEY, r.token!);
     localStorage.setItem(USER_KEY, JSON.stringify(r));
     this.token.set(r.token);
     this.user.set(r);

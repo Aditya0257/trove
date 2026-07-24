@@ -2,10 +2,11 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { PasswordInput } from '../../core/password-input';
 
 @Component({
   selector: 'app-register',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PasswordInput],
   template: `
     <div class="card auth-card">
       <h1>Create your Trove</h1>
@@ -17,8 +18,7 @@ import { AuthService } from '../../core/auth.service';
           <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
         </label>
         <label>Password (min 8 chars)
-          <input type="password" name="password" [(ngModel)]="password" required minlength="8"
-                 autocomplete="new-password" />
+          <trove-password name="password" autocomplete="new-password" [minlength]="8" [(ngModel)]="password"></trove-password>
         </label>
         @if (error()) { <p class="error">{{ error() }}</p> }
         <button type="submit" [disabled]="loading()">{{ loading() ? 'Creating…' : 'Create account' }}</button>

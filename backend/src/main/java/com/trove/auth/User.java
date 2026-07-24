@@ -36,6 +36,14 @@ public class User extends BaseEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // TOTP two-factor: the Base32 secret AES-GCM encrypted at rest, and whether the user
+    // has finished enrolling (verified a code). Null/false means 2FA is off for this user.
+    @Column(name = "totp_secret_enc")
+    private String totpSecretEnc;
+
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled = false;
+
     protected User() {
         // for JPA
     }
@@ -51,6 +59,11 @@ public class User extends BaseEntity {
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getTotpSecretEnc() { return totpSecretEnc; }
+    public void setTotpSecretEnc(String totpSecretEnc) { this.totpSecretEnc = totpSecretEnc; }
+    public boolean isTotpEnabled() { return totpEnabled; }
+    public void setTotpEnabled(boolean totpEnabled) { this.totpEnabled = totpEnabled; }
 
     public Instant getCreatedAt() { return createdAt; }
 }

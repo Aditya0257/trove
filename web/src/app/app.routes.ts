@@ -5,6 +5,13 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'documents' },
   { path: 'login', loadComponent: () => import('./features/auth/login').then((m) => m.Login) },
   { path: 'register', loadComponent: () => import('./features/auth/register').then((m) => m.Register) },
+  { path: 'forgot', loadComponent: () => import('./features/auth/forgot').then((m) => m.Forgot) },
+  { path: 'reset', loadComponent: () => import('./features/auth/reset').then((m) => m.Reset) },
+  {
+    path: 'security',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/auth/security').then((m) => m.Security),
+  },
   {
     path: 'upload',
     canActivate: [authGuard],
