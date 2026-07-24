@@ -4,7 +4,7 @@ import { NoticeService } from './notice.service';
 /**
  * The on-screen toast: a calm one-liner for everyone, with the developer note one
  * click away. Colour-coded by level, self-dismissing (handled by NoticeService),
- * fixed to the top-right. Mounted once at the app root.
+ * fixed to the bottom-centre so it never covers the nav/actions. Mounted once at the app root.
  */
 @Component({
   selector: 'trove-notice-toast',
@@ -34,11 +34,15 @@ import { NoticeService } from './notice.service';
   styles: [
     `
       :host {
+        /* Bottom-centre: clear of the top nav/actions and of the two corner launchers
+           (dev pill bottom-left, Ask bottom-right), so a toast never covers a control. */
         position: fixed;
-        top: 72px;
-        right: 18px;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 1000;
-        max-width: min(440px, calc(100vw - 36px));
+        width: max-content;
+        max-width: min(460px, calc(100vw - 32px));
       }
       .toast {
         display: flex;
@@ -85,7 +89,7 @@ import { NoticeService } from './notice.service';
         background: var(--code-bg); padding: 8px 10px; border-radius: 8px;
       }
       @keyframes slide-in {
-        from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+        from { opacity: 0; transform: translateY(12px) scale(0.98); }
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
     `,
