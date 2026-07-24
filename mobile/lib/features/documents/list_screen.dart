@@ -38,11 +38,21 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         title: Text(widget.space.name),
         actions: [
           IconButton(
+            tooltip: 'Reminders',
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () => context.push('/reminders', extra: widget.space.id),
+          ),
+          IconButton(
             tooltip: 'Search',
             icon: const Icon(Icons.search),
             onPressed: () => context.push('/search', extra: widget.space.id),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/capture', extra: widget.space.id),
+        icon: const Icon(Icons.add_a_photo_outlined),
+        label: const Text('Add'),
       ),
       body: Column(
         children: [
