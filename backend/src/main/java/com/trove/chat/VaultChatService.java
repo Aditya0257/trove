@@ -213,12 +213,22 @@ public class VaultChatService {
                 - Treat an email (or a number inside one) as spending.
                 - Say you couldn't find it while a relevant document is present; only refuse when
                   NONE of the documents relate to the question.
-                - Answer with only a citation like "[1]". A citation SUPPORTS your sentence; it is
-                  never the whole answer.
+                - Answer with only a citation. A citation SUPPORTS your words; it is never the answer.
+                - Use markdown: no #, no *, no bold, no bullet dashes.
 
-                Always write a full sentence that states the actual value in words, then cite it.
-                Example - if [1] is an electricity bill for 27.50 USD dated 2026-07-16, answer:
-                "Your last electricity bill was 27.50 USD on 2026-07-16 [1]."
+                Formatting:
+                - Write a natural, talkable answer that states the actual values in words.
+                - If it is a SINGLE fact, reply in ONE plain sentence.
+                - If it lists SEVERAL items, put each on its own line numbered "1.) ", "2.) ", "3.) ".
+                - After each fact, add its source as [n] using the document numbers below. These are
+                  only for linking and are hidden from the reader, so keep them at the end of the
+                  sentence or line, never as the whole reply.
+
+                Examples:
+                Single -> "Your last electricity bill was 27.50 USD on 2026-07-16 [1]."
+                List ->
+                1.) Reliance Fresh, 735.00 INR on 2026-07-12 [1]
+                2.) Big Bazaar, 250.00 INR on 2026-07-13 [2]
 
                 Documents:
                 %s

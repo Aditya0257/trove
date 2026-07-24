@@ -13,11 +13,6 @@ interface Turn {
   answer: ChatAnswer;
 }
 
-/** A run of answer text, or a citation marker to render as a clickable chip. */
-interface AnswerPart {
-  text?: string;
-  cite?: number;
-}
 
 /**
  * Floating "Ask your vault" assistant - a launcher pinned bottom-right that opens a chat
@@ -59,25 +54,19 @@ interface AnswerPart {
             @for (t of turns(); track ti; let ti = $index) {
               <div class="msg q">{{ t.question }}</div>
               <div class="msg a">
-                <!-- Answer with clickable [n] citations that jump to + flash the source. -->
-                <p class="a-text">
-                  @for (p of answerParts(t.answer.answer); track $index) {
-                    @if (p.cite != null) {
-                      <button type="button" class="cite" (click)="flash(ti, p.cite)">[{{ p.cite }}]</button>
-                    } @else {<span>{{ p.text }}</span>}
-                  }
-                </p>
+                <!-- Clean, talkable answer: citation markers are stripped from the prose. -->
+                <p class="a-text">{{ cleanAnswer(t.answer.answer) }}</p>
                 @if (!t.answer.aiUsed && t.answer.sources.length) {
                   <p class="muted xs">Most relevant documents (AI summary paused or off).</p>
                 }
 
-                <!-- Sources actually cited in the answer, highlighted. -->
+                <!-- Source(s) the answer used. One source shows no number; several are numbered. -->
                 @if (citedSources(t).length) {
                   <div class="sources">
-                    @for (s of citedSources(t); track s.documentId) {
-                      <a class="source cited" [id]="'src-' + ti + '-' + s.index" [class.flash]="flashKey() === ti + '-' + s.index"
+                    @for (s of citedSources(t); track s.documentId; let i = $index) {
+                      <a class="source cited"
                          [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
-                        <span class="src-idx">[{{ s.index }}]</span>
+                        @if (citedSources(t).length > 1) { <span class="src-idx">{{ i + 1 }}.</span> }
                         <span class="src-title">{{ s.title }}</span>
                         @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
                         @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
@@ -87,17 +76,16 @@ interface AnswerPart {
                   </div>
                 }
 
-                <!-- The rest it considered but didn't cite - collapsed to reduce noise. -->
+                <!-- The rest it considered but didn't use - collapsed to reduce noise. -->
                 @if (otherSources(t).length) {
                   <button type="button" class="more" (click)="toggleOthers(ti)">
-                    {{ isExpanded(ti) ? '▾ Hide' : '▸ ' + otherSources(t).length + ' more considered' }}
+                    {{ isExpanded(ti) ? 'Hide' : otherSources(t).length + ' more considered' }}
                   </button>
                   @if (isExpanded(ti)) {
                     <div class="sources">
                       @for (s of otherSources(t); track s.documentId) {
-                        <a class="source dim" [id]="'src-' + ti + '-' + s.index" [class.flash]="flashKey() === ti + '-' + s.index"
+                        <a class="source dim"
                            [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
-                          <span class="src-idx">[{{ s.index }}]</span>
                           <span class="src-title">{{ s.title }}</span>
                           @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
                           @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
@@ -180,30 +168,17 @@ interface AnswerPart {
       .msg.q { background: var(--accent-soft); color: var(--ink); margin-left: 24px; }
       .msg.a { background: var(--hover); }
       .a-text { margin: 0; white-space: pre-wrap; }
-      /* Inline clickable citation chip inside the answer text. */
-      .cite {
-        margin: 0 1px; padding: 0 4px; border: 0; border-radius: 5px; cursor: pointer;
-        background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 11px;
-        font-family: inherit; vertical-align: baseline;
-      }
-      .cite:hover { background: var(--accent); color: var(--brand-ink); }
       .xs { font-size: 10.5px; margin: 6px 0 0; }
       .sources { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
       .source {
         display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; text-decoration: none;
         border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--ink); background: var(--card);
-        scroll-margin: 8px;
       }
       .source:hover { border-color: var(--accent-line); }
       /* Cited sources stand out with an accent edge; considered-but-unused ones are dimmed. */
       .source.cited { border-left: 3px solid var(--accent); }
       .source.dim { opacity: 0.6; }
       .source.dim:hover { opacity: 1; }
-      .source.flash { animation: srcflash 1.4s ease; }
-      @keyframes srcflash {
-        0%, 100% { box-shadow: 0 0 0 0 transparent; }
-        15% { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
-      }
       .more {
         margin: 8px 0 0; padding: 3px 4px; background: transparent; border: 0; cursor: pointer;
         color: var(--muted); font-size: 11.5px; font-weight: 600;
@@ -230,7 +205,6 @@ export class AssistantWidget {
 
   protected open = signal(false);
   protected helpOpen = signal(false);
-  protected flashKey = signal<string | null>(null);
   private expanded = signal<Set<number>>(new Set());
   protected q = '';
 
@@ -267,18 +241,14 @@ export class AssistantWidget {
     return cited;
   }
 
-  /** Splits the answer into text runs + citation tokens, so [n] can be a clickable chip. */
-  answerParts(answer: string): AnswerPart[] {
-    const parts: AnswerPart[] = [];
-    let last = 0;
-    for (const m of answer.matchAll(/\[(\d+)\]/g)) {
-      const i = m.index ?? 0;
-      if (i > last) parts.push({ text: answer.slice(last, i) });
-      parts.push({ cite: Number(m[1]) });
-      last = i + m[0].length;
-    }
-    if (last < answer.length) parts.push({ text: answer.slice(last) });
-    return parts;
+  /** The answer as clean prose: citation markers stripped, spacing tidied. The sources
+   *  are shown as cards below, so the sentence itself stays talkable and marker-free. */
+  cleanAnswer(answer: string): string {
+    return answer
+      .replace(/\s*\[\d+\]/g, '')        // drop [1], [2] markers (and any leading space)
+      .replace(/\s+([.,;:!?])/g, '$1')   // fix space left before punctuation
+      .replace(/[ \t]{2,}/g, ' ')        // collapse runs of spaces
+      .trim();
   }
 
   citedSources(t: Turn): ChatCitation[] {
@@ -288,19 +258,6 @@ export class AssistantWidget {
   otherSources(t: Turn): ChatCitation[] {
     const cited = this.citedIndices(t.answer.answer);
     return t.answer.sources.filter((s) => !cited.has(s.index));
-  }
-
-  /** Clicking a [n] chip: reveal (if hidden), scroll to, and briefly flash that source. */
-  flash(turnIndex: number, cite: number): void {
-    const key = `${turnIndex}-${cite}`;
-    if (this.otherSources(this.turns()[turnIndex]).some((s) => s.index === cite)) {
-      this.expanded.update((set) => new Set(set).add(turnIndex));
-    }
-    this.flashKey.set(key);
-    setTimeout(() => {
-      document.getElementById('src-' + key)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-    setTimeout(() => { if (this.flashKey() === key) this.flashKey.set(null); }, 1400);
   }
 
   toggleOthers(turnIndex: number): void {

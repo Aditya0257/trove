@@ -39,7 +39,10 @@ import { BackupRun, IntegrityReport } from '../../core/models';
         } @else if (r.documents === 0) {
           <div class="banner ok">No documents in this space yet.</div>
         } @else {
-          <div class="banner ok">✅ All {{ r.documents }} document(s) are safely stored. Verified {{ r.checkedAt | prettyDate }}.</div>
+          <div class="banner ok">
+            ✅ All {{ r.documents }} document(s) are safely stored. Verified {{ r.checkedAt | prettyDate }}.
+            <trove-info-tip text="Counts every stored file in this space, including each email screenshot. Mail groups screenshots into records, but each screenshot is its own file - so this can be higher than the Documents tab, which hides emails. Example: 26 documents + 5 email screenshots = 31."></trove-info-tip>
+          </div>
         }
 
         <!-- Per-tier coverage -->
@@ -49,12 +52,18 @@ import { BackupRun, IntegrityReport } from '../../core/models';
             <div class="tier-desc">The working store - live reads &amp; writes.</div>
             <div class="tier-n">{{ r.primaryOk }}/{{ r.documents }}</div>
             <div class="bar"><span [style.width.%]="pct(r.primaryOk, r.documents)"></span></div>
+            <button type="button" class="tier-more" (click)="toggleTier('live')">
+              {{ openTier() === 'live' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'live'">▾</span>
+            </button>
           </div>
           <div class="tier" [class.warn]="r.sidecarOk < r.documents">
             <div class="tier-h">Sidecar <span class="tier-tag">JSON</span></div>
             <div class="tier-desc">Self-describing metadata beside each file.</div>
             <div class="tier-n">{{ r.sidecarOk }}/{{ r.documents }}</div>
             <div class="bar"><span [style.width.%]="pct(r.sidecarOk, r.documents)"></span></div>
+            <button type="button" class="tier-more" (click)="toggleTier('sidecar')">
+              {{ openTier() === 'sidecar' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'sidecar'">▾</span>
+            </button>
           </div>
           <div class="tier" [class.warn]="r.mirrorOk !== null && r.mirrorOk < r.documents">
             <div class="tier-h">Mirror <span class="tier-tag">B2</span></div>
@@ -66,14 +75,28 @@ import { BackupRun, IntegrityReport } from '../../core/models';
               <div class="tier-n">{{ r.mirrorOk }}/{{ r.documents }}</div>
               <div class="bar"><span [style.width.%]="pct(r.mirrorOk, r.documents)"></span></div>
             }
+            <button type="button" class="tier-more" (click)="toggleTier('mirror')">
+              {{ openTier() === 'mirror' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'mirror'">▾</span>
+            </button>
           </div>
           <div class="tier">
             <div class="tier-h">Drive <span class="tier-tag">Tier-3</span></div>
             <div class="tier-desc">Human-browsable copy in Google Drive.</div>
             <div class="tier-n">{{ r.driveOk }}/{{ r.documents }}</div>
             <div class="bar"><span [style.width.%]="pct(r.driveOk, r.documents)"></span></div>
+            <button type="button" class="tier-more" (click)="toggleTier('drive')">
+              {{ openTier() === 'drive' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'drive'">▾</span>
+            </button>
           </div>
         </div>
+
+        @if (openTier(); as k) {
+          <div class="tier-detail">
+            <span class="dev-badge">Dev note</span>
+            <strong>{{ tierName(k) }}</strong>
+            <p>{{ tierDetail(k) }}</p>
+          </div>
+        }
 
         <!-- Global object-store integrity -->
         <h3>Object store</h3>
@@ -164,6 +187,24 @@ import { BackupRun, IntegrityReport } from '../../core/models';
       }
       .tier-n { font-size: 22px; font-weight: 700; margin: 4px 0 6px; }
       .bar.off { opacity: 0.35; }
+      .tier-more {
+        margin: 10px 0 0; padding: 0; background: transparent; border: 0; cursor: pointer;
+        color: var(--accent-2); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+      }
+      .tier-more:hover { text-decoration: underline; }
+      .tier-more .chev { transition: transform 150ms; }
+      .tier-more .chev.up { transform: rotate(180deg); }
+      /* Expanded per-tier dev note (shared panel below the cards). */
+      .tier-detail {
+        border: 1px solid var(--accent-2-line); background: var(--accent-2-soft);
+        border-radius: 10px; padding: 12px 14px; margin: 4px 0 16px;
+      }
+      .tier-detail .dev-badge {
+        font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+        color: var(--accent-2); border: 1px solid var(--accent-2-line); border-radius: 5px; padding: 1px 6px; margin-right: 8px;
+      }
+      .tier-detail strong { font-size: 13px; }
+      .tier-detail p { margin: 8px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink); }
       .bar { height: 6px; background: var(--hover); border-radius: 999px; overflow: hidden; }
       .bar span { display: block; height: 100%; background: var(--accent); }
       .tier.warn .bar span { background: var(--danger, #b4402f); }
@@ -197,6 +238,39 @@ export class Backups {
   protected history = signal<BackupRun[]>([]);
   protected loading = signal(false);
   protected error = signal<string | null>(null);
+  protected openTier = signal<string | null>(null);
+
+  private readonly TIER_NAME: Record<string, string> = {
+    live: 'Live copy (R2)', sidecar: 'Sidecar JSON', mirror: 'Mirror (B2)', drive: 'Drive (Tier-3)',
+  };
+  private readonly TIER_DETAIL: Record<string, string> = {
+    live:
+      'The primary object store (Cloudflare R2, S3-compatible). Every upload is written here first, and the ' +
+      'app reads and serves files from it. Example: uploading reliance-jan.jpg stores the bytes at ' +
+      'electricity/2026-01/reliance-jan-a1b2.jpg, and that is the copy the review screen and the Ask assistant ' +
+      'load. "31/31" means all 31 files are present and servable here. If a file were missing, that document ' +
+      'would be flagged critical.',
+    sidecar:
+      'Next to every file sits a .json sidecar holding that document\'s metadata (category, merchant, date, ' +
+      'amount, raw text, owner). It makes the bucket self-describing: even if the database were wiped, scanning ' +
+      'the sidecars rebuilds every row. Example: electricity/2026-01/reliance-jan-a1b2.json contains ' +
+      '{"category":"electricity","merchant":"Reliance","amount":1840.50,"docDate":"2026-01-05"}. "31/31" means ' +
+      'each file has its sidecar.',
+    mirror:
+      'An independent second copy on Backblaze B2, a different provider, synced about hourly. It is append-only, ' +
+      'so it keeps history even after deletes - a provider outage or account loss on R2 cannot wipe the vault. ' +
+      'Example: the same electricity/2026-01/reliance-jan-a1b2.jpg key also exists in the B2 bucket. It can hold ' +
+      'MORE objects than R2 (e.g. 114 vs 80) because it retains purged and older copies.',
+    drive:
+      'A human-browsable copy in a member\'s Google Drive, organised as Trove / space / category / month, synced ' +
+      'about hourly. If the app and both clouds were gone, you open Google Drive and find the document - no app ' +
+      'needed. Example: reliance-jan.jpg appears under Trove / Dev Personal / electricity / 2026-01/. "31/31" ' +
+      'means all files are synced to at least one linked Drive (shows 0 until a Drive is connected to the space).',
+  };
+
+  tierName(k: string): string { return this.TIER_NAME[k] ?? ''; }
+  tierDetail(k: string): string { return this.TIER_DETAIL[k] ?? ''; }
+  toggleTier(k: string): void { this.openTier.update((v) => (v === k ? null : k)); }
 
   protected helpUser =
     'Your documents are kept in three independent places - the live store, a second-cloud mirror, and ' +
