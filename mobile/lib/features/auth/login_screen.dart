@@ -24,22 +24,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _name = TextEditingController();
+  final _code = TextEditingController();
   bool _register = false;
+  bool _needCode = false; // revealed once the backend asks for a 2FA code
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
     _name.dispose();
+    _code.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final ctrl = ref.read(authControllerProvider.notifier);
-    if (_register) {
-      await ctrl.register(_email.text, _password.text, _name.text);
-    } else {
-      await ctrl.login(_email.text, _password.text);
+    final outcome = _register
+        ? await ctrl.register(_email.text, _password.text, _name.text)
+        : await ctrl.login(_email.text, _password.text,
+            code: _needCode ? _code.text : null,);
+    if (outcome == AuthOutcome.needCode && mounted) {
+      // 2FA is on: reveal the code field and let the user enter it, then resubmit.
+      setState(() => _needCode = true);
     }
   }
 
@@ -87,10 +93,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   TextField(
                     controller: _password,
                     obscureText: true,
-                    textInputAction: TextInputAction.done,
+                    textInputAction:
+                        _needCode ? TextInputAction.next : TextInputAction.done,
                     onSubmitted: (_) => busy ? null : _submit(),
                     decoration: const InputDecoration(labelText: 'Password'),
                   ),
+                  if (_needCode) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _code,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      autofocus: true,
+                      maxLength: 6,
+                      onSubmitted: (_) => busy ? null : _submit(),
+                      decoration: const InputDecoration(
+                        labelText: 'Authenticator code',
+                        helperText: 'Enter the 6-digit code from your authenticator app',
+                        counterText: '',
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: busy ? null : _submit,
@@ -99,12 +122,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),)
-                        : Text(_register ? 'Create account' : 'Sign in'),
+                        : Text(_needCode
+                            ? 'Verify'
+                            : (_register ? 'Create account' : 'Sign in'),),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed:
-                        busy ? null : () => setState(() => _register = !_register),
+                    onPressed: busy
+                        ? null
+                        : () => setState(() {
+                              _register = !_register;
+                              _needCode = false;
+                              _code.clear();
+                            }),
                     child: Text(_register
                         ? 'I already have an account'
                         : 'New here? Create an account',),
