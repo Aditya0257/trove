@@ -38,6 +38,40 @@ class RemindersApi {
   Future<void> snooze(String id, int days) async {
     await _ref.read(apiClientProvider).post('/api/reminders/$id/snooze', query: {'days': days});
   }
+
+  /// Create a reminder in a space.
+  Future<void> create({
+    required String spaceId,
+    required String type,
+    String? title,
+    required DateTime remindOn,
+    String recurrence = 'none',
+  }) async {
+    await _ref.read(apiClientProvider).post('/api/reminders', query: {'spaceId': spaceId}, body: {
+      'type': type,
+      if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+      'remindOn': _iso(remindOn),
+      'recurrence': recurrence,
+    },);
+  }
+
+  /// Edit an existing reminder.
+  Future<void> update(
+    String id, {
+    required String type,
+    String? title,
+    required DateTime remindOn,
+    String recurrence = 'none',
+  }) async {
+    await _ref.read(apiClientProvider).patch('/api/reminders/$id', body: {
+      'type': type,
+      if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+      'remindOn': _iso(remindOn),
+      'recurrence': recurrence,
+    },);
+  }
+
+  static String _iso(DateTime d) => d.toIso8601String().substring(0, 10);
 }
 
 final remindersApiProvider = Provider<RemindersApi>((ref) => RemindersApi(ref));
