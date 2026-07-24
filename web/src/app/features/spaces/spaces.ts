@@ -7,13 +7,14 @@ import { AuthService } from '../../core/auth.service';
 import { NoticeService } from '../../core/notice/notice.service';
 import { DriveConnectionView, DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
 import { HelpCard } from '../../core/help-card';
+import { InfoTip } from '../../core/info-tip';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { TERMS } from '../../core/terms';
 import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-spaces',
-  imports: [FormsModule, HelpCard, DateTimePipe, TroveSelect],
+  imports: [FormsModule, HelpCard, InfoTip, DateTimePipe, TroveSelect],
   template: `
     @if (invitations().length) {
       <div class="card invites">
@@ -206,20 +207,27 @@ import { TroveSelect, SelectOption } from '../../core/select';
               <div class="drive-conn-actions">
                 @if (d.mode === 'rotate' && !c.active) {
                   <button type="button" class="btn-ghost sm" (click)="activate(c.id)">Make active</button>
+                  <trove-info-tip text="Make this the Drive new documents sync to (rotate mode). The others stay as-is."></trove-info-tip>
                 }
                 <button type="button" class="btn-ghost sm" (click)="disconnect(c.id)">Disconnect</button>
+                <trove-info-tip text="Unlink this Drive from the space. Files already backed up STAY in the Drive; Trove just stops syncing to it. You can reconnect later."></trove-info-tip>
               </div>
             </div>
           }
 
           <div class="drive-foot">
             <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
+            <trove-info-tip text="Copies any documents not yet backed up into the space's Drive(s) right now, instead of waiting for the hourly auto-sync. Safe to run anytime."></trove-info-tip>
             <button type="button" class="btn-ghost" (click)="connect()">+ Connect another Drive</button>
+            <trove-info-tip text="Link one more Google Drive to pool its free space. Opens Google's consent screen; you choose the account."></trove-info-tip>
             @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
           </div>
         } @else {
           <p class="muted">Not connected. Back this space up into a member's {{ terms.driveBackup }} — anyone in the space can link their own.</p>
-          <button (click)="connect()">Connect {{ terms.driveBackup }}</button>
+          <div class="drive-foot">
+            <button (click)="connect()">Connect {{ terms.driveBackup }}</button>
+            <trove-info-tip text="Opens Google's consent screen to link a Drive. Trove only touches files it creates (drive.file scope) and backs this space's documents into it."></trove-info-tip>
+          </div>
         }
       } @else { <p class="muted">{{ driveError() || 'Loading…' }}</p> }
     </div>
@@ -258,7 +266,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
       .drive-conn.is-active { border-color: var(--accent-line); background: var(--accent-soft); }
       .drive-conn-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
       .drive-conn-sub { font-size: 0.8rem; margin: 3px 0 0; }
-      .drive-conn-actions { display: flex; gap: 8px; margin-top: 8px; }
+      .drive-conn-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
       .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-radius: 6px; padding: 1px 7px; }
       .badge-active { background: var(--accent); color: var(--brand-ink); }
       .badge-full { background: var(--danger, #b4402f); color: #fff; }
