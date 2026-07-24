@@ -36,16 +36,16 @@ export class AuthService {
 
   // --- TOTP 2FA (authenticated) ---
   twoFactorSetup() {
-    return this.http.post<{ secret: string; otpauthUri: string }>(`${API_BASE}/api/auth/2fa/setup`, {});
+    return this.http.post<{ secret: string; otpauthUri: string }>(`${API_BASE}/api/account/2fa/setup`, {});
   }
   twoFactorEnable(code: string) {
-    return this.http.post<void>(`${API_BASE}/api/auth/2fa/enable`, { code });
+    return this.http.post<void>(`${API_BASE}/api/account/2fa/enable`, { code });
   }
   twoFactorDisable(code: string) {
-    return this.http.post<void>(`${API_BASE}/api/auth/2fa/disable`, { code });
+    return this.http.post<void>(`${API_BASE}/api/account/2fa/disable`, { code });
   }
   twoFactorStatus() {
-    return this.http.get<{ enabled: boolean }>(`${API_BASE}/api/auth/2fa/status`);
+    return this.http.get<{ enabled: boolean }>(`${API_BASE}/api/account/2fa/status`);
   }
 
   register(email: string, displayName: string, password: string) {
