@@ -64,6 +64,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -142,6 +143,13 @@ public class DocumentService {
     public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file, boolean vital, boolean extract) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Uploaded file is empty");
+        }
+        // Trove is a vault of document images and PDFs; reject anything else so an
+        // unsupported file (a .docx, .zip) can't be silently stored. (Size is capped
+        // separately by the multipart limit in application.yml, which returns a 413.)
+        if (!isSupportedUploadType(file.getContentType(), file.getOriginalFilename())) {
+            throw new IllegalArgumentException(
+                    "Unsupported file type. Trove accepts images (JPG, PNG, HEIC, WebP) and PDF files.");
         }
 
         // 0) Authorize: the uploader must be an owner/member of the target space.
@@ -545,5 +553,30 @@ public class DocumentService {
         } catch (IOException e) {
             throw new IllegalStateException("Could not read uploaded file bytes", e);
         }
+    }
+
+    /** File extensions accepted when the browser sends no/generic content type. */
+    private static final Set<String> ALLOWED_UPLOAD_EXTENSIONS = Set.of(
+            "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "bmp", "tif", "tiff", "pdf");
+
+    /**
+     * True when an upload is an image or a PDF - by content type first (image/* or
+     * application/pdf), falling back to the filename extension when the browser sends a
+     * missing or generic type (some send application/octet-stream for HEIC, say).
+     */
+    private boolean isSupportedUploadType(String contentType, String filename) {
+        if (contentType != null) {
+            String ct = contentType.toLowerCase();
+            if (ct.startsWith("image/") || ct.equals("application/pdf")) {
+                return true;
+            }
+        }
+        if (filename != null) {
+            int dot = filename.lastIndexOf('.');
+            if (dot >= 0 && dot < filename.length() - 1) {
+                return ALLOWED_UPLOAD_EXTENSIONS.contains(filename.substring(dot + 1).toLowerCase());
+            }
+        }
+        return false;
     }
 }

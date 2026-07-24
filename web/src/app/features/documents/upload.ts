@@ -29,11 +29,12 @@ interface Queued {
     <div class="card">
       <h1>Add documents</h1>
       <p class="muted">
-        Paste a screenshot ({{ pasteHint }}), drop images, or choose files: a bill,
+        Paste a screenshot ({{ pasteHint }}), drop files, or choose files: a bill,
         receipt, policy or ID. <b>Images are read automatically</b> and you just confirm the
-        details next. PDFs and other non-image files are stored safely, but aren't auto-read
-        yet, so you'll fill in their details yourself.
+        details next; PDFs are stored safely but aren't auto-read yet, so you'll fill in
+        their details yourself.
       </p>
+      <p class="formats">Accepted: images (JPG, PNG, HEIC, WebP) and PDF · up to 25 MB each.</p>
 
       <trove-help-card
         title="How reading works"
@@ -50,7 +51,7 @@ interface Queued {
         (drop)="onDrop($event)"
         tabindex="0"
       >
-        <span class="hint">Paste ({{ pasteHint }}) or drop images</span>
+        <span class="hint">Paste ({{ pasteHint }}) or drop images or PDFs</span>
         <label class="filebtn">
           Choose files
           <input type="file" (change)="onPick($event)" accept="image/*,application/pdf" multiple hidden />
@@ -76,8 +77,8 @@ interface Queued {
           }
         </div>
         @if (hasNonImage()) {
-          <p class="note">ℹ Non-image files (PDF, etc.) are stored but not auto-read, so you'll
-            enter their details manually on the review screen.</p>
+          <p class="note">ℹ PDFs are stored but not auto-read, so you'll enter their details
+            manually on the review screen.</p>
         }
       }
 
@@ -147,6 +148,7 @@ interface Queued {
         color: var(--warn); background: rgba(184, 134, 11, 0.1); border: 1px solid rgba(184, 134, 11, 0.25);
       }
       .ai-hint { margin: -2px 0 10px 26px; font-size: 12px; }
+      .formats { margin: -4px 0 14px; font-size: 12.5px; color: var(--muted); }
     `,
   ],
 })
@@ -193,16 +195,30 @@ export class Upload {
   onDrop(e: DragEvent): void {
     e.preventDefault();
     this.dragging.set(false);
-    const files = Array.from(e.dataTransfer?.files ?? []).filter(
-      (f) => f.type.startsWith('image/') || f.type === 'application/pdf',
-    );
-    this.add(files);
+    this.addSupported(Array.from(e.dataTransfer?.files ?? []));
   }
 
   onPick(e: Event): void {
     const input = e.target as HTMLInputElement;
-    this.add(Array.from(input.files ?? []));
+    this.addSupported(Array.from(input.files ?? []));
     input.value = ''; // allow re-picking the same file
+  }
+
+  /** Accepted upload types: images and PDF. The OS picker only hints at this (macOS
+   *  still lets you select anything), so we filter here and tell the user what was skipped. */
+  private static readonly SUPPORTED = /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?|pdf)$/i;
+  private addSupported(files: File[]): void {
+    const ok = files.filter(
+      (f) => f.type.startsWith('image/') || f.type === 'application/pdf' || Upload.SUPPORTED.test(f.name),
+    );
+    const skipped = files.length - ok.length;
+    if (skipped > 0) {
+      this.notices.show({
+        level: 'warning', code: 'UNSUPPORTED_FILE',
+        userMessage: `Skipped ${skipped} file${skipped > 1 ? 's' : ''}: Trove accepts images (JPG, PNG, HEIC, WebP) and PDF only.`,
+      });
+    }
+    this.add(ok);
   }
 
   /** Only images can be previewed as an <img>; everything else gets a file card. */
