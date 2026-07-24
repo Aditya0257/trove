@@ -36,6 +36,14 @@ import { TroveSelect, SelectOption } from '../../core/select';
         @if (trashLoading()) { <p class="muted">Loading…</p> }
         @else if (trash().length === 0) { <p class="muted">Trash is empty.</p> }
         @else {
+          <div class="list-help">
+            <span>Restore
+              <trove-info-tip text="Puts the file back in your live vault and out of the Trove/_Deleted folder in Drive - it reappears in Documents."></trove-info-tip>
+            </span>
+            <span>Delete forever
+              <trove-info-tip text="Erases the file now from the live store (R2) and from Google Drive, and removes the database row - permanently, no undo. The independent B2 mirror keeps an archival copy by design."></trove-info-tip>
+            </span>
+          </div>
           <div class="table-scroll">
           <table>
             <thead>
@@ -53,9 +61,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
                     <button type="button" class="btn-ghost sm" (click)="restore(d)" [disabled]="restoringId() === d.id">
                       {{ restoringId() === d.id ? 'Restoring...' : 'Restore' }}
                     </button>
-                    <trove-info-tip text="Moves the file back to your live vault and out of the Trove/_Deleted folder in Drive. It reappears in Documents."></trove-info-tip>
                     <button type="button" class="del" (click)="purge(d)">Delete forever</button>
-                    <trove-info-tip align="right" text="Erases the file from the live store (R2) and from Google Drive, and removes the database row - permanently, no undo. The independent B2 mirror keeps an archival copy by design."></trove-info-tip>
                   </td>
                 </tr>
               }
@@ -83,6 +89,14 @@ import { TroveSelect, SelectOption } from '../../core/select';
         </p>
       }
       @else {
+        <div class="list-help">
+          <span>Status
+            <trove-info-tip text="needs_review = the AI read this and it's waiting for you to confirm the details. confirmed = you've verified them (only confirmed documents count toward Spend)."></trove-info-tip>
+          </span>
+          <span>Delete
+            <trove-info-tip text="Moves a document to Trash - recoverable for 30 days, not a permanent erase. It's hidden from lists, Spend and Search, and its Drive copy moves to Trove/_Deleted. Open Trash to restore or delete for good."></trove-info-tip>
+          </span>
+        </div>
         <div class="table-scroll">
         <table>
           <thead>
@@ -97,10 +111,7 @@ import { TroveSelect, SelectOption } from '../../core/select';
                 <td>{{ d.amount | money: d.currency }}</td>
                 <td>{{ d.docDate || '-' }}</td>
                 <td><span class="badge" [class.confirmed]="d.status === 'confirmed'">{{ d.status }}</span></td>
-                <td class="row-actions">
-                  <button class="del" type="button" (click)="remove(d)">Delete</button>
-                  <trove-info-tip align="right" text="Moves this to Trash - recoverable for 30 days, not a permanent delete. It's hidden from lists, spend and search, and its Drive copy moves to Trove/_Deleted."></trove-info-tip>
-                </td>
+                <td><button class="del" type="button" (click)="remove(d)">Delete</button></td>
               </tr>
             }
           </tbody>
@@ -125,6 +136,9 @@ import { TroveSelect, SelectOption } from '../../core/select';
   `,
   styles: [
     `
+      /* Column-level help legend, above the table so its tooltips never clip in the scroll box. */
+      .list-help { display: flex; gap: 18px; margin: 4px 0 10px; font-size: 12px; color: var(--muted); }
+      .list-help > span { display: inline-flex; align-items: center; gap: 5px; }
       /* Let a wide table scroll inside the card instead of the page scrolling sideways. */
       .table-scroll { overflow-x: auto; max-width: 100%; }
       .table-scroll table { min-width: 560px; }
@@ -184,12 +198,18 @@ export class DocList {
     'back. After 30 days it is removed for good. "Delete forever" skips the wait and removes it now. Your other ' +
     'backup copies mean an accidental delete is never the end of the world.';
   protected trashHelpDev =
-    'Soft delete: status flips to "deleted", the live file + sidecar MOVE to a _trash/ prefix in R2 (not erased), ' +
-    'and the Drive copy moves to Trove/_Deleted/ via a document lifecycle event; the row drops out of every query ' +
-    '(lists, spend, search, dedupe). Restore moves the objects back and clears the tombstone. Purge (the daily ' +
-    '30-day job, or "Delete forever") deletes the trashed object from R2, deletes it from Drive, and removes the ' +
-    'DB row (line items + drive-sync cascade). The independent B2 mirror is append-only and keeps an archival ' +
-    'copy by design - so "cleared everywhere" means the live R2 + Drive + DB.';
+    'Soft delete: the document row is tombstoned and its file MOVED (not erased) to a _trash/ prefix in R2, with ' +
+    'the Drive copy moved to Trove/_Deleted/ via a lifecycle event. The row then drops out of every query (lists, ' +
+    'Spend, Search, dedupe). Example - on delete the row changes from ' +
+    '{ "status":"confirmed", "storageKey":"electricity/2026-01/reliance-a1b2.jpg", "trashKey":null, ' +
+    '"deletedAt":null, "deletedBy":null } to { "status":"deleted", ' +
+    '"storageKey":"electricity/2026-01/reliance-a1b2.jpg", "trashKey":"_trash/<space>/<doc>/reliance-a1b2.jpg", ' +
+    '"deletedAt":"2026-07-24T08:15:00Z", "deletedBy":"<userId>" } and the R2 object is copied from storageKey to ' +
+    'trashKey then deleted at the old key. Restore reverses it exactly: status back to confirmed, trashKey to null, ' +
+    'deletedAt/deletedBy cleared, object moved back to storageKey. Purge (the daily 30-day job, or "Delete forever") ' +
+    'deletes the trashed object from R2, deletes it from Drive, and removes the DB row (line items + drive-sync ' +
+    'cascade). The independent B2 mirror is append-only and keeps an archival copy by design, so "cleared ' +
+    'everywhere" means the live R2 + Drive + DB.';
 
   /** Emails have their own home in the Mail section, so they're kept out of Documents
    *  entirely - no "Email" filter chip, and never listed under "All". */
