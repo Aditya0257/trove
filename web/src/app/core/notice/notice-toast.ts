@@ -12,12 +12,10 @@ import { NoticeService } from './notice.service';
   template: `
     @if (notice(); as n) {
       <div class="toast" [attr.data-level]="n.level">
+        <button class="x" (click)="notices.dismiss()" aria-label="Dismiss">×</button>
         <span class="dot"></span>
         <div class="body">
-          <div class="row">
-            <p class="msg">{{ n.userMessage }}</p>
-            <button class="x" (click)="notices.dismiss()" aria-label="Dismiss">×</button>
-          </div>
+          <p class="msg">{{ n.userMessage }}</p>
           @if (n.devNote) {
             <button class="dev-toggle" (click)="expanded.set(!expanded())">
               <span class="chev">{{ expanded() ? '▾' : '▸' }}</span> Developer note
@@ -45,6 +43,7 @@ import { NoticeService } from './notice.service';
         max-width: min(460px, calc(100vw - 32px));
       }
       .toast {
+        position: relative;
         display: flex;
         gap: 11px;
         align-items: flex-start;
@@ -53,7 +52,7 @@ import { NoticeService } from './notice.service';
         border: 1px solid rgba(0, 0, 0, 0.06);
         border-radius: 14px;
         box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16);
-        padding: 14px 14px 14px 16px;
+        padding: 14px 40px 14px 16px;   /* room on the right for the corner close button */
         animation: slide-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
       }
       .toast[data-level='success'] { --accent: #2e7d5b; }
@@ -66,13 +65,15 @@ import { NoticeService } from './notice.service';
         box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.04);
       }
       .body { flex: 1; min-width: 0; }
-      .row { display: flex; align-items: flex-start; gap: 8px; }
-      .msg { margin: 0; flex: 1; font-size: 14px; line-height: 1.45; font-weight: 500; }
+      .msg { margin: 0; font-size: 14px; line-height: 1.45; font-weight: 500; }
+      /* Close pinned to the top-right corner of the card, aligned with the first text line. */
       .x {
-        border: 0; background: transparent; cursor: pointer;
-        font-size: 18px; line-height: 1; color: var(--muted); padding: 0 2px;
+        position: absolute; top: 8px; right: 8px; margin: 0;
+        width: 24px; height: 24px; border: 0; border-radius: 7px; background: transparent;
+        cursor: pointer; font-size: 17px; line-height: 1; color: var(--muted);
+        display: inline-flex; align-items: center; justify-content: center;
       }
-      .x:hover { color: var(--ink); }
+      .x:hover { color: var(--ink); background: var(--hover); }
       .dev-toggle {
         margin-top: 8px; border: 0; background: transparent; cursor: pointer;
         color: var(--accent); font-size: 12px; font-weight: 600; padding: 0;
