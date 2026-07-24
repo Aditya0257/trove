@@ -18,6 +18,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -62,11 +63,33 @@ public class ReminderController {
             @RequestBody CreateReminderRequest req) {
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        Reminder r = reminderService.create(space, user, req.documentId(), req.type(), req.remindOn());
+        Reminder r = reminderService.create(space, user, req.documentId(), req.type(), req.title(),
+                req.remindOn(), req.recurrence());
         return ResponseEntity.status(HttpStatus.CREATED).body(ReminderResponse.of(r));
     }
 
-    /** Dismiss a reminder. */
+    /** Edit a reminder (type, title, date, recurrence, linked document). */
+    @PatchMapping("/{id}")
+    public ReminderResponse update(@PathVariable UUID id, @RequestBody UpdateReminderRequest req) {
+        Reminder r = reminderService.update(id, currentUser.requireUserId(), req.type(), req.title(),
+                req.remindOn(), req.recurrence(), req.documentId());
+        return ReminderResponse.of(r);
+    }
+
+    /** Snooze a reminder to fire {@code days} from today (days=0 reopens it as due now). */
+    @PostMapping("/{id}/snooze")
+    public ReminderResponse snooze(@PathVariable UUID id,
+                                   @RequestParam(value = "days", defaultValue = "1") int days) {
+        return ReminderResponse.of(reminderService.snooze(id, currentUser.requireUserId(), days));
+    }
+
+    /** Mark a reminder done (and, if recurring, schedule the next occurrence). */
+    @PostMapping("/{id}/done")
+    public ReminderResponse done(@PathVariable UUID id) {
+        return ReminderResponse.of(reminderService.markDone(id, currentUser.requireUserId()));
+    }
+
+    /** Dismiss a reminder - "never mind". */
     @PostMapping("/{id}/dismiss")
     public ReminderResponse dismiss(@PathVariable UUID id) {
         return ReminderResponse.of(reminderService.dismiss(id, currentUser.requireUserId()));
@@ -74,15 +97,21 @@ public class ReminderController {
 
     // ── DTOs ─────────────────────────────────────────────────────────────────
 
-    public record CreateReminderRequest(UUID documentId, @NotBlank String type,
-                                        @NotNull LocalDate remindOn) {
+    public record CreateReminderRequest(UUID documentId, @NotBlank String type, String title,
+                                        @NotNull LocalDate remindOn, String recurrence) {
     }
 
-    public record ReminderResponse(UUID id, UUID documentId, UUID spaceId, String type,
-                                   LocalDate remindOn, String status, Instant createdAt) {
+    public record UpdateReminderRequest(UUID documentId, @NotBlank String type, String title,
+                                        @NotNull LocalDate remindOn, String recurrence) {
+    }
+
+    public record ReminderResponse(UUID id, UUID documentId, UUID spaceId, String type, String title,
+                                   LocalDate remindOn, String recurrence, String status,
+                                   Instant completedAt, Instant createdAt) {
         static ReminderResponse of(Reminder r) {
             return new ReminderResponse(r.getId(), r.getDocumentId(), r.getSpaceId(), r.getType(),
-                    r.getRemindOn(), r.getStatus(), r.getCreatedAt());
+                    r.getTitle(), r.getRemindOn(), r.getRecurrence(), r.getStatus(),
+                    r.getCompletedAt(), r.getCreatedAt());
         }
     }
 }

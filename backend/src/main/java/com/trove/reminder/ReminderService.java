@@ -40,6 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -64,16 +65,74 @@ public class ReminderService {
 
     /** Creates a manual reminder (owner/member only). */
     @Transactional
-    public Reminder create(UUID spaceId, UUID userId, UUID documentId, String type, LocalDate remindOn) {
+    public Reminder create(UUID spaceId, UUID userId, UUID documentId, String type, String title,
+                           LocalDate remindOn, String recurrence) {
         authorization.requireCanWrite(spaceId, userId);
-        if (!ReminderType.ALL.contains(type)) {
-            throw new IllegalArgumentException("Invalid reminder type '" + type + "'. Use "
-                    + ReminderType.ALL);
-        }
+        validateType(type);
+        validateRecurrence(recurrence);
         if (remindOn == null) {
             throw new IllegalArgumentException("remindOn (date) is required");
         }
-        return reminderRepository.save(new Reminder(spaceId, documentId, type, remindOn));
+        Reminder r = new Reminder(spaceId, documentId, type, remindOn);
+        r.setTitle(trimToNull(title));
+        r.setRecurrence(normalizeRecurrence(recurrence));
+        return reminderRepository.save(r);
+    }
+
+    /**
+     * Snoozes a reminder to fire {@code days} from today and puts it back to pending
+     * (so a sent/overdue one nudges again later). days=0 means "today" - used to
+     * reopen a done/dismissed reminder as due now.
+     */
+    @Transactional
+    public Reminder snooze(UUID reminderId, UUID userId, int days) {
+        Reminder r = findWritable(reminderId, userId);
+        r.setRemindOn(LocalDate.now().plusDays(Math.max(0, days)));
+        r.setStatus(ReminderStatus.PENDING);
+        r.setCompletedAt(null);
+        return reminderRepository.save(r);
+    }
+
+    /**
+     * Marks a reminder handled. For a recurring reminder this also schedules the next
+     * occurrence (at the recurrence interval, jumping to the next future date), so the
+     * series continues without the user re-creating it. Rollover happens here - not at
+     * dispatch - so a reminder is only ever advanced once, when the user says it's done.
+     */
+    @Transactional
+    public Reminder markDone(UUID reminderId, UUID userId) {
+        Reminder r = findWritable(reminderId, userId);
+        if (ReminderRecurrence.repeats(r.getRecurrence())) {
+            LocalDate nextDate = ReminderRecurrence.next(r.getRecurrence(), r.getRemindOn(), LocalDate.now());
+            if (nextDate != null) {
+                Reminder next = new Reminder(r.getSpaceId(), r.getDocumentId(), r.getType(), nextDate);
+                next.setTitle(r.getTitle());
+                next.setRecurrence(r.getRecurrence());
+                reminderRepository.save(next);
+                log.info("Recurring reminder {} done; scheduled next {} on {}", r.getId(), r.getRecurrence(), nextDate);
+            }
+        }
+        r.setStatus(ReminderStatus.DONE);
+        r.setCompletedAt(Instant.now());
+        return reminderRepository.save(r);
+    }
+
+    /** Edits a reminder's fields (owner/member only). The edit form sends the full set. */
+    @Transactional
+    public Reminder update(UUID reminderId, UUID userId, String type, String title,
+                           LocalDate remindOn, String recurrence, UUID documentId) {
+        Reminder r = findWritable(reminderId, userId);
+        validateType(type);
+        validateRecurrence(recurrence);
+        if (remindOn == null) {
+            throw new IllegalArgumentException("remindOn (date) is required");
+        }
+        r.setType(type);
+        r.setTitle(trimToNull(title));
+        r.setRemindOn(remindOn);
+        r.setRecurrence(normalizeRecurrence(recurrence));
+        r.setDocumentId(documentId);
+        return reminderRepository.save(r);
     }
 
     /**
@@ -114,14 +173,45 @@ public class ReminderService {
                 : reminderRepository.findBySpaceIdAndStatusOrderByRemindOnAsc(spaceId, status);
     }
 
-    /** Dismisses a reminder (owner/member only). */
+    /** Dismisses a reminder - "never mind" (owner/member only). */
     @Transactional
     public Reminder dismiss(UUID reminderId, UUID userId) {
+        Reminder reminder = findWritable(reminderId, userId);
+        reminder.setStatus(ReminderStatus.DISMISSED);
+        return reminderRepository.save(reminder);
+    }
+
+    /** Loads a reminder and checks the caller may write its space, else 404/403. */
+    private Reminder findWritable(UUID reminderId, UUID userId) {
         Reminder reminder = reminderRepository.findById(reminderId)
                 .orElseThrow(() -> new NotFoundException("Reminder not found: " + reminderId));
         authorization.requireCanWrite(reminder.getSpaceId(), userId);
-        reminder.setStatus(ReminderStatus.DISMISSED);
-        return reminderRepository.save(reminder);
+        return reminder;
+    }
+
+    private void validateType(String type) {
+        if (!ReminderType.ALL.contains(type)) {
+            throw new IllegalArgumentException("Invalid reminder type '" + type + "'. Use " + ReminderType.ALL);
+        }
+    }
+
+    private void validateRecurrence(String recurrence) {
+        if (recurrence != null && !recurrence.isBlank() && !ReminderRecurrence.ALL.contains(recurrence)) {
+            throw new IllegalArgumentException("Invalid recurrence '" + recurrence + "'. Use " + ReminderRecurrence.ALL);
+        }
+    }
+
+    /** Blank/absent recurrence means a one-off reminder. */
+    private String normalizeRecurrence(String recurrence) {
+        return recurrence == null || recurrence.isBlank() ? ReminderRecurrence.NONE : recurrence;
+    }
+
+    private String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     /**

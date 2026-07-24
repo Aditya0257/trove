@@ -35,11 +35,20 @@ public class Reminder extends BaseEntity {
     @Column(name = "type", nullable = false)
     private String type; // due | renewal | warranty_expiry
 
+    @Column(name = "title")
+    private String title; // optional human label, e.g. "Rent - pay landlord"
+
     @Column(name = "remind_on", nullable = false)
     private LocalDate remindOn;
 
+    @Column(name = "recurrence", nullable = false)
+    private String recurrence = ReminderRecurrence.NONE; // none | weekly | monthly | quarterly | yearly
+
     @Column(name = "status", nullable = false)
     private String status = ReminderStatus.PENDING;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -57,10 +66,19 @@ public class Reminder extends BaseEntity {
     }
 
     public UUID getDocumentId() { return documentId; }
+    public void setDocumentId(UUID documentId) { this.documentId = documentId; }
     public UUID getSpaceId() { return spaceId; }
     public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
     public LocalDate getRemindOn() { return remindOn; }
+    public void setRemindOn(LocalDate remindOn) { this.remindOn = remindOn; }
+    public String getRecurrence() { return recurrence; }
+    public void setRecurrence(String recurrence) { this.recurrence = recurrence; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Instant getCompletedAt() { return completedAt; }
+    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
     public Instant getCreatedAt() { return createdAt; }
 }
