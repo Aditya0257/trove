@@ -12,6 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_controller.dart';
 import '../../core/config.dart';
+import '../../core/notice/notice.dart';
+import '../../core/notice/notice_center.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -47,6 +49,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // 2FA is on: reveal the code field and let the user enter it, then resubmit.
       setState(() => _needCode = true);
     }
+  }
+
+  Future<void> _forgot() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      NoticeCenter.instance.show(Notice.local(
+        level: NoticeLevel.warning,
+        code: 'RESET_NEEDS_EMAIL',
+        userMessage: 'Enter your email above, then tap Forgot password.',
+      ),);
+      return;
+    }
+    await ref.read(authControllerProvider.notifier).forgotPassword(email);
   }
 
   @override
@@ -139,6 +154,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? 'I already have an account'
                         : 'New here? Create an account',),
                   ),
+                  if (!_register && !_needCode)
+                    TextButton(
+                      onPressed: busy ? null : _forgot,
+                      child: const Text('Forgot password?'),
+                    ),
                 ],
               ),
             ),

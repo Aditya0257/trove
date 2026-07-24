@@ -46,6 +46,21 @@ class AuthController extends AsyncNotifier<void> {
       _run('/api/auth/register', email, password, 'Welcome to Trove, ',
           displayName: displayName,);
 
+  /// Begin a password reset. Always shows the same message (anti-enumeration); the
+  /// reset itself is completed by opening the emailed link on the web.
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _api.post('/api/auth/forgot-password', body: {'email': email.trim()}, silent: true);
+    } catch (_) {
+      // ignore: the response is intentionally the same whether or not the email exists
+    }
+    NoticeCenter.instance.show(Notice.local(
+      level: NoticeLevel.info,
+      code: 'RESET_SENT',
+      userMessage: 'If that email is registered, a reset link is on its way. Open it on the web to set a new password.',
+    ),);
+  }
+
   Future<void> logout() async {
     await ref.read(authStoreProvider).clear();
     NoticeCenter.instance.show(Notice.local(
