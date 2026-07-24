@@ -28,9 +28,11 @@ interface Turn {
         <div class="panel">
           <header>
             <span class="title">✦ Ask your vault</span>
-            <button type="button" class="icon" title="How this works" [class.on]="helpOpen()" (click)="helpOpen.set(!helpOpen())">ⓘ</button>
-            <button type="button" class="icon" title="Re-index documents" (click)="reindex()" [disabled]="indexing()">⟳</button>
-            <button type="button" class="icon" title="Close" (click)="open.set(false)">✕</button>
+            <button type="button" class="icon" aria-label="How this works" data-tip="How this works" [class.on]="helpOpen()" (click)="helpOpen.set(!helpOpen())">ⓘ</button>
+            <button type="button" class="icon" aria-label="Re-index documents"
+              data-tip="Refresh the assistant's index so documents you just added or edited become answerable. This is normally automatic; use it if a recent document is not turning up in answers yet."
+              (click)="reindex()" [disabled]="indexing()">⟳</button>
+            <button type="button" class="icon" aria-label="Close" data-tip="Close" (click)="open.set(false)">✕</button>
           </header>
 
           <div class="body" #body>
@@ -138,11 +140,26 @@ interface Turn {
       }
       header .title { flex: 1; font-weight: 700; font-size: 14px; }
       header .icon {
+        position: relative;
         margin: 0; padding: 3px 8px; background: transparent; border: 1px solid var(--line);
         border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
       }
       header .icon:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
       header .icon.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
+      /* In-app tooltip (replaces the browser's native title bubble, which rendered outside the app).
+         Anchored under the icon and right-aligned so it never spills past the panel edge. */
+      header .icon[data-tip]::after {
+        content: attr(data-tip);
+        position: absolute; top: calc(100% + 7px); right: 0;
+        width: max-content; max-width: 230px; text-align: left; white-space: normal;
+        background: #222; color: #fff; padding: 7px 9px; border-radius: 8px;
+        font-size: 11px; font-weight: 400; line-height: 1.45;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity 120ms, transform 120ms;
+        z-index: 60; pointer-events: none;
+      }
+      header .icon[data-tip]:hover:not(:disabled)::after,
+      header .icon[data-tip]:focus-visible::after { opacity: 1; visibility: visible; transform: translateY(0); }
 
       .body { flex: 1; overflow-y: auto; padding: 12px; }
       /* Compact in-panel help - the floating widget's own take, lighter than the page help card. */
@@ -212,7 +229,8 @@ export class AssistantWidget {
     "Ask about your documents in plain English - \"when does my insurance renew?\", \"my last water bill\", " +
     '"the fridge warranty". Answers are built only from your own files and cite the exact documents used, so ' +
     "you can check them. If something isn't in your vault, it says so instead of guessing. It searches the " +
-    'space you\'re currently in.';
+    "space you're currently in. If you just added or edited a document and it is not turning up in answers " +
+    "yet, press the refresh button (top right) to re-read and re-index anything new.";
   protected helpDev =
     'Retrieval-augmented generation. Each document is embedded (Cloudflare bge-base, 768-dim) into pgvector on ' +
     'Postgres; your question is embedded and matched by cosine similarity within the current space, then an LLM ' +
@@ -220,7 +238,8 @@ export class AssistantWidget {
     'lookups go to a cheap model (llama-3.2-3b, ~3.6x cheaper), reasoning/comparison questions to a stronger one ' +
     '(llama-3.1-8b). When the SHARED daily budget crosses 75% it drops everything to the light model so the free ' +
     'tier stretches across more users, and it degrades to retrieval-only (sources, no written answer) once the ' +
-    'budget is fully spent.';
+    'budget is fully spent. The refresh (re-index) button embeds any documents missing a current-model vector on ' +
+    'demand; normally confirm-time indexing plus an hourly sweep keep the index current, so you rarely need it.';
   protected loading = signal(false);
   protected indexing = signal(false);
   protected error = signal<string | null>(null);

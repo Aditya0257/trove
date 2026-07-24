@@ -73,6 +73,7 @@ import { SettingsService } from '../settings.service';
                 <li><b>Uploading images</b> - only while "Read images with AI" is on. Images only; PDFs and other non-image files never use AI.</li>
                 <li><b>Mail</b> - only if you tick "read with AI" when filing an email (off by default).</li>
                 <li><b>Search</b> - each plain-English search; it falls back to keyword rules when the daily budget is spent.</li>
+                <li><b>Ask your vault</b> - each question the assistant answers, plus a tiny amount to keep new documents searchable (indexing). It answers from text already read, so it never re-reads your files.</li>
                 <li>A hard-to-read scan may cost <b>2 calls</b> (one automatic retry).</li>
                 <li>Confirming, editing, deleting, backups and everything else use <b>no</b> AI.</li>
               </ul>
