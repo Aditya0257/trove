@@ -189,24 +189,71 @@ public class ReminderService {
         boolean madeDated = false;
         if (dueDate != null) {
             String type = reminderTypeFor(categoryCode);
+            boolean made = false;
             for (int lead : props.getLeadDaysList()) {
                 LocalDate remindOn = dueDate.minusDays(lead);
                 if (!reminderRepository.existsByDocumentIdAndTypeAndRemindOn(documentId, type, remindOn)) {
                     reminderRepository.save(new Reminder(spaceId, documentId, type, remindOn));
-                    madeDated = true;
+                    made = true;
                 }
             }
-            if (madeDated) {
+            if (made) {
+                madeDated = true;
                 log.info("Auto-created {} reminder(s) for document {} (date {}, leads {})",
                         type, documentId, dueDate, props.getLeadDaysList());
             }
         }
 
+        // A purchase's warranty end date (set on the review screen, stored in `extra`)
+        // becomes a warranty-expiry reminder a couple of weeks ahead, so you can still
+        // claim or arrange a repair before cover lapses.
+        LocalDate warrantyUntil = warrantyDateOf(doc);
+        if (warrantyUntil != null) {
+            String title = merchantTitle(doc, "warranty");
+            boolean made = false;
+            for (int lead : props.getWarrantyLeadDaysList()) {
+                LocalDate remindOn = warrantyUntil.minusDays(lead);
+                if (!reminderRepository.existsByDocumentIdAndTypeAndRemindOn(
+                        documentId, ReminderType.WARRANTY_EXPIRY, remindOn)) {
+                    Reminder r = new Reminder(spaceId, documentId, ReminderType.WARRANTY_EXPIRY, remindOn);
+                    r.setTitle(title);
+                    reminderRepository.save(r);
+                    made = true;
+                }
+            }
+            if (made) {
+                madeDated = true;
+                log.info("Auto-created warranty reminder(s) for document {} (expires {}, leads {})",
+                        documentId, warrantyUntil, props.getWarrantyLeadDaysList());
+            }
+        }
+
         // Only look for a subscription cadence when this document didn't already yield a
-        // dated reminder, so a policy with an explicit renewal date isn't double-flagged.
+        // dated reminder, so a policy/warranty with an explicit date isn't double-flagged.
         if (!madeDated) {
             detectSubscription(spaceId, doc);
         }
+    }
+
+    /** The warranty end date a user set on review, stored as an ISO string in extra; null if none/unparseable. */
+    private LocalDate warrantyDateOf(Document doc) {
+        Object v = doc.getExtra() == null ? null : doc.getExtra().get("warrantyUntil");
+        if (v == null || v.toString().isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(v.toString().trim());
+        } catch (Exception e) {
+            log.warn("Ignoring unparseable warrantyUntil '{}' on document {}", v, doc.getId());
+            return null;
+        }
+    }
+
+    /** "<Merchant> <suffix>" when a merchant is known, else just the suffix (e.g. "warranty"). */
+    private String merchantTitle(Document doc, String suffix) {
+        String merchant = doc.getMerchantId() == null ? null
+                : merchantRepository.findById(doc.getMerchantId()).map(Merchant::getCanonicalName).orElse(null);
+        return merchant != null ? merchant + " " + suffix : Character.toUpperCase(suffix.charAt(0)) + suffix.substring(1);
     }
 
     /** A policy/subscription date is a renewal; everything else is a payment due. */

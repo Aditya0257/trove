@@ -235,8 +235,10 @@ export class Reminders {
   protected helpUser =
     'Reminders nudge you before something matters: a bill due, a policy renewing, a warranty running out. Add one ' +
     'yourself, or let Trove set one up when you confirm a document: a due date becomes a reminder, an insurance or ' +
-    'subscription date becomes a renewal, and if a merchant keeps billing on a regular rhythm Trove schedules a ' +
-    'repeating renewal for you. Set Repeat to have any reminder come back on its own (say monthly rent). When you ' +
+    'subscription date becomes a renewal, and a purchase with a warranty gets a heads-up before cover ends. If the ' +
+    'same merchant keeps billing on a regular rhythm (say monthly), Trove even spots the pattern and schedules a ' +
+    'repeating renewal on its own - you do not set that up, and if it is not one you care to track, just Dismiss it. ' +
+    'Set Repeat to have any reminder come back on its own (say monthly rent). When you ' +
     'have handled one, press Done - if it repeats, the next one is scheduled automatically. Snooze pushes it out a ' +
     'little, Dismiss clears it for good, and Reopen brings a done or dismissed one back.';
   protected helpDev =

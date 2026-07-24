@@ -89,6 +89,16 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
             </label>
           </div>
           <label>
+            <span class="lbl">Warranty until (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.warranty }}</span></span></span>
+            <div class="warranty-row">
+              <input type="date" name="warrantyUntil" [(ngModel)]="form.warrantyUntil" />
+              <button type="button" class="preset" (click)="setWarranty(1)">+1 year</button>
+              <button type="button" class="preset" (click)="setWarranty(2)">+2 years</button>
+              @if (form.warrantyUntil) { <button type="button" class="preset clear" (click)="form.warrantyUntil = ''">Clear</button> }
+            </div>
+            <span class="help">For a purchase with a warranty (earbuds, a phone, an appliance). Trove reminds you before it runs out, so you can still claim.</span>
+          </label>
+          <label>
             <span class="lbl">Notes (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
             <textarea name="notes" [(ngModel)]="form.notes" rows="2"
               placeholder="Anything you want to remember or find this by later, e.g. Bhopal Indore highway toll"></textarea>
@@ -165,6 +175,15 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
         line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto; margin: 4px 0 0;
       }
       .help { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+      .warranty-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .warranty-row input { flex: 0 1 auto; }
+      .preset {
+        margin: 0; border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
+        border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+      }
+      .preset:hover { background: var(--accent-soft); }
+      .preset.clear { border-color: var(--line); color: var(--muted); }
+      .preset.clear:hover { background: var(--hover); }
       .view-file {
         display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 16px;
         border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
@@ -238,6 +257,7 @@ export class Review {
     currency: 'INR',
     docDate: '',
     dueDate: '',
+    warrantyUntil: '',
     notes: '',
     vital: false,
   };
@@ -250,6 +270,7 @@ export class Review {
     currency: 'Currency code, for example INR or USD.',
     docDate: 'The date printed on the document itself (the invoice, bill or receipt date).',
     dueDate: 'When a payment or renewal is due, if any. Reminders fire a few days before this date.',
+    warranty: 'If this is a purchase with a warranty, set when cover ends (or tap +1 year from the document date). Trove reminds you about two weeks before it expires.',
     notes: 'Anything extra you want to remember or find this by later, in your own words.',
   };
 
@@ -297,7 +318,7 @@ export class Review {
   /** Internal `extra` keys that are plumbing, not document data - hidden from the trail. */
   private static readonly INTERNAL_EXTRA = new Set([
     'extractionMeta', 'extractionProvider', 'extractionModel', 'extractionAccepted',
-    'aiTokens', 'aiNeurons', 'notes', 'extractionSkipped', 'anomaly',
+    'aiTokens', 'aiNeurons', 'notes', 'extractionSkipped', 'anomaly', 'warrantyUntil',
     'mailAccount', 'mailAddress', 'mailTopic', 'mailSubject', 'mailDate', 'mailBundleId',
   ]);
 
@@ -373,9 +394,17 @@ export class Review {
       currency: doc.currency ?? 'INR',
       docDate: doc.docDate ?? '',
       dueDate: doc.dueDate ?? '',
+      warrantyUntil: (doc.extra?.['warrantyUntil'] as string) ?? '',
       notes: (doc.extra?.['notes'] as string) ?? '',
       vital: doc.vital,
     };
+  }
+
+  /** Set the warranty end date to N years from the document date (or today if none set). */
+  setWarranty(years: number): void {
+    const base = this.form.docDate ? new Date(this.form.docDate) : new Date();
+    base.setFullYear(base.getFullYear() + years);
+    this.form.warrantyUntil = base.toISOString().slice(0, 10);
   }
 
   remove(): void {
@@ -402,8 +431,12 @@ export class Review {
   confirm(): void {
     this.saving.set(true);
     this.error.set(null);
-    // Preserve existing extra (extraction trail, anomaly) and add the user's note.
-    const extra = { ...(this.doc()?.extra ?? {}), notes: this.form.notes || undefined };
+    // Preserve existing extra (extraction trail, anomaly) and add the user's note + warranty date.
+    const extra = {
+      ...(this.doc()?.extra ?? {}),
+      notes: this.form.notes || undefined,
+      warrantyUntil: this.form.warrantyUntil || undefined,
+    };
     const body: ConfirmRequest = {
       category: this.form.category || undefined,
       merchant: this.form.merchant || undefined,

@@ -33,6 +33,13 @@ public class ReminderProperties {
      */
     private List<Integer> leadDaysList = List.of(7, 1, 0);
 
+    /**
+     * Days-before-expiry at which to fire a WARRANTY reminder. A warranty is worth a
+     * longer heads-up than a bill (you may need to arrange a repair or claim), so it
+     * defaults to two weeks ahead plus one on the day it lapses.
+     */
+    private List<Integer> warrantyLeadDaysList = List.of(14, 0);
+
     public long getScanFixedDelayMs() { return scanFixedDelayMs; }
     public void setScanFixedDelayMs(long scanFixedDelayMs) { this.scanFixedDelayMs = scanFixedDelayMs; }
 
@@ -41,4 +48,7 @@ public class ReminderProperties {
 
     public List<Integer> getLeadDaysList() { return leadDaysList; }
     public void setLeadDaysList(List<Integer> leadDaysList) { this.leadDaysList = leadDaysList; }
+
+    public List<Integer> getWarrantyLeadDaysList() { return warrantyLeadDaysList; }
+    public void setWarrantyLeadDaysList(List<Integer> warrantyLeadDaysList) { this.warrantyLeadDaysList = warrantyLeadDaysList; }
 }
