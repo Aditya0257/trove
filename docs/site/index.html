@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trove Architecture Guide</title>
+<style>
+  :root {
+    --paper: #f3f2ef;
+    --surface: #ffffff;
+    --surface-2: #eeece7;
+    --ink: #21252c;
+    --muted: #6c6a63;
+    --accent: #8a5e1a;
+    --accent-soft: #f0e7d4;
+    --line: rgba(33, 37, 44, 0.12);
+    --good: #2f7d54;
+    --warn: #b07d15;
+    --crit: #b2453a;
+    --diagram-bg: #faf9f6;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14161b; --surface: #1c1f26; --surface-2: #232730;
+      --ink: #e8e6e0; --muted: #9a978d; --accent: #d6ac55; --accent-soft: #2a2519;
+      --line: rgba(232, 230, 224, 0.14);
+      --good: #52b485; --warn: #d8a63f; --crit: #d9776a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f3f2ef; --surface: #ffffff; --surface-2: #eeece7;
+    --ink: #21252c; --muted: #6c6a63; --accent: #8a5e1a; --accent-soft: #f0e7d4;
+    --line: rgba(33,37,44,.12); --good:#2f7d54; --warn:#b07d15; --crit:#b2453a;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper: #14161b; --surface: #1c1f26; --surface-2: #232730;
+    --ink: #e8e6e0; --muted: #9a978d; --accent: #d6ac55; --accent-soft: #2a2519;
+    --line: rgba(232,230,224,.14); --good:#52b485; --warn:#d8a63f; --crit:#d9776a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); max-width: 1200px; margin: 0 auto; }
+
+  aside {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 32px 20px 32px 28px; border-right: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .brand .mark { font-family: var(--serif); font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand .kind { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent); font-weight: 700; }
+  .tagline { color: var(--muted); font-size: 13px; margin: 0 0 22px; line-height: 1.5; }
+  nav a {
+    display: block; color: var(--muted); text-decoration: none; font-size: 14px;
+    padding: 5px 10px; border-radius: 7px; border-left: 2px solid transparent; margin: 1px 0;
+  }
+  nav a:hover { color: var(--ink); background: var(--surface-2); }
+  nav a.active { color: var(--ink); border-left-color: var(--accent); background: var(--surface-2); font-weight: 600; }
+  nav .grp { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); opacity: .7; margin: 18px 0 6px 10px; }
+  .theme-btn {
+    margin-top: 24px; font-family: var(--sans); font-size: 13px; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; width: 100%; text-align: left;
+  }
+  .theme-btn:hover { color: var(--ink); border-color: var(--accent); }
+
+  main { padding: 40px 48px 96px; max-width: 820px; }
+  section { scroll-margin-top: 24px; padding: 26px 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: 0; padding-top: 8px; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: 40px; line-height: 1.1; letter-spacing: -0.015em; margin: 0 0 12px; text-wrap: balance; }
+  h2 { font-family: var(--serif); font-weight: 700; font-size: 26px; letter-spacing: -0.01em; margin: 0 0 12px; text-wrap: balance; }
+  h3 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin: 26px 0 8px; }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  .lead { font-size: 19px; line-height: 1.55; color: var(--ink); max-width: 60ch; }
+  .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); font-weight: 700; margin: 0 0 10px; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
+  strong { font-weight: 700; }
+
+  .principle {
+    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 12px; padding: 20px 24px; margin: 18px 0; box-shadow: var(--shadow);
+  }
+  .principle p { font-family: var(--serif); font-size: 21px; line-height: 1.4; margin: 0; font-style: italic; }
+
+  ol.rules { counter-reset: r; list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+  ol.rules li { position: relative; padding: 14px 16px 14px 54px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  ol.rules li::before {
+    counter-increment: r; content: counter(r); position: absolute; left: 14px; top: 14px;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+    font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; font-family: var(--mono);
+  }
+
+  figure { margin: 18px 0; }
+  figure figcaption { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .diagram { background: var(--diagram-bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px; overflow-x: auto; }
+  .diagram pre.mermaid { background: transparent; margin: 0; text-align: center; min-width: 480px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 15px 16px; }
+  .card h4 { margin: 0 0 4px; font-size: 14.5px; font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .card p { font-size: 13.5px; color: var(--muted); margin: 0; max-width: none; }
+
+  .tiers { display: grid; gap: 10px; margin: 16px 0; }
+  .tier { display: grid; grid-template-columns: 92px 1fr; gap: 14px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 14px 16px; }
+  .tier .chip { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 9px; border-radius: 999px; text-align: center; height: fit-content; }
+  .chip.hot { background: color-mix(in srgb, var(--crit) 16%, transparent); color: var(--crit); }
+  .chip.mirror { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .chip.human { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .tier b { font-size: 14.5px; }
+  .tier p { margin: 3px 0 0; font-size: 13.5px; color: var(--muted); max-width: none; }
+
+  .table-wrap { overflow-x: auto; margin: 14px 0; border: 1px solid var(--line); border-radius: 11px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 460px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  td code { font-size: 12px; }
+
+  .doc-index { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; }
+  .doc { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 16px; }
+  .doc .path { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .doc .t { font-weight: 700; margin: 6px 0 4px; font-size: 15px; }
+  .doc p { font-size: 13px; color: var(--muted); margin: 0; max-width: none; }
+
+  footer { color: var(--muted); font-size: 13px; padding: 28px 0 0; border-top: 1px solid var(--line); margin-top: 24px; }
+
+  .menu-btn { display: none; }
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: fixed; z-index: 40; left: 0; top: 0; width: 280px; background: var(--paper); transform: translateX(-100%); transition: transform .2s; }
+    aside.open { transform: translateX(0); }
+    main { padding: 64px 22px 80px; }
+    .menu-btn { display: inline-flex; position: fixed; z-index: 50; top: 14px; left: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; cursor: pointer; color: var(--ink); font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">Menu</button>
+<div class="layout">
+  <aside id="sidebar">
+    <div class="brand"><span class="mark">Trove</span><span class="kind">Docs</span></div>
+    <p class="tagline">A private, resilience-first document vault. Engineering architecture guide.</p>
+    <nav id="nav">
+      <div class="grp">Architecture</div>
+      <a href="#overview">Overview</a>
+      <a href="#principle">Core principle</a>
+      <a href="#context">System context</a>
+      <a href="#modules">Modules</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#lifecycle">Request lifecycle</a>
+      <a href="#data">Data model</a>
+      <div class="grp">How it works</div>
+      <a href="#upload">Capture to confirm</a>
+      <a href="#resilience">Resilience</a>
+      <a href="#ai">AI and retrieval</a>
+      <a href="#security">Security</a>
+      <a href="#reminders">Reminders</a>
+      <div class="grp">Reference</div>
+      <a href="#docs">The full docs</a>
+    </nav>
+    <button class="theme-btn" id="themeBtn">Switch theme</button>
+  </aside>
+
+  <main>
+    <section id="overview">
+      <p class="eyebrow">Engineering documentation</p>
+      <h1>Trove architecture guide</h1>
+      <p class="lead">Trove is a private vault for the documents that matter: bills, receipts, policies, warranties, IDs. You photograph or upload a document; Trove reads it, files it by category, extracts the key fields, and layers spend tracking, anomaly alerts, reminders, and natural-language search on top.</p>
+      <p>The audience is small and trusted, on the order of 50 to 100 users with roughly 10 active at once, and the whole system runs on free infrastructure tiers. That shapes every priority: optimise for reliability and zero data loss, not for scale to millions. This guide is the visual map of the system; the full written documentation lives in the repository under <code>docs/</code> and is indexed at the end.</p>
+    </section>
+
+    <section id="principle">
+      <h2>The core principle</h2>
+      <div class="principle"><p>The app is disposable. The data is not. Losing the entire app, database, and host must lose zero documents.</p></div>
+      <p>Three non-negotiable rules follow directly, and they are why storage, sidecars and backup are first-class parts of the system rather than afterthoughts.</p>
+      <ol class="rules">
+        <li><strong>The uploaded image or PDF is the only source of truth.</strong> Files live in object storage. The database is a rebuildable index; if it is wiped, it is rebuilt by scanning the bucket.</li>
+        <li><strong>Every file has a sidecar JSON</strong> beside it holding its metadata, so the object store is self-describing and independently meaningful.</li>
+        <li><strong>Three independent copies exist,</strong> one human-browsable without the app: Cloudflare R2 (hot), Backblaze B2 (mirror), and Google Drive (a readable folder tree).</li>
+      </ol>
+    </section>
+
+    <section id="context">
+      <h2>System context</h2>
+      <p>Two thin clients over one stateless backend, three independent storage tiers, and a small set of external services. Documents can also arrive with no client at all, by forwarding email to a per-space address.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TB
+    Web["Web app (Angular)"] --> API
+    Mobile["Mobile app (Flutter)"] --> API
+    subgraph Backend["Backend (stateless Spring Boot jar)"]
+      API["REST API /api"]
+      Jobs["Scheduled jobs"]
+    end
+    API --> PG[("PostgreSQL / Neon")]
+    API --> R2[("Cloudflare R2")]
+    API --> CF["Cloudflare Workers AI"]
+    API --> Brevo["Brevo email"]
+    Jobs --> B2[("Backblaze B2")]
+    Jobs --> Drive[("Google Drive")]
+    R2 -.rebuild.-> PG
+        </pre></div>
+        <figcaption>Actors: a user (personal plus shared spaces) and a single configured admin who approves sign-ups.</figcaption>
+      </figure>
+    </section>
+
+    <section id="modules">
+      <h2>Modules</h2>
+      <p>The backend is organised package-by-feature: each module owns its controller, service, repository and domain types, and modules talk through interfaces (<code>StorageService</code>, <code>ExtractionProvider</code>, <code>EmbeddingProvider</code>) and after-commit events, so providers are swappable and features stay decoupled.</p>
+      <div class="cards">
+        <div class="card"><h4>document</h4><p>Upload, list, confirm, soft delete, restore, purge, export, import. Owns the lifecycle and sidecar writes.</p></div>
+        <div class="card"><h4>storage</h4><p>The S3-compatible seam; sidecar read/write; presigned URLs. Same code for R2 and MinIO.</p></div>
+        <div class="card"><h4>extraction</h4><p>The provider fallback chain, the async worker, and the AI budget guard.</p></div>
+        <div class="card"><h4>auth</h4><p>Stateless JWT, TOTP two-factor, password reset, admin approval.</p></div>
+        <div class="card"><h4>space</h4><p>Personal and shared spaces, roles, invitations, join links, ingest addresses.</p></div>
+        <div class="card"><h4>reminder</h4><p>Due, renewal and warranty reminders; recurrence; auto-creation; dispatch.</p></div>
+        <div class="card"><h4>chat</h4><p>Retrieval-augmented "Ask your vault": embeddings, grounded answers, routing.</p></div>
+        <div class="card"><h4>search</h4><p>Natural-language search, AI-first with a rule-based fallback.</p></div>
+        <div class="card"><h4>anomaly</h4><p>Flags a bill higher than usual for its category, at confirm time.</p></div>
+        <div class="card"><h4>analytics</h4><p>Spend aggregation by category and by month over confirmed documents.</p></div>
+        <div class="card"><h4>drive</h4><p>Google Drive OAuth, pooled multi-Drive sync, quota tracking.</p></div>
+        <div class="card"><h4>backup</h4><p>pg_dump, the B2 mirror, and the full export or import ZIP.</p></div>
+        <div class="card"><h4>integrity</h4><p>Verifies the three tiers agree; reports what is rebuildable.</p></div>
+        <div class="card"><h4>ingestion</h4><p>Forward-to-file email and WhatsApp webhooks.</p></div>
+      </div>
+    </section>
+
+    <section id="deployment">
+      <h2>Deployment topology</h2>
+      <p>A single stateless jar with no durable state on disk, so the host is disposable: if the instance is reclaimed, redeploy the jar and point it at the same Neon, R2, B2 and Drive, and the system is whole. Scheduled work runs in-process on fixed delays; at this scale that is correct and far simpler than a separate scheduler.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TB
+    Web["Angular (static hosting)"] --> Jar
+    Flutter["Flutter app"] --> Jar
+    subgraph Oracle["Oracle Cloud Always Free (ARM)"]
+      Jar["trove-backend jar"]
+    end
+    Jar --> Neon[("Neon Postgres")]
+    Jar --> R2[("Cloudflare R2")]
+    Jar --> CF["Workers AI"]
+    Jar -.hourly.-> B2[("Backblaze B2")]
+    Jar -.hourly.-> Drive[("Google Drive")]
+        </pre></div>
+      </figure>
+    </section>
+
+    <section id="lifecycle">
+      <h2>The request lifecycle</h2>
+      <p>Every authenticated request follows the same path, so security and feedback are uniform. Authentication is a stateless JWT; authorization is a per-space membership-and-role check in the service; and any thrown error is turned into a Notice envelope by a single global handler, never a raw stack trace.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant F as JWT filter
+    participant Ctl as Controller
+    participant Authz as SpaceAuthorization
+    participant Svc as Service
+    C->>F: request + Bearer token
+    F->>F: validate JWT, set CurrentUser
+    F->>Ctl: forward (or 401)
+    Ctl->>Authz: requireCanRead/Write(spaceId, userId)
+    Authz-->>Ctl: ok (or 403)
+    Ctl->>Svc: business call
+    Svc-->>C: 2xx (or a Notice on error)
+        </pre></div>
+      </figure>
+    </section>
+
+    <section id="data">
+      <h2>Data model</h2>
+      <p>Nineteen tables. The database holds metadata and extracted text only, never the files, and is a rebuildable projection of the sidecars in object storage. Flyway owns the schema across migrations V1 to V23; Hibernate only validates it.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+erDiagram
+    app_user ||--o{ space : creates
+    space ||--o{ space_member : "has members"
+    space ||--o{ document : contains
+    space ||--o{ reminder : has
+    document ||--o{ line_item : itemises
+    document ||--o| document_embedding : embedded
+    document ||--o{ document_sync : "synced copies"
+    category ||--o{ document : classifies
+    merchant ||--o{ document : "issued by"
+    drive_connection ||--o{ drive_folder : "folder cache"
+        </pre></div>
+        <figcaption>The central table is <code>document</code>; access is decided by <code>space</code> membership; retrieval uses <code>document_embedding</code> (pgvector).</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Group</th><th>Tables</th></tr></thead>
+          <tbody>
+            <tr><td>Identity and access</td><td><code>app_user</code>, <code>space</code>, <code>space_member</code>, <code>password_reset_token</code>, <code>ingest_token</code></td></tr>
+            <tr><td>Documents</td><td><code>document</code>, <code>line_item</code>, <code>category</code>, <code>merchant</code>, <code>merchant_alias</code>, <code>tag</code>, <code>document_tag</code></td></tr>
+            <tr><td>Retrieval</td><td><code>document_embedding</code> (vector 768)</td></tr>
+            <tr><td>Reminders</td><td><code>reminder</code></td></tr>
+            <tr><td>Resilience</td><td><code>backup_run</code>, <code>drive_connection</code>, <code>drive_folder</code>, <code>document_sync</code></td></tr>
+            <tr><td>AI accounting</td><td><code>ai_usage</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="upload">
+      <h2>Capture to confirm</h2>
+      <p>The core path. Extraction is asynchronous and always lands in <code>needs_review</code>; a human confirms the fields before a document is trusted, because the AI will misread an amount or a date. Confirming is what makes a document count toward spend, become searchable, and generate reminders.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart LR
+    U["Upload image/PDF"] --> V{"allowed type and size?"}
+    V -->|no| Rej["reject 400/413"]
+    V -->|yes| H["hash + dedupe"]
+    H --> S["store file + sidecar in R2"]
+    S --> Row["document row (needs_review)"]
+    Row --> X["async extraction (vision, or stub)"]
+    X --> R["human review + confirm"]
+    R --> Ev["DocumentConfirmed"]
+    Ev --> Rem["auto-create reminders"]
+    Ev --> Idx["embed for search"]
+    Ev --> An["anomaly check"]
+        </pre></div>
+        <figcaption>An upload never fails because the AI failed: the provider chain falls back to a stub and the document is still stored for manual entry.</figcaption>
+      </figure>
+    </section>
+
+    <section id="resilience">
+      <h2>Resilience and backup</h2>
+      <p>A document is safe the instant it is in R2 with its sidecar. Everything else is redundancy, on independent providers with independent failure modes. Tier 3 is deliberately human-navigable, so in the worst case a person opens Google Drive and finds the document with no software involved.</p>
+      <div class="tiers">
+        <div class="tier"><span class="chip hot">Tier 1</span><div><b>Cloudflare R2, hot</b><p>Live reads and writes, written synchronously on upload. Files plus self-describing sidecars.</p></div></div>
+        <div class="tier"><span class="chip mirror">Tier 2</span><div><b>Backblaze B2, mirror</b><p>Hourly, idempotent key-diff copy to a different provider. Append-only, so a purged document still has an archival copy.</p></div></div>
+        <div class="tier"><span class="chip human">Tier 3</span><div><b>Google Drive, human-browsable</b><p>Per-space-owner OAuth into a readable tree: Trove / space / category / month. Pools several Drives (rotate or mirror).</p></div></div>
+      </div>
+      <p>Deleting is a soft delete with a 30-day recovery window: the file moves to a <code>_trash/</code> prefix and the Drive copy to <code>_Deleted</code>, reversible by restore, then purged by a daily job. An on-demand export ZIP (a complete <code>manifest.json</code>, a spreadsheet <code>data.csv</code>, and the original <code>files/</code>) restores the whole system, even onto a fresh deployment. A daily integrity check verifies all three tiers actually agree.</p>
+    </section>
+
+    <section id="ai">
+      <h2>AI and retrieval</h2>
+      <p>AI is used to read documents, to embed them for semantic search, to answer questions grounded in the vault, and to parse search queries. Every path is built around two constraints: the AI is never trusted blindly, and everything stays inside a shared free daily budget (10,000 neurons per day, with a per-user cap).</p>
+      <h3>Ask your vault (RAG)</h3>
+      <p>Questions are answered strictly from the user's own documents, with citations, and the assistant refuses rather than inventing when nothing relevant is found.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart LR
+    Q["Question"] --> E["embed"]
+    E --> R["pgvector cosine search, top-k, space-scoped"]
+    R --> F["drop far hits"]
+    F --> Ctx["build grounded context"]
+    Ctx --> Rt["route: 1b classifier picks 3b or 8b"]
+    Rt --> LLM["answer with citations"]
+    LLM --> J{"cited anything?"}
+    J -->|yes| A["answer + sources"]
+    J -->|no| N["clean not-found"]
+        </pre></div>
+        <figcaption>A cheap classifier routes each question to the smallest adequate model; over 75% of the daily budget everything drops to the light model, then to retrieval-only.</figcaption>
+      </figure>
+      <p>Extraction downscales images and reads images only; indexing uses a tiny embedding model; answering routes to the cheapest adequate model; search and anomaly fall back to rules and arithmetic. Every path degrades rather than failing. That is how a genuinely useful AI feature set fits inside a free tier.</p>
+    </section>
+
+    <section id="security">
+      <h2>Security and access</h2>
+      <p>Authentication is a stateless JWT (12-hour default), optionally reinforced by a TOTP second factor. Sign-up is gated: a new account is <code>pending</code> until the single configured admin approves it. Authorization is per space: a document belongs to exactly one space, and rights are decided by the caller's role there.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Capability</th><th>Viewer</th><th>Member</th><th>Owner</th></tr></thead>
+          <tbody>
+            <tr><td>View, list, search, ask</td><td>yes</td><td>yes</td><td>yes</td></tr>
+            <tr><td>Upload, confirm, edit, delete</td><td>no</td><td>yes</td><td>yes</td></tr>
+            <tr><td>Manage members and backup</td><td>no</td><td>no</td><td>yes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Vital documents (passport, ID, policies) are encrypted at rest with AES-256-GCM through a single storage seam, and served through a decrypt-stream path rather than a public link. The same service encrypts stored TOTP secrets and Google refresh tokens. Secrets come from environment variables only.</p>
+    </section>
+
+    <section id="reminders">
+      <h2>Reminders lifecycle</h2>
+      <p>Reminders are due, renewal or warranty nudges, created by hand or automatically from a confirmed document (type-aware, plus warranty dates and detected subscription cadences). A recurring reminder schedules its next occurrence when marked done, so the series advances exactly once.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    [*] --> pending
+    pending --> sent: scheduler on remind_on
+    pending --> done: user marks done
+    sent --> done: user marks done
+    pending --> dismissed: dismiss
+    sent --> dismissed: dismiss
+    done --> pending: reopen
+    dismissed --> pending: reopen
+        </pre></div>
+      </figure>
+    </section>
+
+    <section id="docs">
+      <h2>The full documentation</h2>
+      <p>This guide is the map. The complete written documentation lives in the repository under <code>docs/</code>, each document at the depth of classes, tables, events and flows, and renders on GitHub including its diagrams.</p>
+      <div class="doc-index">
+        <div class="doc"><div class="path">architecture/00-concepts.md</div><div class="t">Concepts primer</div><p>Every recurring concept from first principles, with trade-offs and industry examples.</p></div>
+        <div class="doc"><div class="path">architecture/01-hld.md</div><div class="t">High-Level Design</div><p>Context, principles, modules, topology, request lifecycle, non-functionals.</p></div>
+        <div class="doc"><div class="path">architecture/02-data-model.md</div><div class="t">Data model</div><p>All 19 tables, columns, keys, the ER diagram, and the V1 to V23 migration map.</p></div>
+        <div class="doc"><div class="path">architecture/03-security-and-access.md</div><div class="t">Security and access</div><p>Auth, TOTP, reset, the role matrix, the admin, encryption at rest.</p></div>
+        <div class="doc"><div class="path">architecture/04-resilience-and-backup.md</div><div class="t">Resilience and backup</div><p>The three tiers, sidecars, delete lifecycle, export/import, DR, integrity.</p></div>
+        <div class="doc"><div class="path">architecture/05-ai-and-extraction.md</div><div class="t">AI and extraction</div><p>Budget guard, provider chain, embeddings, grounded RAG, routing, anomaly.</p></div>
+        <div class="doc"><div class="path">api/reference.md</div><div class="t">API reference</div><p>Every REST endpoint by resource: method, path, purpose, access rule.</p></div>
+        <div class="doc"><div class="path">lld/*.md</div><div class="t">Low-Level Design</div><p>Per-module implementation: documents, reminders, spaces, search/chat, spend/anomaly, drive/mirror, ingestion, notice.</p></div>
+        <div class="doc"><div class="path">frontend/web.md</div><div class="t">Frontend</div><p>The Angular client: components, signals, services, and the screen map.</p></div>
+        <div class="doc"><div class="path">operations/configuration.md</div><div class="t">Configuration</div><p>Every environment variable and property, with dev and production guidance.</p></div>
+      </div>
+      <footer>Trove engineering documentation. This guide complements the repository docs under <code>docs/</code> and the decision log in <code>DECISIONS.md</code>.</footer>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  if (window.mermaid) {
+    mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { useMaxWidth: true, htmlLabels: true } });
+  }
+  (function () {
+    var root = document.documentElement;
+    document.getElementById('themeBtn').addEventListener('click', function () {
+      var isDark = root.getAttribute('data-theme') === 'dark'
+        || (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    });
+    var sidebar = document.getElementById('sidebar');
+    document.getElementById('menuBtn').addEventListener('click', function () { sidebar.classList.toggle('open'); });
+    var links = Array.prototype.slice.call(document.querySelectorAll('#nav a'));
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          if (map[e.target.id]) map[e.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    document.querySelectorAll('main section').forEach(function (s) { obs.observe(s); });
+    links.forEach(function (a) { a.addEventListener('click', function () { sidebar.classList.remove('open'); }); });
+  })();
+</script>
+</body>
+</html>
