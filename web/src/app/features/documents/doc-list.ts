@@ -1,18 +1,21 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { MoneyPipe } from '../../core/money.pipe';
 import { DateTimePipe } from '../../core/datetime.pipe';
 import { NoticeService } from '../../core/notice/notice.service';
 import { ConfirmService } from '../../core/confirm.service';
+import { HelpCard } from '../../core/help-card';
+import { InfoTip } from '../../core/info-tip';
 import { Category, DocumentResponse } from '../../core/models';
 import { TroveSelect, SelectOption } from '../../core/select';
 
 @Component({
   selector: 'app-doc-list',
-  imports: [RouterLink, MoneyPipe, DateTimePipe, FormsModule, TroveSelect],
+  imports: [RouterLink, MoneyPipe, DateTimePipe, FormsModule, TroveSelect, HelpCard, InfoTip],
   template: `
     <div class="card">
       <div class="row-between">
@@ -26,6 +29,8 @@ import { TroveSelect, SelectOption } from '../../core/select';
       </div>
 
       @if (showTrash()) {
+        <trove-help-card title="How deleting & restoring works" [open]="false"
+          [user]="trashHelpUser" [dev]="trashHelpDev"></trove-help-card>
         <p class="muted">Deleted documents stay here for 30 days, then they're permanently removed from
           storage. Restore anything before then.</p>
         @if (trashLoading()) { <p class="muted">Loading…</p> }
@@ -48,7 +53,9 @@ import { TroveSelect, SelectOption } from '../../core/select';
                     <button type="button" class="btn-ghost sm" (click)="restore(d)" [disabled]="restoringId() === d.id">
                       {{ restoringId() === d.id ? 'Restoring...' : 'Restore' }}
                     </button>
+                    <trove-info-tip text="Moves the file back to your live vault and out of the Trove/_Deleted folder in Drive. It reappears in Documents."></trove-info-tip>
                     <button type="button" class="del" (click)="purge(d)">Delete forever</button>
+                    <trove-info-tip align="right" text="Erases the file from the live store (R2) and from Google Drive, and removes the database row - permanently, no undo. The independent B2 mirror keeps an archival copy by design."></trove-info-tip>
                   </td>
                 </tr>
               }
@@ -90,7 +97,10 @@ import { TroveSelect, SelectOption } from '../../core/select';
                 <td>{{ d.amount | money: d.currency }}</td>
                 <td>{{ d.docDate || '-' }}</td>
                 <td><span class="badge" [class.confirmed]="d.status === 'confirmed'">{{ d.status }}</span></td>
-                <td><button class="del" type="button" title="Delete" (click)="remove(d)">Delete</button></td>
+                <td class="row-actions">
+                  <button class="del" type="button" (click)="remove(d)">Delete</button>
+                  <trove-info-tip align="right" text="Moves this to Trash - recoverable for 30 days, not a permanent delete. It's hidden from lists, spend and search, and its Drive copy moves to Trove/_Deleted."></trove-info-tip>
+                </td>
               </tr>
             }
           </tbody>
@@ -160,11 +170,26 @@ import { TroveSelect, SelectOption } from '../../core/select';
 export class DocList {
   private api = inject(ApiService);
   private spaceCtx = inject(SpaceContext);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   categories = signal<Category[]>([]);
   docs = signal<DocumentResponse[]>([]);
   category = '';
   loading = signal(false);
+
+  protected trashHelpUser =
+    'Deleting never erases anything straight away. A deleted document moves to Trash and is hidden from your ' +
+    'lists, spend and search - but it stays fully recoverable for 30 days: press Restore and it comes right ' +
+    'back. After 30 days it is removed for good. "Delete forever" skips the wait and removes it now. Your other ' +
+    'backup copies mean an accidental delete is never the end of the world.';
+  protected trashHelpDev =
+    'Soft delete: status flips to "deleted", the live file + sidecar MOVE to a _trash/ prefix in R2 (not erased), ' +
+    'and the Drive copy moves to Trove/_Deleted/ via a document lifecycle event; the row drops out of every query ' +
+    '(lists, spend, search, dedupe). Restore moves the objects back and clears the tombstone. Purge (the daily ' +
+    '30-day job, or "Delete forever") deletes the trashed object from R2, deletes it from Drive, and removes the ' +
+    'DB row (line items + drive-sync cascade). The independent B2 mirror is append-only and keeps an archival ' +
+    'copy by design - so "cleared everywhere" means the live R2 + Drive + DB.';
 
   /** Emails have their own home in the Mail section, so they're kept out of Documents
    *  entirely - no "Email" filter chip, and never listed under "All". */
@@ -235,10 +260,11 @@ export class DocList {
   trashLoading = signal(false);
   restoringId = signal<string | null>(null);
 
+  /** Trash is a URL state (?view=trash) so the top-nav "Documents" link resets it too,
+   *  not just the in-page back button. */
   toggleTrash(): void {
-    const next = !this.showTrash();
-    this.showTrash.set(next);
-    if (next) this.loadTrash();
+    const goingToTrash = !this.showTrash();
+    this.router.navigate([], { queryParams: { view: goingToTrash ? 'trash' : null }, queryParamsHandling: 'merge' });
   }
 
   loadTrash(): void {
@@ -290,6 +316,13 @@ export class DocList {
       const sid = this.spaceCtx.currentSpaceId();
       this.api.listCategories(sid).subscribe((c) => this.categories.set(c));
       this.load();
+    });
+    // Trash view is driven by ?view=trash, so the top-nav "Documents" link (which clears
+    // the query) switches back to the list, not just the in-page button.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => {
+      const trash = q.get('view') === 'trash';
+      this.showTrash.set(trash);
+      if (trash) this.loadTrash();
     });
   }
 
