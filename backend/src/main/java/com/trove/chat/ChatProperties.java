@@ -44,6 +44,20 @@ public class ChatProperties {
     /** Max characters of each document's text put into the prompt. */
     private int maxSnippetChars = 400;
     private int timeoutSeconds = 20;
+    /**
+     * Relevance floor: drop retrieved documents whose cosine DISTANCE (pgvector {@code <=>},
+     * range 0=identical .. 2=opposite) is above this. Without it, search always returns the
+     * topK nearest documents however far away they are, so an off-topic question (e.g. "my
+     * reminders" when nothing matches) still surfaces weak, unrelated "sources" under a
+     * refusal - which reads as broken. Tuned against real bge-base-en-v1.5 embeddings: genuine
+     * matches sit well below this, clearly-unrelated ones above. 2.0 effectively disables it.
+     *
+     * Note: bge-base distances are compressed (genuine matches ~0.25-0.40, pure junk ~0.47-0.50),
+     * so this is a loose safety net for extreme outliers, not the main filter. The primary
+     * relevance signal is the model's own citations - see VaultChatService: when the grounded
+     * answer cites no document, we treat that as "nothing relevant" and return no sources.
+     */
+    private double maxDistance = 0.6;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -69,4 +83,6 @@ public class ChatProperties {
     public void setMaxSnippetChars(int maxSnippetChars) { this.maxSnippetChars = maxSnippetChars; }
     public int getTimeoutSeconds() { return timeoutSeconds; }
     public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
+    public double getMaxDistance() { return maxDistance; }
+    public void setMaxDistance(double maxDistance) { this.maxDistance = maxDistance; }
 }

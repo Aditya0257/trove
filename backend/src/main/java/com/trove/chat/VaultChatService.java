@@ -40,13 +40,19 @@ import com.trove.document.DocumentRepository;
 import com.trove.merchant.Merchant;
 import com.trove.extraction.AiUsageTracker;
 import com.trove.merchant.MerchantRepository;
+import com.trove.reminder.Reminder;
+import com.trove.reminder.ReminderRepository;
+import com.trove.reminder.ReminderStatus;
+import com.trove.reminder.ReminderType;
 import com.trove.space.SpaceAuthorization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -60,20 +66,22 @@ public class VaultChatService {
     private final DocumentRepository documentRepository;
     private final CategoryRepository categoryRepository;
     private final MerchantRepository merchantRepository;
+    private final ReminderRepository reminderRepository;
     private final AiUsageTracker usage;
     private final ModelRouter router;
     private final CloudflareChatClient chatClient;
 
     public VaultChatService(ChatProperties props, EmbeddingService embeddings, SpaceAuthorization authorization,
                             DocumentRepository documentRepository, CategoryRepository categoryRepository,
-                            MerchantRepository merchantRepository, AiUsageTracker usage,
-                            ModelRouter router, CloudflareChatClient chatClient) {
+                            MerchantRepository merchantRepository, ReminderRepository reminderRepository,
+                            AiUsageTracker usage, ModelRouter router, CloudflareChatClient chatClient) {
         this.props = props;
         this.embeddings = embeddings;
         this.authorization = authorization;
         this.documentRepository = documentRepository;
         this.categoryRepository = categoryRepository;
         this.merchantRepository = merchantRepository;
+        this.reminderRepository = reminderRepository;
         this.usage = usage;
         this.router = router;
         this.chatClient = chatClient;
@@ -86,29 +94,39 @@ public class VaultChatService {
             return new ChatAnswer("Ask me something about your documents.", false, List.of());
         }
 
-        // 1) Retrieve the most relevant documents (semantic), scoped to this space. Build the
-        //    citations (for the UI) and a type-aware context block (for the model) together.
-        List<EmbeddingService.Hit> hits = embeddings.search(spaceId, question, userId, props.getTopK());
+        // 1) Retrieve the most relevant documents (semantic), scoped to this space. Then apply
+        //    the relevance floor: search always returns the topK nearest documents however far
+        //    away, so drop clearly-unrelated ones - otherwise an off-topic question surfaces weak
+        //    "sources" beneath a refusal, which reads as broken.
+        List<EmbeddingService.Hit> raw = embeddings.search(spaceId, question, userId, props.getTopK());
+        if (log.isDebugEnabled()) {
+            log.debug("Vault chat '{}' distances: {}", question,
+                    raw.stream().map(h -> String.format("%.3f", h.distance())).toList());
+        }
+        List<EmbeddingService.Hit> hits = raw.stream()
+                .filter(h -> h.distance() <= props.getMaxDistance())
+                .toList();
+        // Build the citations (for the UI) and a type-aware context block (for the model) together.
         List<Citation> sources = new ArrayList<>();
         StringBuilder context = new StringBuilder();
-        int idx = 1;
+        Map<UUID, Integer> docIndex = new HashMap<>();  // documentId -> citation number (dedupe + reminder refs)
+        int[] nextIdx = {1};
         for (EmbeddingService.Hit hit : hits) {
             Document doc = documentRepository.findById(hit.documentId()).orElse(null);
-            if (doc == null) {
+            if (doc == null || docIndex.containsKey(doc.getId())) {
                 continue;
             }
-            Category cat = doc.getCategoryId() == null ? null
-                    : categoryRepository.findById(doc.getCategoryId()).orElse(null);
-            String code = cat == null ? null : cat.getCode();
-            String label = cat == null ? null : cat.getLabel();
-            String merchant = doc.getMerchantId() == null ? null
-                    : merchantRepository.findById(doc.getMerchantId()).map(Merchant::getCanonicalName).orElse(null);
-            boolean isEmail = "email".equals(code);
-            sources.add(citation(doc, idx, label, merchant, isEmail));
-            context.append(contextBlock(doc, idx, label, merchant, isEmail));
-            idx++;
+            docIndex.put(doc.getId(), addDocCitation(doc, sources, context, nextIdx));
         }
-        if (sources.isEmpty()) {
+
+        // Reminders are a separate KIND of vault data and are NOT embedded, so a question about
+        // "reminders / renewals / what's due / warranties" would otherwise retrieve nothing. When
+        // the question is about them, fold the space's reminders into the context - pulling each
+        // reminder's linked document in as a citation - so the assistant can actually answer.
+        String reminderCtx = isReminderQuestion(question)
+                ? reminderContext(spaceId, sources, context, docIndex, nextIdx) : "";
+
+        if (sources.isEmpty() && reminderCtx.isBlank()) {
             return new ChatAnswer(
                     "I couldn't find anything about that in this space. Try different words, "
                     + "or upload the document first.", false, List.of());
@@ -126,14 +144,18 @@ public class VaultChatService {
         try {
             ModelRouter.Decision route = router.pick(question, userId);
             log.info("Vault chat routed to {} ({}: {})", route.model(), route.tier(), route.reason());
-            String answer = chatClient.chat(route.model(), buildPrompt(question, context.toString()),
+            String answer = chatClient.chat(route.model(), buildPrompt(question, context + reminderCtx),
                     300, 0.2, props.getTimeoutSeconds(), userId);
             // The small model occasionally degenerates to just a citation marker ("[1]") or
             // whitespace. Never surface that — fall back to a plain summary of the top match.
             if (isEmptyAnswer(answer)) {
                 answer = fallbackAnswer(sources);
             }
-            return new ChatAnswer(answer, true, sources);
+            // Relevance by the model's own judgement: if the grounded answer cites NO document,
+            // none of the retrieved ones supported an answer (a refusal), so don't dangle
+            // unrelated "sources" beneath it - that mismatch is exactly what reads as broken.
+            List<Citation> shown = hasCitation(answer) ? sources : List.of();
+            return new ChatAnswer(answer, true, shown);
         } catch (Exception e) {
             log.warn("Vault chat answer failed ('{}') - returning sources only: {}", question, e.getMessage());
             return new ChatAnswer("I hit a problem writing the answer, but here are the most relevant documents.",
@@ -187,6 +209,82 @@ public class VaultChatService {
         return b.append('\n').toString();
     }
 
+    /** Adds one document as citation [n] + context block, returning its number. */
+    private int addDocCitation(Document doc, List<Citation> sources, StringBuilder context, int[] nextIdx) {
+        int i = nextIdx[0]++;
+        Category cat = doc.getCategoryId() == null ? null
+                : categoryRepository.findById(doc.getCategoryId()).orElse(null);
+        String code = cat == null ? null : cat.getCode();
+        String label = cat == null ? null : cat.getLabel();
+        String merchant = doc.getMerchantId() == null ? null
+                : merchantRepository.findById(doc.getMerchantId()).map(Merchant::getCanonicalName).orElse(null);
+        boolean isEmail = "email".equals(code);
+        sources.add(citation(doc, i, label, merchant, isEmail));
+        context.append(contextBlock(doc, i, label, merchant, isEmail));
+        return i;
+    }
+
+    /** Keywords that signal the question is about reminders / due dates / renewals / warranties. */
+    private static final List<String> REMINDER_HINTS = List.of(
+            "remind", "reminder", "due", "overdue", "renew", "renewal", "expire", "expir",
+            "warranty", "warranties", "upcoming", "coming up", "deadline", "when is");
+
+    private boolean isReminderQuestion(String question) {
+        String q = question.toLowerCase();
+        return REMINDER_HINTS.stream().anyMatch(q::contains);
+    }
+
+    /**
+     * Appends a "Reminders set in this space" section to {@code context} and returns it as a
+     * standalone string (so callers can detect whether anything was added). Each reminder shows
+     * its kind + date and, when it is tied to a document, a [n] reference to that document -
+     * adding the document as a fresh citation if the semantic search didn't already surface it.
+     * Dismissed reminders are skipped; the rest are listed oldest-first by their remind date.
+     */
+    private String reminderContext(UUID spaceId, List<Citation> sources, StringBuilder context,
+                                   Map<UUID, Integer> docIndex, int[] nextIdx) {
+        List<Reminder> reminders = reminderRepository.findBySpaceIdOrderByRemindOnAsc(spaceId).stream()
+                .filter(r -> !ReminderStatus.DISMISSED.equals(r.getStatus()))
+                .toList();
+        if (reminders.isEmpty()) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder("\nReminders set in this space (scheduled nudges - use these for "
+                + "reminder / due / renewal / warranty questions):\n");
+        for (Reminder r : reminders) {
+            Integer ref = null;
+            if (r.getDocumentId() != null) {
+                ref = docIndex.get(r.getDocumentId());
+                if (ref == null) {
+                    Document doc = documentRepository.findById(r.getDocumentId()).orElse(null);
+                    if (doc != null) {
+                        ref = addDocCitation(doc, sources, context, nextIdx);
+                        docIndex.put(doc.getId(), ref);
+                    }
+                }
+            }
+            b.append("- ").append(humanType(r.getType())).append(" on ").append(r.getRemindOn());
+            if (ref != null) {
+                // Give a SHORT document name (the citation title: merchant/subject/filename),
+                // so the model names the document concisely instead of pasting its raw text.
+                b.append(" for ").append(sources.get(ref - 1).title()).append(" [").append(ref).append(']');
+            }
+            b.append('\n');
+        }
+        context.append(b);
+        return b.toString();
+    }
+
+    /** Reader-friendly label for a reminder type ('warranty_expiry' -> 'Warranty expiry'). */
+    private String humanType(String type) {
+        return switch (type) {
+            case ReminderType.DUE -> "Payment due";
+            case ReminderType.RENEWAL -> "Renewal";
+            case ReminderType.WARRANTY_EXPIRY -> "Warranty expiry";
+            default -> type == null ? "Reminder" : type.replace('_', ' ');
+        };
+    }
+
     private String buildPrompt(String question, String context) {
         return """
                 You are Trove's assistant for a personal document vault. Answer the user's
@@ -198,12 +296,19 @@ public class VaultChatService {
                 - Emails (category Email): have Subject, Sender/Topic, Account and Date. They are
                   saved notes, NOT spending - an email's numbers are never an amount paid.
                 - IDs, policies, warranties, subscriptions: may have a Due/Expiry date.
+                A "Reminders set in this space" section may also appear: these are scheduled nudges
+                (payment due / renewal / warranty expiry), each with a date and, where known, a [n]
+                reference to the document it is about.
 
                 Do:
                 - Use Date for "last / latest / most recent" (newest) and "first / oldest" (earliest).
                 - Add Amounts for totals or "how much" - bills only, never emails.
                 - Use Subject / Sender/Topic / Account to answer questions about emails.
                 - Use the Due/Expiry date for "expires", "renews", "due".
+                - For questions about reminders, due dates, renewals or warranties, use the Reminders
+                  section: list each nudge with its date and what it is for, citing the document [n].
+                  Name the document briefly (the short name given in the Reminders line); never paste
+                  a document's raw text into the answer.
                 - Honour exclusions: for "not X", "except X", "other than X", leave those documents out.
                 - For "list / which / all", list every document that matches.
                 - Answer whenever ANY document is relevant, even if the wording differs.
@@ -263,6 +368,11 @@ public class VaultChatService {
             }
         }
         return null;
+    }
+
+    /** True when the answer references at least one document by a [n] citation marker. */
+    private boolean hasCitation(String answer) {
+        return answer != null && answer.matches("(?s).*\\[\\d+\\].*");
     }
 
     /** True when the model gave nothing usable — blank, or only citation markers/punctuation. */
