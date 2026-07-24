@@ -4,6 +4,10 @@ This document is the map of the system: what the pieces are, how they fit, and t
 principles that shape every choice. Low-level detail lives in the `lld/` documents and
 the data model; the rationale for non-obvious choices lives in `DECISIONS.md`.
 
+If any technical term here is unfamiliar (sidecar, rebuildable index, stateless JWT,
+presigned URL, transactional event, embedding, and so on), it is defined from first
+principles in [00-concepts.md](00-concepts.md).
+
 ## 1. Purpose
 
 Trove is a personal and shared document vault. A user photographs or uploads a document;

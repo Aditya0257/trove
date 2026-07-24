@@ -23,7 +23,8 @@ Read in this order for a full understanding, or jump to what you need.
 
 | Document | What it covers |
 | --- | --- |
-| [architecture/01-hld.md](architecture/01-hld.md) | High-Level Design: system context, the core principle and the three design rules it forces, the module map, runtime and deployment topology, the request lifecycle, and the non-functional requirements. Start here. |
+| [architecture/00-concepts.md](architecture/00-concepts.md) | The technical concepts and patterns the rest of the docs rely on (object storage, sidecars, rebuildable index, stateless JWT, TOTP, OAuth, encryption at rest, embeddings and vector search, RAG, transactional events, migrations, and more). Explained from first principles with industry examples. Read this first if any term below is unfamiliar. |
+| [architecture/01-hld.md](architecture/01-hld.md) | High-Level Design: system context, the core principle and the three design rules it forces, the module map, runtime and deployment topology, the request lifecycle, and the non-functional requirements. Start here for the shape of the system. |
 | [architecture/02-data-model.md](architecture/02-data-model.md) | The complete data model: every table, column, key and relationship, an entity-relationship diagram, and the migration history (V1 to V23). |
 | [architecture/03-security-and-access.md](architecture/03-security-and-access.md) | Identity, stateless JWT auth, two-factor (TOTP), password reset, admin approval, per-space access control and roles, and encryption at rest for vital documents. |
 | [architecture/04-resilience-and-backup.md](architecture/04-resilience-and-backup.md) | The resilience model in full: sidecars, the three independent copies (R2, Backblaze B2, Google Drive), on-demand export and import, disaster recovery, and the backup-integrity checks. |
@@ -59,7 +60,7 @@ These predate this folder and remain the canonical design narrative and decision
 
 For someone learning the whole system, a sensible path:
 
-1. **Days 1 to 2 - the shape of it.** Read the HLD and the data model. Run the stack
+1. **Days 1 to 2 - the shape of it.** Skim the concepts primer, then read the HLD and the data model. Run the stack
    locally (root README), sign in as the dev user, upload one receipt, and watch it move
    from `needs_review` to `confirmed`. Keep the data model open while you click around.
 2. **Days 3 to 5 - the core vertical.** Follow one document end to end in the code:
