@@ -28,6 +28,16 @@ class RemindersApi {
   Future<void> dismiss(String id) async {
     await _ref.read(apiClientProvider).post('/api/reminders/$id/dismiss');
   }
+
+  /// Mark handled (the backend schedules the next occurrence if it repeats).
+  Future<void> markDone(String id) async {
+    await _ref.read(apiClientProvider).post('/api/reminders/$id/done');
+  }
+
+  /// Push the reminder out by [days] from today (back to pending).
+  Future<void> snooze(String id, int days) async {
+    await _ref.read(apiClientProvider).post('/api/reminders/$id/snooze', query: {'days': days});
+  }
 }
 
 final remindersApiProvider = Provider<RemindersApi>((ref) => RemindersApi(ref));
