@@ -45,7 +45,9 @@ import { TroveSelect, SelectOption } from '../../core/select';
                   <td>{{ d.amount | money: d.currency }}</td>
                   <td>{{ d.deletedAt ? (d.deletedAt | prettyDate) : '-' }}</td>
                   <td class="row-actions">
-                    <button type="button" class="btn-ghost sm" (click)="restore(d)">Restore</button>
+                    <button type="button" class="btn-ghost sm" (click)="restore(d)" [disabled]="restoringId() === d.id">
+                      {{ restoringId() === d.id ? 'Restoring...' : 'Restore' }}
+                    </button>
                     <button type="button" class="del" (click)="purge(d)">Delete forever</button>
                   </td>
                 </tr>
@@ -213,14 +215,16 @@ export class DocList {
     this.confirm.ask({
       title: 'Move to Trash?',
       message: `"${name}" stays recoverable for 30 days before it's permanently removed.`,
-      confirmLabel: 'Move to Trash',
+      confirmLabel: 'Move to Trash', busyLabel: 'Moving...', danger: true,
     }).then((ok) => {
       if (!ok) return;
       this.api.deleteDocument(d.id).subscribe({
         next: () => {
+          this.confirm.close();
           this.docs.update((list) => list.filter((x) => x.id !== d.id));
           this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash - recoverable for 30 days.' });
         },
+        error: (e) => { this.confirm.close(); this.notices.show({ level: 'error', code: 'DELETE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }); },
       });
     });
   }
@@ -229,6 +233,7 @@ export class DocList {
   showTrash = signal(false);
   trash = signal<DocumentResponse[]>([]);
   trashLoading = signal(false);
+  restoringId = signal<string | null>(null);
 
   toggleTrash(): void {
     const next = !this.showTrash();
@@ -245,12 +250,14 @@ export class DocList {
   }
 
   restore(d: DocumentResponse): void {
+    this.restoringId.set(d.id);
     this.api.restoreDocument(d.id).subscribe({
       next: () => {
+        this.restoringId.set(null);
         this.trash.update((list) => list.filter((x) => x.id !== d.id));
         this.notices.show({ level: 'success', code: 'RESTORED', userMessage: 'Document restored.' });
       },
-      error: (e) => this.notices.show({ level: 'error', code: 'RESTORE_FAIL', userMessage: e?.error?.message ?? 'Could not restore.' }),
+      error: (e) => { this.restoringId.set(null); this.notices.show({ level: 'error', code: 'RESTORE_FAIL', userMessage: e?.error?.message ?? 'Could not restore.' }); },
     });
   }
 
@@ -259,7 +266,7 @@ export class DocList {
     this.confirm.ask({
       title: 'Delete forever?',
       message: `"${name}" will be cleared from live storage. This can't be undone.`,
-      confirmLabel: 'Delete forever', danger: true,
+      confirmLabel: 'Delete forever', busyLabel: 'Deleting...', danger: true,
     }).then((ok) => {
       if (!ok) return;
       this.purgeConfirmed(d);
@@ -269,10 +276,11 @@ export class DocList {
   private purgeConfirmed(d: DocumentResponse): void {
     this.api.purgeDocument(d.id).subscribe({
       next: () => {
+        this.confirm.close();
         this.trash.update((list) => list.filter((x) => x.id !== d.id));
         this.notices.show({ level: 'success', code: 'PURGED', userMessage: 'Permanently deleted.' });
       },
-      error: (e) => this.notices.show({ level: 'error', code: 'PURGE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }),
+      error: (e) => { this.confirm.close(); this.notices.show({ level: 'error', code: 'PURGE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }); },
     });
   }
 

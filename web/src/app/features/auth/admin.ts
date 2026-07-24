@@ -91,7 +91,7 @@ export class Admin {
   }
 
   reject(u: PendingUser): void {
-    this.confirm.ask({ title: 'Decline access?', message: `Decline access for ${u.email}?`, confirmLabel: 'Decline', danger: true })
+    this.confirm.ask({ title: 'Decline access?', message: `Decline access for ${u.email}?`, confirmLabel: 'Decline', busyLabel: 'Declining...', danger: true })
       .then((ok) => { if (ok) this.rejectConfirmed(u); });
   }
 
@@ -99,11 +99,12 @@ export class Admin {
     this.busy.set(true);
     this.auth.adminReject(u.id).subscribe({
       next: () => {
+        this.confirm.close();
         this.pending.update((list) => list.filter((x) => x.id !== u.id));
         this.busy.set(false);
         this.notices.show({ level: 'info', code: 'REJECTED', userMessage: `Declined ${u.email}.` });
       },
-      error: (e) => { this.busy.set(false); this.notices.show({ level: 'error', code: 'REJECT_FAIL', userMessage: e?.error?.message ?? 'Could not decline.' }); },
+      error: (e) => { this.confirm.close(); this.busy.set(false); this.notices.show({ level: 'error', code: 'REJECT_FAIL', userMessage: e?.error?.message ?? 'Could not decline.' }); },
     });
   }
 }

@@ -3,22 +3,24 @@ import { ConfirmService } from './confirm.service';
 
 /**
  * The single confirm dialog, mounted once at the app root. Renders whatever the
- * ConfirmService is currently asking, and reports the user's choice back through it.
- * Themed like the rest of the app - no more "localhost says" browser box.
+ * ConfirmService is asking, keeps itself open in a busy state while the confirmed action
+ * runs (button shows "Deleting..."), and reports the choice back. Themed like the app.
  */
 @Component({
   selector: 'trove-confirm-dialog',
   standalone: true,
   template: `
     @if (svc.current(); as c) {
-      <div class="scrim" (click)="svc.respond(false)"></div>
+      <div class="scrim" (click)="svc.cancel()"></div>
       <div class="modal" role="dialog" aria-modal="true">
         <h3>{{ c.title || 'Please confirm' }}</h3>
         <p>{{ c.message }}</p>
         <div class="actions">
-          <button type="button" class="cancel" (click)="svc.respond(false)">{{ c.cancelLabel || 'Cancel' }}</button>
-          <button type="button" class="ok" [class.danger]="c.danger" (click)="svc.respond(true)">
-            {{ c.confirmLabel || 'Confirm' }}
+          <button type="button" class="cancel" [disabled]="svc.running()" (click)="svc.cancel()">
+            {{ c.cancelLabel || 'Cancel' }}
+          </button>
+          <button type="button" class="ok" [class.danger]="c.danger" [disabled]="svc.running()" (click)="svc.accept()">
+            {{ svc.running() ? (c.busyLabel || 'Working...') : (c.confirmLabel || 'Confirm') }}
           </button>
         </div>
       </div>
@@ -37,27 +39,28 @@ import { ConfirmService } from './confirm.service';
       .modal p { margin: 0; line-height: 1.55; color: var(--ink); }
       .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.25rem; }
       .actions button { margin: 0; padding: 0.5rem 1.1rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
+      .actions button:disabled { opacity: 0.65; cursor: default; }
       .cancel { background: transparent; border: 1px solid var(--line); color: var(--muted); }
-      .cancel:hover { background: var(--hover); }
+      .cancel:hover:not(:disabled) { background: var(--hover); }
       .ok { background: var(--brand); color: var(--brand-ink); border: 0; }
-      .ok:hover { filter: brightness(1.05); }
-      .ok.danger { background: var(--danger, #b4402f); }
+      .ok:hover:not(:disabled) { filter: brightness(1.05); }
+      .ok.danger { background: var(--danger, #c0392b); color: #fff; }
     `,
   ],
 })
 export class ConfirmDialog {
   protected svc = inject(ConfirmService);
 
-  /** Enter confirms, Escape cancels - only while a dialog is open. */
+  /** Enter confirms, Escape cancels - ignored while the action is running. */
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent): void {
-    if (!this.svc.current()) {
+    if (!this.svc.current() || this.svc.running()) {
       return;
     }
     if (e.key === 'Escape') {
-      this.svc.respond(false);
+      this.svc.cancel();
     } else if (e.key === 'Enter') {
-      this.svc.respond(true);
+      this.svc.accept();
     }
   }
 }

@@ -229,7 +229,7 @@ export class MailDetail {
     this.confirm.ask({
       title: 'Delete this email?',
       message: `This moves the email and its ${this.docs().length} screenshot(s) to Trash.`,
-      confirmLabel: 'Delete', danger: true,
+      confirmLabel: 'Delete', busyLabel: 'Deleting...', danger: true,
     }).then((ok) => {
       if (!ok) return;
       let done = 0;
@@ -238,10 +238,12 @@ export class MailDetail {
         this.api.deleteDocument(d.id).subscribe({
           next: () => {
             if (++done === list.length) {
+              this.confirm.close();
               this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Email deleted.' });
               this.router.navigate(['/mail']);
             }
           },
+          error: (e) => { this.confirm.close(); this.notices.show({ level: 'error', code: 'DELETE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }); },
         });
       }
     });

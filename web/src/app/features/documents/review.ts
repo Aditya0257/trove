@@ -385,14 +385,16 @@ export class Review {
     this.dialog.ask({
       title: 'Move to Trash?',
       message: `"${name}" stays recoverable in Trash for 30 days.`,
-      confirmLabel: 'Move to Trash',
+      confirmLabel: 'Move to Trash', busyLabel: 'Moving...', danger: true,
     }).then((ok) => {
       if (!ok) return;
       this.api.deleteDocument(d.id).subscribe({
         next: () => {
+          this.dialog.close();
           this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash.' });
           this.router.navigate(['/documents']);
         },
+        error: (e) => { this.dialog.close(); this.notices.show({ level: 'error', code: 'DELETE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }); },
       });
     });
   }
