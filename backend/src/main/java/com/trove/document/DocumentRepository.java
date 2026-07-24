@@ -41,6 +41,11 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>,
     /** Trashed documents in a space, most recently deleted first (the Trash view). */
     List<Document> findBySpaceIdAndStatusOrderByDeletedAtDesc(UUID spaceId, String status);
 
+    /** Documents for one merchant in a space with a given status, oldest first - used to spot a
+     *  regular billing cadence (a likely subscription) from the gaps between their dates. */
+    List<Document> findBySpaceIdAndMerchantIdAndStatusOrderByDocDateAsc(
+            UUID spaceId, UUID merchantId, String status);
+
     /** Trashed documents past their retention window (the purge sweep). */
     List<Document> findByStatusAndDeletedAtBefore(String status, java.time.Instant cutoff);
 

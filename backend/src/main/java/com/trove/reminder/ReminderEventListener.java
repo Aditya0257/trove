@@ -2,8 +2,9 @@
  * ============================================================================
  *  ReminderEventListener — turns a confirmed due date into a reminder
  * ============================================================================
- *  Purpose:        after a document is confirmed, auto-create its 'due' reminder.
- *  Business use:    the user confirms a bill's due date once; the reminder appears
+ *  Purpose:        after a document is confirmed, auto-create its reminders (a dated
+ *                  due/renewal nudge, plus a recurring one if it looks like a subscription).
+ *  Business use:    the user confirms a bill or policy once; the right reminder appears
  *                  automatically — no extra step.
  *  Design:         @TransactionalEventListener(AFTER_COMMIT) so the reminder is only
  *                  created once the confirm has durably committed. Keeps documents
@@ -28,7 +29,7 @@ public class ReminderEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onDocumentConfirmed(DocumentConfirmedEvent event) {
-        reminderService.createDueReminderFromDocument(
+        reminderService.createRemindersFromDocument(
                 event.spaceId(), event.documentId(), event.dueDate());
     }
 }

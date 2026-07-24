@@ -234,16 +234,19 @@ export class Reminders {
 
   protected helpUser =
     'Reminders nudge you before something matters: a bill due, a policy renewing, a warranty running out. Add one ' +
-    'yourself, or Trove creates a due reminder for you when you confirm a document that has a due date. Set Repeat ' +
-    'to have it come back on its own (say monthly rent). When you have handled one, press Done - if it repeats, the ' +
-    'next one is scheduled automatically. Snooze pushes it out a little, Dismiss clears it for good, and Reopen ' +
-    'brings a done or dismissed one back.';
+    'yourself, or let Trove set one up when you confirm a document: a due date becomes a reminder, an insurance or ' +
+    'subscription date becomes a renewal, and if a merchant keeps billing on a regular rhythm Trove schedules a ' +
+    'repeating renewal for you. Set Repeat to have any reminder come back on its own (say monthly rent). When you ' +
+    'have handled one, press Done - if it repeats, the next one is scheduled automatically. Snooze pushes it out a ' +
+    'little, Dismiss clears it for good, and Reopen brings a done or dismissed one back.';
   protected helpDev =
     'Reminders are space-scoped rows (reminder table). Status is pending -> sent (an hourly scheduler dispatches ' +
     'those whose date has arrived and emails the space) -> done or dismissed. "Due now" means active (pending or ' +
     'sent) and dated on or before today. Recurrence (weekly/monthly/quarterly/yearly) rolls forward only when a ' +
     'reminder is marked Done, so the series advances exactly once and never double-schedules. Snooze re-dates it ' +
-    'from today and returns it to pending; Reopen is snooze with zero days.';
+    'from today and returns it to pending; Reopen is snooze with zero days. On confirm, auto-creation is ' +
+    'type-aware (insurance/subscription categories become renewals, everything else a due), and a merchant with a ' +
+    'steady monthly/quarterly/yearly cadence across 3+ documents seeds a recurring renewal for the next date.';
 
   protected tabs: { key: TabKey; label: string }[] = [
     { key: 'due', label: 'Due now' },

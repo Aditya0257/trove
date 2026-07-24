@@ -32,7 +32,14 @@
  */
 package com.trove.reminder;
 
+import com.trove.category.Category;
+import com.trove.category.CategoryRepository;
 import com.trove.common.error.NotFoundException;
+import com.trove.document.Document;
+import com.trove.document.DocumentRepository;
+import com.trove.document.DocumentStatus;
+import com.trove.merchant.Merchant;
+import com.trove.merchant.MerchantRepository;
 import com.trove.space.SpaceAuthorization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,17 +58,30 @@ public class ReminderService {
 
     private static final Logger log = LoggerFactory.getLogger(ReminderService.class);
 
+    /** Categories whose "due date" is really a RENEWAL date (a policy/plan lapsing), not a bill. */
+    private static final List<String> RENEWAL_CATEGORIES = List.of("insurance", "subscription");
+    /** Fewest same-merchant documents before a regular cadence is trustworthy as a subscription. */
+    private static final int SUBSCRIPTION_MIN_DOCS = 3;
+
     private final ReminderRepository reminderRepository;
     private final SpaceAuthorization authorization;
     private final ReminderProperties props;
     private final ReminderNotifier notifier;
+    private final DocumentRepository documentRepository;
+    private final CategoryRepository categoryRepository;
+    private final MerchantRepository merchantRepository;
 
     public ReminderService(ReminderRepository reminderRepository, SpaceAuthorization authorization,
-                           ReminderProperties props, ReminderNotifier notifier) {
+                           ReminderProperties props, ReminderNotifier notifier,
+                           DocumentRepository documentRepository, CategoryRepository categoryRepository,
+                           MerchantRepository merchantRepository) {
         this.reminderRepository = reminderRepository;
         this.authorization = authorization;
         this.props = props;
         this.notifier = notifier;
+        this.documentRepository = documentRepository;
+        this.categoryRepository = categoryRepository;
+        this.merchantRepository = merchantRepository;
     }
 
     /** Creates a manual reminder (owner/member only). */
@@ -136,32 +157,153 @@ public class ReminderService {
     }
 
     /**
-     * Auto-creates a 'due' reminder for a confirmed document's due date. Idempotent
-     * per document; no-op when there is no due date. Called after confirm (the space
-     * write was already authorized there), so it does not re-check permissions.
+     * Auto-creates reminders for a freshly confirmed document. Two independent parts:
+     *
+     *  1) A dated reminder from the confirmed due/expiry date, at each configured lead
+     *     time (default 7/1/0 days before). Its TYPE follows the category: a policy or
+     *     subscription "due date" is really a RENEWAL; everything else is a payment DUE.
+     *  2) Subscription detection: if the same merchant has been billing on a regular
+     *     cadence (monthly / quarterly / yearly across several documents), schedule a
+     *     recurring RENEWAL reminder for the next expected date.
+     *
+     * Idempotent (each dated lead is guarded; the recurring one is guarded per merchant),
+     * so re-confirming never duplicates. No-op safely when data is missing. Called after
+     * confirm (space write already authorized there), so it does not re-check permissions.
      *
      * REQUIRES_NEW: this runs from an AFTER_COMMIT event listener where the original
      * transaction has already committed. A plain @Transactional here would flush but
      * never commit (the row silently vanishes); a fresh transaction commits properly.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void createDueReminderFromDocument(UUID spaceId, UUID documentId, LocalDate dueDate) {
-        if (dueDate == null || documentId == null) {
+    public void createRemindersFromDocument(UUID spaceId, UUID documentId, LocalDate dueDate) {
+        if (documentId == null) {
             return;
         }
-        // One reminder per configured lead time (default 7/1/0 days before), so a
-        // warranty/bill/renewal gets an early heads-up and a last nudge. Each lead is
-        // guarded independently, so re-confirming a document never duplicates a date.
-        for (int lead : props.getLeadDaysList()) {
-            LocalDate remindOn = dueDate.minusDays(lead);
-            if (reminderRepository.existsByDocumentIdAndTypeAndRemindOn(
-                    documentId, ReminderType.DUE, remindOn)) {
-                continue;
-            }
-            reminderRepository.save(new Reminder(spaceId, documentId, ReminderType.DUE, remindOn));
+        Document doc = documentRepository.findById(documentId).orElse(null);
+        if (doc == null) {
+            return;
         }
-        log.info("Auto-created due reminders for document {} (due {}, leads {})",
-                documentId, dueDate, props.getLeadDaysList());
+        String categoryCode = doc.getCategoryId() == null ? null
+                : categoryRepository.findById(doc.getCategoryId()).map(Category::getCode).orElse(null);
+
+        boolean madeDated = false;
+        if (dueDate != null) {
+            String type = reminderTypeFor(categoryCode);
+            for (int lead : props.getLeadDaysList()) {
+                LocalDate remindOn = dueDate.minusDays(lead);
+                if (!reminderRepository.existsByDocumentIdAndTypeAndRemindOn(documentId, type, remindOn)) {
+                    reminderRepository.save(new Reminder(spaceId, documentId, type, remindOn));
+                    madeDated = true;
+                }
+            }
+            if (madeDated) {
+                log.info("Auto-created {} reminder(s) for document {} (date {}, leads {})",
+                        type, documentId, dueDate, props.getLeadDaysList());
+            }
+        }
+
+        // Only look for a subscription cadence when this document didn't already yield a
+        // dated reminder, so a policy with an explicit renewal date isn't double-flagged.
+        if (!madeDated) {
+            detectSubscription(spaceId, doc);
+        }
+    }
+
+    /** A policy/subscription date is a renewal; everything else is a payment due. */
+    private String reminderTypeFor(String categoryCode) {
+        return categoryCode != null && RENEWAL_CATEGORIES.contains(categoryCode)
+                ? ReminderType.RENEWAL : ReminderType.DUE;
+    }
+
+    /**
+     * Detects a regular billing cadence for the document's merchant and, if found, schedules
+     * a recurring RENEWAL reminder for the next expected date. Guards against duplicates: it
+     * skips when an active recurring renewal already exists for any of that merchant's docs.
+     */
+    private void detectSubscription(UUID spaceId, Document doc) {
+        if (doc.getMerchantId() == null || doc.getDocDate() == null) {
+            return;
+        }
+        List<Document> history = documentRepository
+                .findBySpaceIdAndMerchantIdAndStatusOrderByDocDateAsc(
+                        spaceId, doc.getMerchantId(), DocumentStatus.CONFIRMED)
+                .stream().filter(d -> d.getDocDate() != null).toList();
+        if (history.size() < SUBSCRIPTION_MIN_DOCS) {
+            return;
+        }
+        String cadence = inferCadence(history.stream().map(Document::getDocDate).toList());
+        if (cadence == null) {
+            return;
+        }
+        // Already tracking this merchant's subscription? (active recurring renewal on any of its docs)
+        var merchantDocIds = history.stream().map(Document::getId).toList();
+        boolean alreadyTracked = reminderRepository.findBySpaceIdOrderByRemindOnAsc(spaceId).stream()
+                .anyMatch(r -> ReminderType.RENEWAL.equals(r.getType())
+                        && ReminderRecurrence.repeats(r.getRecurrence())
+                        && (ReminderStatus.PENDING.equals(r.getStatus()) || ReminderStatus.SENT.equals(r.getStatus()))
+                        && merchantDocIds.contains(r.getDocumentId()));
+        if (alreadyTracked) {
+            return;
+        }
+        LocalDate last = history.get(history.size() - 1).getDocDate();
+        LocalDate next = ReminderRecurrence.next(cadence, last, LocalDate.now());
+        if (next == null) {
+            return;
+        }
+        String merchant = merchantRepository.findById(doc.getMerchantId())
+                .map(Merchant::getCanonicalName).orElse("Subscription");
+        Reminder r = new Reminder(spaceId, doc.getId(), ReminderType.RENEWAL, next);
+        r.setRecurrence(cadence);
+        r.setTitle(merchant + " renewal");
+        reminderRepository.save(r);
+        log.info("Detected {} subscription for merchant {} in space {}; scheduled renewal on {}",
+                cadence, doc.getMerchantId(), spaceId, next);
+    }
+
+    /**
+     * Infers a billing cadence from a series of dates (oldest first). Returns weekly / monthly /
+     * quarterly / yearly when the gaps between consecutive dates consistently fall in that band,
+     * else null. Requires every gap to sit inside the chosen band, so an irregular history (a
+     * shop visited whenever) is not mistaken for a subscription.
+     */
+    private String inferCadence(List<LocalDate> dates) {
+        if (dates.size() < 2) {
+            return null;
+        }
+        long[] gaps = new long[dates.size() - 1];
+        long sum = 0;
+        for (int i = 1; i < dates.size(); i++) {
+            gaps[i - 1] = ChronoUnit.DAYS.between(dates.get(i - 1), dates.get(i));
+            sum += gaps[i - 1];
+        }
+        double avg = (double) sum / gaps.length;
+        String band = bandFor(avg);
+        if (band == null) {
+            return null;
+        }
+        for (long g : gaps) {
+            if (!band.equals(bandFor(g))) {
+                return null; // an off-cadence gap: not a clean subscription
+            }
+        }
+        return band;
+    }
+
+    /** Maps a day-count to a cadence band, with tolerance for month-length drift; null if none fits. */
+    private String bandFor(double days) {
+        if (days >= 5 && days <= 9) {
+            return ReminderRecurrence.WEEKLY;
+        }
+        if (days >= 26 && days <= 35) {
+            return ReminderRecurrence.MONTHLY;
+        }
+        if (days >= 82 && days <= 98) {
+            return ReminderRecurrence.QUARTERLY;
+        }
+        if (days >= 350 && days <= 380) {
+            return ReminderRecurrence.YEARLY;
+        }
+        return null;
     }
 
     /** Lists reminders in a space (optionally by status). Any member may read. */
