@@ -6,6 +6,8 @@ it by category, and lets you review and confirm the extracted fields.
 
 ## Documentation
 
+**Live architecture guide:** https://aditya0257.github.io/trove/site/ (browsable, with diagrams).
+
 The full engineering documentation lives in [`docs/`](docs/) and renders on GitHub,
 diagrams included. Start here:
 
@@ -19,8 +21,9 @@ diagrams included. Start here:
   [`docs/frontend/web.md`](docs/frontend/web.md), and configuration in
   [`docs/operations/configuration.md`](docs/operations/configuration.md).
 
-A browsable HTML version of the architecture guide is in [`docs/site/`](docs/site/),
-ready to serve with GitHub Pages (see below). The original design narrative and the
+A browsable HTML version of the architecture guide is published with GitHub Pages at
+[https://aditya0257.github.io/trove/site/](https://aditya0257.github.io/trove/site/)
+(source in [`docs/site/`](docs/site/)). The original design narrative and the
 running decision log remain in [`DESIGN.md`](DESIGN.md) and [`DECISIONS.md`](DECISIONS.md);
 [`.env.example`](.env.example) documents every config value.
 
@@ -32,7 +35,7 @@ designed HTML guide at a permanent public URL you own:
 1. Push this repository to GitHub.
 2. Settings -> Pages -> Build and deployment -> Source: **Deploy from a branch**.
 3. Branch: your default branch, folder: **/docs**. Save.
-4. The guide is then at `https://<user>.github.io/<repo>/site/`.
+4. The guide is then live at https://aditya0257.github.io/trove/site/.
 
 This URL is yours and needs no login or subscription. (A claude.ai artifact link, by
 contrast, is private to the author's account and is only a convenient preview.)
