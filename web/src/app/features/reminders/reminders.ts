@@ -12,6 +12,15 @@ import { HelpCard } from '../../core/help-card';
 /** The lifecycle buckets a reminder can sit in, as shown by the tabs. */
 type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
 
+/** The editable fields of a reminder, shared by the create form and the edit dialog. */
+interface ReminderForm {
+  title: string;
+  type: string;
+  documentId: string;
+  recurrence: string;
+  remindOn: string;
+}
+
 @Component({
   selector: 'app-reminders',
   imports: [FormsModule, RouterLink, TroveSelect, HelpCard],
@@ -21,11 +30,11 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
       <trove-help-card title="How reminders work" [open]="false" [user]="helpUser" [dev]="helpDev"></trove-help-card>
 
       @if (dueCount() > 0) {
-        <p class="warn">🔔 {{ dueCount() }} reminder{{ dueCount() > 1 ? 's' : '' }} need your attention (due on or before today).</p>
+        <p class="warn">🔔 {{ dueCount() }} reminder{{ dueCount() > 1 ? 's' : '' }} {{ dueCount() > 1 ? 'need' : 'needs' }} your attention (due on or before today).</p>
       }
 
-      <!-- One form for both create and edit. -->
-      <form (ngSubmit)="submit()" class="reminder-form">
+      <!-- Create a new reminder. Editing an existing one happens in the dialog below. -->
+      <form (ngSubmit)="add()" class="reminder-form">
         <div class="form-grid">
           <label class="wide">Title (optional)
             <input name="title" [(ngModel)]="form.title" placeholder="e.g. Rent - pay landlord" />
@@ -42,10 +51,7 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
           <label>Remind on <input type="date" name="remindOn" [(ngModel)]="form.remindOn" required /></label>
         </div>
         <div class="form-actions">
-          <button type="submit" [disabled]="!form.remindOn || saving()">
-            {{ saving() ? 'Saving…' : (editingId() ? 'Save changes' : 'Add reminder') }}
-          </button>
-          @if (editingId()) { <button type="button" class="btn-ghost" (click)="cancelEdit()">Cancel</button> }
+          <button type="submit" [disabled]="!form.remindOn || saving()">{{ saving() ? 'Saving…' : 'Add reminder' }}</button>
         </div>
       </form>
       @if (error()) { <p class="error">{{ error() }}</p> }
@@ -66,7 +72,7 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
       } @else {
         <div class="table-scroll">
           <table>
-            <thead><tr><th>Reminder</th><th>When</th><th>Repeat</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Reminder</th><th>When</th><th>Repeat</th><th>Status</th><th class="act-col"></th></tr></thead>
             <tbody>
               @for (r of shownReminders(); track r.id) {
                 <tr [class.due]="isDue(r)">
@@ -86,19 +92,21 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
                   </td>
                   <td class="r-actions">
                     @if (isActive(r)) {
-                      <button type="button" class="mini" (click)="markDone(r)">Done</button>
-                      <span class="snooze">
-                        <button type="button" class="mini ghost" (click)="toggleSnooze(r.id)">Snooze ▾</button>
-                        @if (snoozeOpen() === r.id) {
-                          <span class="snooze-menu">
-                            <button type="button" (click)="snooze(r, 1)">1 day</button>
-                            <button type="button" (click)="snooze(r, 3)">3 days</button>
-                            <button type="button" (click)="snooze(r, 7)">1 week</button>
-                          </span>
-                        }
-                      </span>
-                      <button type="button" class="mini ghost" (click)="edit(r)">Edit</button>
-                      <button type="button" class="mini ghost danger" (click)="dismiss(r)">Dismiss</button>
+                      @if (snoozeOpen() === r.id) {
+                        <!-- Inline snooze options: in normal flow, so nothing gets clipped. -->
+                        <span class="snooze-inline">
+                          <span class="snooze-label">Snooze:</span>
+                          <button type="button" class="mini ghost" (click)="snooze(r, 1)">1 day</button>
+                          <button type="button" class="mini ghost" (click)="snooze(r, 3)">3 days</button>
+                          <button type="button" class="mini ghost" (click)="snooze(r, 7)">1 week</button>
+                          <button type="button" class="mini ghost" (click)="toggleSnooze(r.id)" aria-label="Cancel snooze">✕</button>
+                        </span>
+                      } @else {
+                        <button type="button" class="mini" (click)="markDone(r)">Done</button>
+                        <button type="button" class="mini ghost" (click)="toggleSnooze(r.id)">Snooze</button>
+                        <button type="button" class="mini ghost" (click)="edit(r)">Edit</button>
+                        <button type="button" class="mini ghost danger" (click)="dismiss(r)">Dismiss</button>
+                      }
                     } @else {
                       <button type="button" class="mini ghost" (click)="snooze(r, 0)">Reopen</button>
                     }
@@ -110,6 +118,35 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
         </div>
       }
     </div>
+
+    <!-- Edit dialog: a focused overlay so it is clear you are editing THIS reminder. -->
+    @if (editing()) {
+      <div class="scrim" (click)="cancelEdit()"></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Edit reminder">
+        <h3>Edit reminder</h3>
+        <label>Title (optional)
+          <input name="etitle" [(ngModel)]="editForm.title" placeholder="e.g. Rent - pay landlord" />
+        </label>
+        <div class="modal-grid">
+          <label>Type
+            <trove-select name="etype" [(ngModel)]="editForm.type" [options]="typeOptions" ariaLabel="Reminder type"></trove-select>
+          </label>
+          <label>Repeat
+            <trove-select name="erecurrence" [(ngModel)]="editForm.recurrence" [options]="recurrenceOptions" ariaLabel="Repeat"></trove-select>
+          </label>
+          <label>For document (optional)
+            <trove-select name="edocumentId" [(ngModel)]="editForm.documentId" [options]="docOptions()" ariaLabel="For document"></trove-select>
+          </label>
+          <label>Remind on <input type="date" name="eremindOn" [(ngModel)]="editForm.remindOn" required /></label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" (click)="cancelEdit()">Cancel</button>
+          <button type="button" (click)="saveEdit()" [disabled]="!editForm.remindOn || saving()">
+            {{ saving() ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -138,7 +175,8 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
       .tab.on .count { background: var(--accent-soft); color: var(--accent); }
 
       .table-scroll { overflow-x: auto; max-width: 100%; }
-      .table-scroll table { min-width: 620px; }
+      .table-scroll table { min-width: 640px; }
+      .act-col { width: 1%; }
       tr.due td { background: var(--danger-soft); }
       .r-title { font-weight: 600; }
       .r-doc { font-size: 12px; color: var(--accent); text-decoration: none; }
@@ -154,17 +192,24 @@ type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';
       .r-actions .mini.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
       .r-actions .mini.ghost:hover { background: var(--hover); color: var(--ink); }
       .r-actions .mini.ghost.danger:hover { color: var(--danger); border-color: var(--danger-line); }
-      .snooze { position: relative; display: inline-block; }
-      .snooze-menu {
-        position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; display: flex; flex-direction: column;
-        background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px var(--shadow); overflow: hidden;
-      }
-      .snooze-menu button {
-        margin: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer;
-        padding: 7px 16px; font-size: 12px; text-align: left; white-space: nowrap;
-      }
-      .snooze-menu button:hover { background: var(--accent-soft); color: var(--accent); }
+      /* Snooze options revealed inline (in normal flow) so the table's overflow never clips them. */
+      .snooze-inline { display: inline-flex; align-items: center; gap: 4px; }
+      .snooze-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
       .error { color: var(--danger); }
+
+      /* Edit dialog. */
+      .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1100; }
+      .modal {
+        position: fixed; z-index: 1101; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: min(560px, 94vw); background: var(--card); border: 1px solid var(--line);
+        border-radius: 12px; padding: 1.25rem 1.4rem; box-shadow: 0 20px 60px var(--shadow);
+      }
+      .modal h3 { margin: 0 0 0.9rem; }
+      .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+      .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+      .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
+      .modal-actions button { margin: 0; }
+      @media (max-width: 480px) { .modal-grid { grid-template-columns: 1fr; } }
     `,
   ],
 })
@@ -178,11 +223,12 @@ export class Reminders {
   loading = signal(true);
   saving = signal(false);
   error = signal<string | null>(null);
-  editingId = signal<string | null>(null);
+  editing = signal<string | null>(null); // id being edited (drives the dialog)
   snoozeOpen = signal<string | null>(null);
   tab = signal<TabKey>('due');
 
-  form = { title: '', type: 'due', documentId: '', recurrence: 'none', remindOn: '' };
+  form: ReminderForm = this.blankForm();
+  editForm: ReminderForm = this.blankForm();
 
   private readonly today = new Date().toISOString().slice(0, 10);
 
@@ -298,48 +344,62 @@ export class Reminders {
     });
   }
 
-  // ── create / edit ────────────────────────────────────────────────────────
-  submit(): void {
+  private blankForm(): ReminderForm {
+    return { title: '', type: 'due', documentId: '', recurrence: 'none', remindOn: '' };
+  }
+  private toBody(f: ReminderForm) {
+    return {
+      type: f.type,
+      title: f.title.trim() || undefined,
+      remindOn: f.remindOn,
+      recurrence: f.recurrence,
+      documentId: f.documentId || undefined,
+    };
+  }
+
+  // ── create ─────────────────────────────────────────────────────────────────
+  add(): void {
     if (!this.form.remindOn) return;
     this.error.set(null);
     this.saving.set(true);
-    const body = {
-      type: this.form.type,
-      title: this.form.title.trim() || undefined,
-      remindOn: this.form.remindOn,
-      recurrence: this.form.recurrence,
-      documentId: this.form.documentId || undefined,
-    };
-    const id = this.editingId();
-    const req = id ? this.api.updateReminder(id, body) : this.api.createReminder(body, this.spaceCtx.currentSpaceId());
-    req.subscribe({
+    this.api.createReminder(this.toBody(this.form), this.spaceCtx.currentSpaceId()).subscribe({
       next: () => {
-        this.notices.show({ level: 'success', code: id ? 'REMINDER_SAVED' : 'REMINDER_ADDED', userMessage: id ? 'Reminder updated.' : 'Reminder added.' });
-        this.resetForm();
+        this.notices.show({ level: 'success', code: 'REMINDER_ADDED', userMessage: 'Reminder added.' });
+        this.form = this.blankForm();
+        this.saving.set(false);
         this.reload(this.spaceCtx.currentSpaceId());
       },
       error: (e) => { this.saving.set(false); this.error.set(e?.error?.message ?? 'Could not save reminder'); },
     });
   }
 
+  // ── edit (dialog) ────────────────────────────────────────────────────────
   edit(r: ReminderResponse): void {
-    this.editingId.set(r.id);
-    this.form = {
+    this.editForm = {
       title: r.title ?? '',
       type: r.type,
       documentId: r.documentId ?? '',
       recurrence: r.recurrence,
       remindOn: r.remindOn,
     };
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    this.editing.set(r.id);
   }
   cancelEdit(): void {
-    this.resetForm();
+    this.editing.set(null);
   }
-  private resetForm(): void {
-    this.editingId.set(null);
-    this.saving.set(false);
-    this.form = { title: '', type: 'due', documentId: '', recurrence: 'none', remindOn: '' };
+  saveEdit(): void {
+    const id = this.editing();
+    if (!id || !this.editForm.remindOn) return;
+    this.saving.set(true);
+    this.api.updateReminder(id, this.toBody(this.editForm)).subscribe({
+      next: () => {
+        this.notices.show({ level: 'success', code: 'REMINDER_SAVED', userMessage: 'Reminder updated.' });
+        this.saving.set(false);
+        this.editing.set(null);
+        this.reload(this.spaceCtx.currentSpaceId());
+      },
+      error: (e) => { this.saving.set(false); this.notices.show({ level: 'error', code: 'SAVE_FAIL', userMessage: e?.error?.message ?? 'Could not save.' }); },
+    });
   }
 
   // ── lifecycle actions ──────────────────────────────────────────────────────
