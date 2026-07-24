@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { API_BASE } from './config';
-import { AuthResponse } from './models';
+import { AuthResponse, PendingUser } from './models';
 
 const TOKEN_KEY = 'trove_token';
 const USER_KEY = 'trove_user';
@@ -51,7 +51,19 @@ export class AuthService {
   register(email: string, displayName: string, password: string) {
     return this.http
       .post<AuthResponse>(`${API_BASE}/api/auth/register`, { email, displayName, password })
-      .pipe(tap((r) => this.store(r)));
+      // A pending (admin-approval) signup returns no token; only auto-login when one is issued.
+      .pipe(tap((r) => { if (r.token) this.store(r); }));
+  }
+
+  // --- admin: approve/decline new signups ---
+  adminPending() {
+    return this.http.get<PendingUser[]>(`${API_BASE}/api/admin/pending`);
+  }
+  adminApprove(id: string) {
+    return this.http.post<void>(`${API_BASE}/api/admin/users/${id}/approve`, {});
+  }
+  adminReject(id: string) {
+    return this.http.post<void>(`${API_BASE}/api/admin/users/${id}/reject`, {});
   }
 
   logout(): void {

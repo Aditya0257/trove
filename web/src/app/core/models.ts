@@ -1,11 +1,20 @@
 /** Shapes returned by the Trove API (see docs/API.md). */
 
 export interface AuthResponse {
-  token: string | null;         // null when a second factor is still required
+  token: string | null;         // null when a second factor is required, or account is pending
   userId: string;
   email: string;
   displayName: string;
   twoFactorRequired?: boolean;  // true = password ok, now supply the authenticator code
+  admin?: boolean;              // true = the configured admin (can approve sign-ups)
+  status?: string;              // 'active' | 'pending' | 'rejected'
+}
+
+export interface PendingUser {
+  id: string;
+  email: string;
+  displayName: string;
+  requestedAt: string | null;
 }
 
 export interface LineItem {

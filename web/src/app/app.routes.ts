@@ -13,6 +13,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/security').then((m) => m.Security),
   },
   {
+    path: 'admin',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/auth/admin').then((m) => m.Admin),
+  },
+  {
     path: 'upload',
     canActivate: [authGuard],
     loadComponent: () => import('./features/documents/upload').then((m) => m.Upload),

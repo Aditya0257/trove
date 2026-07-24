@@ -26,6 +26,7 @@
         <a routerLink="/reminders">Reminders</a>
         <a routerLink="/spaces">Spaces</a>
         <a routerLink="/backups">Backups</a>
+        @if (auth.user()?.admin) { <a routerLink="/admin">Admin</a> }
       </nav>
     }
     <span class="spacer"></span>

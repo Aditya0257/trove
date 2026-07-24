@@ -47,6 +47,13 @@ export class Login {
     this.error.set(null);
     this.auth.login(this.email, this.password, this.code || undefined).subscribe({
       next: (r) => {
+        if (r.status && r.status !== 'active') {
+          this.error.set(r.status === 'rejected'
+            ? 'This account request was declined.'
+            : 'Your account is awaiting admin approval. You can sign in once it is approved.');
+          this.loading.set(false);
+          return;
+        }
         if (r.twoFactorRequired) {
           // Password verified; now ask for the authenticator code and resubmit.
           this.twoFactor.set(true);

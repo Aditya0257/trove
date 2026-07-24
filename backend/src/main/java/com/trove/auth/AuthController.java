@@ -53,10 +53,20 @@ public class AuthController {
         this.passwordResetService = passwordResetService;
     }
 
-    /** Create an account (+ personal space) and return a token. */
+    /**
+     * Create an account (+ personal space). If registration is gated (an admin is
+     * configured), a new account starts pending and gets NO token - the response carries
+     * status="pending" and the client shows an "awaiting approval" message. The admin's
+     * own account, or open registration, returns a token immediately.
+     */
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest req) {
         User user = userService.register(req.email(), req.displayName(), req.password());
+        if (!"active".equals(user.getStatus())) {
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(
+                    new AuthResponse(null, user.getId(), user.getEmail(), user.getDisplayName(),
+                            false, false, user.getStatus()));
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(tokenFor(user));
     }
 
@@ -68,9 +78,16 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest req) {
         User user = userService.authenticate(req.email(), req.password());
+        // Correct password, but a pending/rejected account gets no token - the client reads
+        // `status` and shows why (awaiting approval / declined).
+        if (!"active".equals(user.getStatus())) {
+            return new AuthResponse(null, user.getId(), user.getEmail(), user.getDisplayName(),
+                    false, false, user.getStatus());
+        }
         if (user.isTotpEnabled()) {
             if (req.code() == null || req.code().isBlank()) {
-                return new AuthResponse(null, user.getId(), user.getEmail(), user.getDisplayName(), true);
+                return new AuthResponse(null, user.getId(), user.getEmail(), user.getDisplayName(),
+                        true, false, user.getStatus());
             }
             if (!totpService.verify(encryptionService.decrypt(user.getTotpSecretEnc()), req.code())) {
                 throw new UnauthorizedException("Invalid authenticator code");
@@ -95,7 +112,8 @@ public class AuthController {
 
     private AuthResponse tokenFor(User user) {
         String token = jwtService.issue(user.getId(), user.getEmail(), user.getDisplayName());
-        return new AuthResponse(token, user.getId(), user.getEmail(), user.getDisplayName(), false);
+        return new AuthResponse(token, user.getId(), user.getEmail(), user.getDisplayName(),
+                false, userService.isAdmin(user), user.getStatus());
     }
 
     // ── DTOs ─────────────────────────────────────────────────────────────────
@@ -114,6 +132,6 @@ public class AuthController {
     }
 
     public record AuthResponse(String token, UUID userId, String email, String displayName,
-                               boolean twoFactorRequired) {
+                               boolean twoFactorRequired, boolean admin, String status) {
     }
 }

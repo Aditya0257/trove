@@ -44,6 +44,11 @@ public class User extends BaseEntity {
     @Column(name = "totp_enabled", nullable = false)
     private boolean totpEnabled = false;
 
+    // Account lifecycle for closed registration: 'active' (can sign in), 'pending'
+    // (awaiting admin approval), or 'rejected'. Existing accounts default to active.
+    @Column(name = "status", nullable = false)
+    private String status = "active";
+
     protected User() {
         // for JPA
     }
@@ -64,6 +69,8 @@ public class User extends BaseEntity {
     public void setTotpSecretEnc(String totpSecretEnc) { this.totpSecretEnc = totpSecretEnc; }
     public boolean isTotpEnabled() { return totpEnabled; }
     public void setTotpEnabled(boolean totpEnabled) { this.totpEnabled = totpEnabled; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     public Instant getCreatedAt() { return createdAt; }
 }
