@@ -119,7 +119,10 @@ import { TroveSelect, SelectOption } from '../../core/select';
                 <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
                 <td>{{ d.category || '-' }}</td>
                 <td>{{ d.merchant || '-' }}</td>
-                <td>{{ d.amount | money: d.currency }}</td>
+                <td>
+                  {{ d.amount | money: d.currency }}
+                  @if (isAnomalous(d)) { <span class="anom" title="Higher than usual for this category - worth a second look">↑ {{ anomalyPct(d) }}</span> }
+                </td>
                 <td>{{ d.docDate || '-' }}</td>
                 <td><span class="badge" [class.confirmed]="d.status === 'confirmed'">{{ d.status }}</span></td>
                 <td><button class="del" type="button" (click)="remove(d)">Delete</button></td>
@@ -172,6 +175,11 @@ import { TroveSelect, SelectOption } from '../../core/select';
       }
       .chip.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
       td { vertical-align: middle; }
+      /* Subtle "higher than usual" flag next to an anomalous amount. */
+      .anom {
+        margin-left: 6px; font-size: 11px; font-weight: 700; white-space: nowrap;
+        color: var(--warn, #b8860b); cursor: help;
+      }
       .del {
         margin: 0; border: 1px solid var(--danger-line); background: transparent; color: var(--danger);
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
@@ -237,6 +245,16 @@ export class DocList {
     const parts = up.slice(0, 3).map((r) => `${this.rType(r.type)} ${r.remindOn}`);
     return parts.join(', ') + (up.length > 3 ? `, +${up.length - 3} more` : '');
   });
+
+  /** True when this document was flagged higher-than-usual for its category at confirm. */
+  isAnomalous(d: DocumentResponse): boolean {
+    return !!(d.extra?.['anomaly'] as { anomaly?: boolean } | undefined)?.anomaly;
+  }
+  /** The overshoot as a rounded percentage for the list flag, e.g. "42%". */
+  anomalyPct(d: DocumentResponse): string {
+    const p = (d.extra?.['anomaly'] as { deltaPct?: number } | undefined)?.deltaPct;
+    return p != null ? `${Math.round(p * 100)}%` : '';
+  }
 
   /** Reader-friendly reminder type label. */
   protected rType(t: string): string {

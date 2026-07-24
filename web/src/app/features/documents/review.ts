@@ -7,11 +7,12 @@ import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
 import { NoticeService } from '../../core/notice/notice.service';
 import { ConfirmService } from '../../core/confirm.service';
 import { TroveSelect, SelectOption } from '../../core/select';
+import { MoneyPipe } from '../../core/money.pipe';
 import { CURRENCY_OPTIONS } from '../../core/currencies';
 
 @Component({
   selector: 'app-review',
-  imports: [FormsModule, TroveSelect],
+  imports: [FormsModule, TroveSelect, MoneyPipe],
   template: `
     @if (!doc()) {
       <div class="card"><p class="muted">Loading…</p></div>
@@ -52,7 +53,7 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
           <p class="muted">You've reviewed and saved this document. Edit any field and Save changes to update it.</p>
         }
         @if (anomaly()) {
-          <p class="warn">This looks higher than usual for its category. Worth a second look.</p>
+          <p class="warn">⚠ This is about {{ anomalyPct() }} higher than usual for this category@if (anomalyAvg() !== null) {<span> (you normally pay around {{ anomalyAvg() | money: doc()!.currency }})</span>}. Worth a second look before you confirm.</p>
         }
         @if (uploadedOn()) { <p class="uploaded">Added to Trove on {{ uploadedOn() }}</p> }
 
@@ -305,9 +306,20 @@ export class Review {
     return notice?.devNote ?? '';
   }
 
+  private anomalyData(): { anomaly?: boolean; deltaPct?: number; average?: number } | undefined {
+    return this.doc()?.extra?.['anomaly'] as { anomaly?: boolean; deltaPct?: number; average?: number } | undefined;
+  }
   anomaly(): boolean {
-    const a = this.doc()?.extra?.['anomaly'] as { anomaly?: boolean } | undefined;
-    return !!a?.anomaly;
+    return !!this.anomalyData()?.anomaly;
+  }
+  /** The overshoot as a rounded percentage, e.g. "42%". */
+  anomalyPct(): string {
+    const d = this.anomalyData()?.deltaPct;
+    return d != null ? `${Math.round(d * 100)}%` : '';
+  }
+  /** The trailing average for the category (what you usually pay), or null. */
+  anomalyAvg(): number | null {
+    return this.anomalyData()?.average ?? null;
   }
 
   /** True when this upload was stored with AI reading turned off. */
