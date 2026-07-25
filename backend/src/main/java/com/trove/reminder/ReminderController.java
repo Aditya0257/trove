@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -53,7 +54,11 @@ public class ReminderController {
             @RequestParam(value = "status", required = false) String status) {
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        return reminderService.list(space, user, status).stream().map(ReminderResponse::of).toList();
+        List<Reminder> reminders = reminderService.list(space, user, status);
+        // One batch lookup of the linked file names, so the client shows "Payment due - rent.pdf"
+        // without fetching the whole document list on every visit to the Reminders page.
+        Map<UUID, String> names = reminderService.documentFilenames(reminders);
+        return reminders.stream().map(r -> ReminderResponse.of(r, names.get(r.getDocumentId()))).toList();
     }
 
     /** Create a manual reminder. */
@@ -107,11 +112,17 @@ public class ReminderController {
 
     public record ReminderResponse(UUID id, UUID documentId, UUID spaceId, String type, String title,
                                    LocalDate remindOn, String recurrence, String status,
-                                   Instant completedAt, Instant createdAt) {
+                                   Instant completedAt, Instant createdAt, String documentFilename) {
         static ReminderResponse of(Reminder r) {
+            return of(r, null);
+        }
+
+        /** {@code documentFilename} lets the list carry each reminder's linked file name, so a
+         *  client showing reminders needs no separate fetch of the whole document list. */
+        static ReminderResponse of(Reminder r, String documentFilename) {
             return new ReminderResponse(r.getId(), r.getDocumentId(), r.getSpaceId(), r.getType(),
                     r.getTitle(), r.getRemindOn(), r.getRecurrence(), r.getStatus(),
-                    r.getCompletedAt(), r.getCreatedAt());
+                    r.getCompletedAt(), r.getCreatedAt(), documentFilename);
         }
     }
 }

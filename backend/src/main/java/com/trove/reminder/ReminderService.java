@@ -50,7 +50,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -360,6 +363,24 @@ public class ReminderService {
         return (status == null || status.isBlank())
                 ? reminderRepository.findBySpaceIdOrderByRemindOnAsc(spaceId)
                 : reminderRepository.findBySpaceIdAndStatusOrderByRemindOnAsc(spaceId, status);
+    }
+
+    /**
+     * Maps each reminder's linked document id to its filename, in one batch query. Lets a
+     * caller show the linked file next to a reminder without pulling the whole document list.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> documentFilenames(List<Reminder> reminders) {
+        List<UUID> ids = reminders.stream()
+                .map(Reminder::getDocumentId).filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, String> names = new HashMap<>();
+        for (Document d : documentRepository.findAllById(ids)) {
+            names.put(d.getId(), d.getOriginalFilename());
+        }
+        return names;
     }
 
     /** Dismisses a reminder - "never mind" (owner/member only). */

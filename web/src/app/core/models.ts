@@ -141,6 +141,7 @@ export interface ReminderResponse {
   status: 'pending' | 'sent' | 'dismissed' | 'done';
   completedAt: string | null;
   createdAt: string;
+  documentFilename: string | null;  // linked file name, so the list needs no doc fetch
 }
 
 export interface CategorySpend {

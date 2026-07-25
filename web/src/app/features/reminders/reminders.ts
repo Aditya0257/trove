@@ -1,7 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
@@ -45,7 +44,7 @@ interface ReminderForm {
           <label>Repeat
             <trove-select name="recurrence" [(ngModel)]="form.recurrence" [options]="recurrenceOptions" ariaLabel="Repeat"></trove-select>
           </label>
-          <label>For document (optional)
+          <label (click)="ensureDocsLoaded()">For document (optional)
             <trove-select name="documentId" [(ngModel)]="form.documentId" [options]="docOptions()" ariaLabel="For document"></trove-select>
           </label>
           <label>Remind on <input type="date" name="remindOn" [(ngModel)]="form.remindOn" required /></label>
@@ -79,7 +78,7 @@ interface ReminderForm {
                   <td>
                     <div class="r-title">{{ r.title || rType(r.type) }}</div>
                     @if (r.documentId) {
-                      <a class="r-doc" [routerLink]="['/documents', r.documentId, 'review']">{{ docName(r.documentId) }}</a>
+                      <a class="r-doc" [routerLink]="['/documents', r.documentId, 'review']">{{ r.documentFilename || 'linked document' }}</a>
                     } @else if (r.title) {
                       <div class="r-sub">{{ rType(r.type) }}</div>
                     }
@@ -134,7 +133,7 @@ interface ReminderForm {
           <label>Repeat
             <trove-select name="erecurrence" [(ngModel)]="editForm.recurrence" [options]="recurrenceOptions" ariaLabel="Repeat"></trove-select>
           </label>
-          <label>For document (optional)
+          <label (click)="ensureDocsLoaded()">For document (optional)
             <trove-select name="edocumentId" [(ngModel)]="editForm.documentId" [options]="docOptions()" ariaLabel="For document"></trove-select>
           </label>
           <label>Remind on <input type="date" name="eremindOn" [(ngModel)]="editForm.remindOn" required /></label>
@@ -322,30 +321,38 @@ export class Reminders {
   statusLabel(r: ReminderResponse): string {
     return r.status === 'pending' ? 'scheduled' : r.status === 'sent' ? 'notified' : r.status;
   }
-  docName(id: string): string {
-    const d = this.documents().find((x) => x.id === id);
-    return d ? d.originalFilename || d.id : id;
-  }
-
   constructor() {
     effect(() => {
       const sid = this.spaceCtx.currentSpaceId();
+      this.docsLoaded = false; // a new space needs its own document list for the picker
+      this.documents.set([]);
       this.reload(sid);
     });
   }
 
   private reload(spaceId?: string): void {
     this.loading.set(true);
-    forkJoin({
-      reminders: this.api.listReminders(spaceId),
-      documents: this.api.listDocuments(spaceId),
-    }).subscribe({
-      next: ({ reminders, documents }) => {
-        this.documents.set(documents);
+    // Only the reminders - each already carries its linked file name (documentFilename), so
+    // the page no longer pulls the whole document list just to label rows. The document list
+    // is loaded lazily (ensureDocsLoaded) only when the "For document" picker is opened.
+    this.api.listReminders(spaceId).subscribe({
+      next: (reminders) => {
         this.reminders.set(reminders);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  /** Loads the space's documents once, on demand, to populate the "For document" picker -
+   *  so merely viewing reminders costs no document fetch. */
+  private docsLoaded = false;
+  ensureDocsLoaded(): void {
+    if (this.docsLoaded) return;
+    this.docsLoaded = true;
+    this.api.listDocuments(this.spaceCtx.currentSpaceId()).subscribe({
+      next: (docs) => this.documents.set(docs),
+      error: () => { this.docsLoaded = false; }, // let a later open retry
     });
   }
 
@@ -380,6 +387,7 @@ export class Reminders {
 
   // ── edit (dialog) ────────────────────────────────────────────────────────
   edit(r: ReminderResponse): void {
+    this.ensureDocsLoaded(); // so the picker can show the currently linked document by name
     this.editForm = {
       title: r.title ?? '',
       type: r.type,
