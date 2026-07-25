@@ -20,3 +20,15 @@ final spendSummaryProvider =
       ) as Map<String, dynamic>;
   return SpendSummary.fromJson(data);
 });
+
+/// The monthly spend series for a space (one entry per period).
+final spendByMonthProvider =
+    FutureProvider.autoDispose.family<List<MonthlySpend>, String>((ref, spaceId) async {
+  final rows = await ref.read(apiClientProvider).get(
+        '/api/spend/by-month',
+        query: {'spaceId': spaceId, 'currency': 'INR', 'granularity': 'month'},
+      ) as List<dynamic>;
+  return rows
+      .map((e) => MonthlySpend.fromJson((e as Map).cast<String, dynamic>()))
+      .toList();
+});

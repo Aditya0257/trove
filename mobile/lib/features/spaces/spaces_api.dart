@@ -51,6 +51,17 @@ class SpacesApi {
     final data = await _api.get('/api/spaces/$spaceId/join-link') as Map<String, dynamic>;
     return data['url'] as String?;
   }
+
+  Future<String> ingestAddress(String spaceId) async {
+    final data = await _api.get('/api/spaces/$spaceId/ingest-address') as Map<String, dynamic>;
+    return data['address'] as String;
+  }
+
+  Future<String> rotateIngestAddress(String spaceId) async {
+    final data =
+        await _api.post('/api/spaces/$spaceId/ingest-address/rotate') as Map<String, dynamic>;
+    return data['address'] as String;
+  }
 }
 
 final spacesApiProvider = Provider<SpacesApi>((ref) => SpacesApi(ref));

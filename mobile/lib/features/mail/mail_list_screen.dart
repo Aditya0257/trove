@@ -75,6 +75,14 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Mail')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await context.push('/mail-compose', extra: widget.spaceId);
+          if (mounted) _goto(0); // refresh to show a newly filed thread
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('File email'),
+      ),
       body: Column(
         children: [
           const Padding(

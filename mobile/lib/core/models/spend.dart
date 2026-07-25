@@ -23,6 +23,24 @@ class CategorySpend {
       );
 }
 
+class MonthlySpend {
+  const MonthlySpend({
+    required this.period,
+    required this.total,
+    required this.count,
+  });
+
+  final String period;
+  final double total;
+  final int count;
+
+  factory MonthlySpend.fromJson(Map<String, dynamic> j) => MonthlySpend(
+        period: (j['period'] as String?) ?? '',
+        total: (j['total'] as num?)?.toDouble() ?? 0,
+        count: (j['count'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class SpendSummary {
   const SpendSummary({
     required this.currency,

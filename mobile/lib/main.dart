@@ -33,12 +33,14 @@ import 'features/admin/admin_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/backups/backups_screen.dart';
 import 'features/chat/chat_screen.dart';
+import 'features/mail/mail_compose_screen.dart';
 import 'features/mail/mail_detail_screen.dart';
 import 'features/mail/mail_list_screen.dart';
 import 'features/documents/capture_screen.dart';
 import 'features/documents/confirm_screen.dart';
 import 'features/documents/detail_screen.dart';
 import 'features/documents/list_screen.dart';
+import 'features/documents/trash_screen.dart';
 import 'features/home/home_shell.dart';
 import 'features/reminders/reminders_screen.dart';
 import 'features/search/search_screen.dart';
@@ -123,6 +125,14 @@ class _TroveAppState extends ConsumerState<TroveApp> {
         GoRoute(
           path: '/mail',
           builder: (_, state) => MailListScreen(spaceId: state.extra! as String),
+        ),
+        GoRoute(
+          path: '/mail-compose',
+          builder: (_, state) => MailComposeScreen(spaceId: state.extra! as String),
+        ),
+        GoRoute(
+          path: '/trash',
+          builder: (_, state) => TrashScreen(spaceId: state.extra! as String),
         ),
         GoRoute(
           path: '/mail-thread',

@@ -49,14 +49,47 @@ class DocumentsApi {
     return TroveDocument.fromJson(data);
   }
 
-  Future<List<TroveDocument>> list({required String spaceId, String? category}) async {
+  /// One page of live documents. size 0 = all (back-compatible); pass a size to page
+  /// through a large vault. The server returns the page as the array body.
+  Future<List<TroveDocument>> list({
+    required String spaceId,
+    String? category,
+    int page = 0,
+    int size = 0,
+  }) async {
     final data = await _api.get('/api/documents', query: {
       'spaceId': spaceId,
       if (category != null) 'category': category,
+      if (size > 0) 'page': page,
+      if (size > 0) 'size': size,
     },) as List<dynamic>;
     return data
         .map((e) => TroveDocument.fromJson((e as Map).cast<String, dynamic>()))
         .toList();
+  }
+
+  /// Trashed documents in a space (recoverable for 30 days).
+  Future<List<TroveDocument>> trash(String spaceId) async {
+    final data = await _api.get('/api/documents/trash', query: {'spaceId': spaceId})
+        as List<dynamic>;
+    return data
+        .map((e) => TroveDocument.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
+  /// Move a document to Trash (soft delete, recoverable for 30 days).
+  Future<void> delete(String id) async {
+    await _api.delete('/api/documents/$id');
+  }
+
+  /// Restore a trashed document back to the live vault.
+  Future<void> restore(String id) async {
+    await _api.post('/api/documents/$id/restore');
+  }
+
+  /// Permanently delete a trashed document (no undo).
+  Future<void> purge(String id) async {
+    await _api.delete('/api/documents/$id/purge');
   }
 
   /// Confirms a review with any reviewer edits. Only non-null fields are sent.

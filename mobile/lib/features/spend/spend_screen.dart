@@ -30,11 +30,17 @@ class SpendScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final summary = ref.watch(spendSummaryProvider(spaceId));
+    final byMonth = ref.watch(spendByMonthProvider(spaceId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Spend')),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(spendSummaryProvider(spaceId).future),
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(spendSummaryProvider(spaceId).future),
+            ref.refresh(spendByMonthProvider(spaceId).future),
+          ]);
+        },
         child: summary.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => ListView(
@@ -48,13 +54,18 @@ class SpendScreen extends ConsumerWidget {
               ),
             ],
           ),
-          data: (s) => _body(context, s, scheme),
+          data: (s) => _body(context, s, byMonth, scheme),
         ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, SpendSummary s, ColorScheme scheme) {
+  Widget _body(
+    BuildContext context,
+    SpendSummary s,
+    AsyncValue<List<MonthlySpend>> byMonth,
+    ColorScheme scheme,
+  ) {
     final money = NumberFormat.currency(symbol: '${s.currency} ', decimalDigits: 2);
 
     const help = HelpCard(
@@ -121,6 +132,10 @@ class SpendScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
+        Text('Spend by month', style: TextStyle(color: scheme.onSurfaceVariant)),
+        const SizedBox(height: 12),
+        _monthCard(context, byMonth, money, scheme),
+        const SizedBox(height: 24),
         Text('Breakdown', style: TextStyle(color: scheme.onSurfaceVariant)),
         const SizedBox(height: 8),
         for (final c in sorted)
@@ -152,6 +167,58 @@ class SpendScreen extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+
+  /// The "By month" card: reuses _BarChart to plot one bar per period. Handles
+  /// its own loading / error / empty states so a slow or failed monthly series
+  /// never blocks the (already loaded) totals and category breakdown above it.
+  Widget _monthCard(
+    BuildContext context,
+    AsyncValue<List<MonthlySpend>> byMonth,
+    NumberFormat money,
+    ColorScheme scheme,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+        child: byMonth.when(
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (_, __) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                "Couldn't load monthly spend. Pull to retry.",
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ),
+          data: (months) {
+            if (months.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'No monthly spend yet.',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              );
+            }
+            // Chronological order, oldest to newest (newest on the right).
+            final ordered = [...months]..sort((a, b) => a.period.compareTo(b.period));
+            final bars = [
+              for (final m in ordered) _Bar(label: m.period, value: m.total),
+            ];
+            return _BarChart(bars: bars, money: money);
+          },
+        ),
+      ),
     );
   }
 }

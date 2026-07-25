@@ -31,6 +31,8 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
   String _role = 'member';
   String? _joinUrl;
   bool _busy = false;
+  String? _ingestAddress;
+  bool _ingestBusy = false;
 
   String get _spaceId => widget.space.id;
 
@@ -64,6 +66,51 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
   Future<void> _getJoinLink() async {
     final url = await ref.read(spacesApiProvider).joinLink(_spaceId);
     if (mounted) setState(() => _joinUrl = url);
+  }
+
+  Future<void> _loadIngestAddress() async {
+    setState(() => _ingestBusy = true);
+    try {
+      final address = await ref.read(spacesApiProvider).ingestAddress(_spaceId);
+      if (mounted) setState(() => _ingestAddress = address);
+    } catch (_) {
+      // The API client already surfaces failures (incl. owner-only 403) via the Notice System.
+    } finally {
+      if (mounted) setState(() => _ingestBusy = false);
+    }
+  }
+
+  Future<void> _rotateIngestAddress() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rotate address?'),
+        content: const Text(
+          'Rotating creates a new address and immediately invalidates the old one. '
+          'Anything still forwarding to the old address will stop filing here.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Rotate')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _ingestBusy = true);
+    try {
+      final address = await ref.read(spacesApiProvider).rotateIngestAddress(_spaceId);
+      if (mounted) {
+        setState(() => _ingestAddress = address);
+        NoticeCenter.instance.show(Notice.local(
+          level: NoticeLevel.success, code: 'ADDRESS_ROTATED',
+          userMessage: 'New address ready. The old one no longer works.',
+        ),);
+      }
+    } catch (_) {
+      // The API client already surfaces failures via the Notice System.
+    } finally {
+      if (mounted) setState(() => _ingestBusy = false);
+    }
   }
 
   @override
@@ -169,6 +216,61 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
                 ),
               ],
             ),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Forward-to-file address',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Forward or share a bill to this address and it files itself into this space.',
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_ingestAddress == null)
+                    OutlinedButton.icon(
+                      onPressed: _ingestBusy ? null : _loadIngestAddress,
+                      icon: const Icon(Icons.alternate_email),
+                      label: Text(_ingestBusy ? 'Loading...' : 'Show address'),
+                    )
+                  else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(_ingestAddress!,
+                              style: const TextStyle(fontSize: 13),),
+                        ),
+                        IconButton(
+                          tooltip: 'Copy',
+                          icon: const Icon(Icons.copy),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: _ingestAddress!));
+                            NoticeCenter.instance.show(Notice.local(
+                              level: NoticeLevel.success, code: 'ADDRESS_COPIED',
+                              userMessage: 'Address copied.',
+                            ),);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _ingestBusy ? null : _rotateIngestAddress,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Rotate'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
