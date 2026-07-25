@@ -15,50 +15,75 @@ import { AuthSteps } from '../../core/auth-steps';
   imports: [FormsModule, RouterLink, AuthSteps],
   template: `
     <div class="card auth-card">
-      <h1>Verify your email</h1>
-      <trove-auth-steps [active]="done() ? 3 : 2"></trove-auth-steps>
       @if (done()) {
-        <p>✅ Email verified. Step 3 of 3: your request has been sent to the admin for approval.
-          You'll be able to sign in once it's approved (we'll email you then).</p>
-        <p class="muted"><a routerLink="/login">Back to sign in</a></p>
-      } @else {
-        <p class="muted">We sent a 6-digit code to <b>{{ email || 'your email' }}</b>. Enter it below to
-          confirm this address is yours.</p>
-        <div class="why">
-          <b>How sign-up works:</b> after you enter this code, your account goes to the admin for a
-          quick approval, and you can sign in once approved. We verify your email first because Trove
-          sends password resets and reminder nudges to it, so it must be real and reachable. This step
-          is required, not optional. If the code has not arrived in a minute, check spam or resend below.
+        <div class="success">
+          <span class="badge">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4 4L19 7" />
+            </svg>
+          </span>
+          <h1>You're verified</h1>
+          <p class="lead">Your request has gone to the admin for a quick approval.</p>
+          <p class="muted">We'll email you the moment it's approved, and then you can sign in.</p>
+          <a routerLink="/login" class="btn">Back to sign in</a>
         </div>
+      } @else {
+        <h1>Verify your email</h1>
+        <trove-auth-steps [active]="2"></trove-auth-steps>
+        <p class="sent">Enter the 6-digit code we sent to <b>{{ email || 'your email' }}</b>.</p>
         <form (ngSubmit)="submit()">
-          <label>6-digit code
-            <input type="text" inputmode="numeric" maxlength="6" name="code" [(ngModel)]="code"
-              autocomplete="one-time-code" required />
-          </label>
+          <input class="otp" type="text" inputmode="numeric" maxlength="6" name="code" [(ngModel)]="code"
+            autocomplete="one-time-code" placeholder="- - - - - -" aria-label="6-digit code" required />
           @if (error()) { <p class="error">{{ error() }}</p> }
           <button type="submit" [disabled]="loading() || code.trim().length < 6">
             {{ loading() ? 'Verifying…' : 'Verify email' }}
           </button>
         </form>
-        <p class="muted">
+        <p class="resend">
           Didn't get it?
           <button type="button" class="link" (click)="resend()" [disabled]="resending()">
             {{ resending() ? 'Sending…' : 'Resend code' }}
           </button>
-          @if (resent()) { <span class="ok"> Sent, check your inbox and spam.</span> }
+          @if (resent()) { <span class="ok">Sent. Check your inbox and spam.</span> }
         </p>
-        <p class="muted"><a routerLink="/login">Back to sign in</a></p>
+        <p class="why muted">You verify your email first because Trove sends password resets and reminders
+          to it. Next comes a quick admin approval, then you're in.</p>
+        <p class="muted back"><a routerLink="/login">Back to sign in</a></p>
       }
     </div>
   `,
   styles: [
     `
-      .why {
-        background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 10px;
-        padding: 10px 12px; font-size: 13px; line-height: 1.5; margin: 6px 0 14px;
+      h1 { margin-bottom: 6px; }
+      .sent { color: var(--muted); font-size: 14px; margin: 0 0 18px; line-height: 1.5; }
+      /* Big, spaced one-time-code input. */
+      .otp {
+        width: 100%; box-sizing: border-box; text-align: center; font-size: 26px; font-weight: 700;
+        letter-spacing: 10px; text-indent: 10px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        padding: 14px 0; border-radius: 12px;
       }
+      .resend { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
       .link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font: inherit; text-decoration: underline; }
-      .ok { color: var(--good, #2e7d5b); }
+      .ok { color: var(--good, #2e7d5b); margin-left: 4px; }
+      .why { font-size: 12.5px; line-height: 1.55; margin: 18px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+      .back { margin: 0; }
+
+      /* Success state: centered badge + tight, well-spaced copy. */
+      .success { text-align: center; padding: 8px 0 4px; }
+      .success .badge {
+        display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px;
+        border-radius: 50%; background: var(--accent); color: var(--brand-ink, #fff); margin: 8px 0 14px;
+        box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 16%, transparent);
+      }
+      .success h1 { margin: 0 0 8px; }
+      .success .lead { font-size: 16px; line-height: 1.5; margin: 0 0 6px; }
+      .success .muted { font-size: 14px; line-height: 1.5; margin: 0 auto 20px; max-width: 42ch; }
+      .success .btn {
+        display: inline-block; text-decoration: none; background: var(--accent); color: var(--brand-ink, #fff);
+        padding: 10px 22px; border-radius: 10px; font-weight: 600; font-size: 14px;
+      }
+      .success .btn:hover { filter: brightness(1.05); }
     `,
   ],
 })

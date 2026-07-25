@@ -10,8 +10,9 @@ import { NoticeService } from '../../core/notice/notice.service';
 import { ConfirmService } from '../../core/confirm.service';
 import { HelpCard } from '../../core/help-card';
 import { InfoTip } from '../../core/info-tip';
-import { Category, DocumentResponse, ReminderResponse } from '../../core/models';
+import { Category, DocumentResponse, PendingUser, ReminderResponse } from '../../core/models';
 import { TroveSelect, SelectOption } from '../../core/select';
+import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-doc-list',
@@ -71,6 +72,17 @@ import { TroveSelect, SelectOption } from '../../core/select';
           <p class="muted total">{{ trash().length }} in trash</p>
         }
       } @else {
+
+      @if (adminPending().length) {
+        <a routerLink="/admin" class="admin-strip">
+          <span class="rs-icon">👤</span>
+          <span class="rs-text">
+            <b>{{ adminPending().length }}</b> account{{ adminPending().length > 1 ? 's are' : ' is' }}
+            waiting for your approval to join Trove.
+          </span>
+          <span class="rs-cta">Review →</span>
+        </a>
+      }
 
       @if (upcomingReminders().length) {
         <a routerLink="/reminders" class="reminder-strip" [class.overdue]="hasOverdue()">
@@ -168,6 +180,19 @@ import { TroveSelect, SelectOption } from '../../core/select';
       .rs-text { flex: 1; line-height: 1.4; }
       .rs-cta { flex: none; color: var(--accent); font-weight: 600; white-space: nowrap; }
       .reminder-strip.overdue .rs-cta { color: var(--danger); }
+      /* Admin-only nudge: sign-ups awaiting approval. Bluish so it reads as informational,
+         distinct from the teal reminders strip and the red overdue state. */
+      .admin-strip {
+        display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 14px;
+        border: 1px solid #b7cdea; background: #eef4fc; border-radius: 10px;
+        text-decoration: none; color: #1f3b5c; font-size: 13px;
+      }
+      .admin-strip:hover { filter: brightness(1.01); border-color: #7ea8dc; }
+      .admin-strip .rs-cta { color: #2563a8; }
+      @media (prefers-color-scheme: dark) {
+        .admin-strip { border-color: #2c3f57; background: #182432; color: #b9d3f2; }
+        .admin-strip .rs-cta { color: #7fb0e8; }
+      }
       .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
       .chip {
         border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
@@ -217,11 +242,15 @@ export class DocList {
   private spaceCtx = inject(SpaceContext);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private auth = inject(AuthService);
 
   categories = signal<Category[]>([]);
   docs = signal<DocumentResponse[]>([]);
   category = '';
   loading = signal(false);
+
+  /** Sign-ups awaiting approval - populated only for the admin, drives the blue nudge strip. */
+  adminPending = signal<PendingUser[]>([]);
 
   // ── Upcoming reminders nudge ───────────────────────────────────────────────
   reminders = signal<ReminderResponse[]>([]);
@@ -403,6 +432,14 @@ export class DocList {
   }
 
   constructor() {
+    // The admin sees a nudge on this default page when sign-ups are waiting, mirroring the
+    // reminders strip. A non-admin's call would 403, so it's gated and failures stay silent.
+    if (this.auth.user()?.admin) {
+      this.auth.adminPending().subscribe({
+        next: (u) => this.adminPending.set(u),
+        error: () => this.adminPending.set([]),
+      });
+    }
     // Reload documents (and categories) whenever the selected space changes.
     effect(() => {
       const sid = this.spaceCtx.currentSpaceId();
