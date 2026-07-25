@@ -152,8 +152,8 @@ import { AdminUser } from '../../core/models';
 
         @if (users().length) {
           <label class="field">Account to delete
-            <trove-select [options]="userOptions()" [(ngModel)]="deleteId" name="deleteId"
-              placeholder="Choose an account…" ariaLabel="Account to delete"></trove-select>
+            <trove-select [options]="userOptions()" [ngModel]="deleteId()" (ngModelChange)="deleteId.set($event)"
+              name="deleteId" placeholder="Choose an account…" ariaLabel="Account to delete"></trove-select>
           </label>
           @if (deleteTarget()) {
             <p class="confirm-line">To confirm, type <b>{{ deleteTarget()!.email }}</b> below.</p>
@@ -249,13 +249,13 @@ export class Account {
 
   // Admin: delete account
   users = signal<AdminUser[]>([]);
-  deleteId = '';
+  deleteId = signal(''); // a signal so the deleteTarget computed reacts when a pick is made
   confirmEmail = '';
   deleting = signal(false);
   protected userOptions = computed<SelectOption[]>(() =>
     this.users().map((u) => ({ value: u.id, label: u.displayName + (u.admin ? ' (admin)' : ''), sub: u.email })),
   );
-  protected deleteTarget = computed(() => this.users().find((u) => u.id === this.deleteId) ?? null);
+  protected deleteTarget = computed(() => this.users().find((u) => u.id === this.deleteId()) ?? null);
 
   private usersLoaded = false;
 
@@ -389,7 +389,7 @@ export class Account {
       next: () => {
         this.deleting.set(false);
         this.users.update((list) => list.filter((u) => u.id !== target.id));
-        this.deleteId = ''; this.confirmEmail = '';
+        this.deleteId.set(''); this.confirmEmail = '';
         this.toast('success', 'ACCT_DELETED', `${target.email} and all its data have been deleted.`);
       },
       error: (e) => { this.deleting.set(false); this.toast('error', 'ACCT_DEL_FAIL', this.msg(e, 'Could not delete that account.')); },
