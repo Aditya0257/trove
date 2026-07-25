@@ -27,8 +27,10 @@ header, the space-scoping query parameter, and the error envelope, see
 
 | Method | Path | Purpose | Access |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | Create an account. Returns a token when open or admin; otherwise creates a `pending` account and returns status with no token. | public |
-| POST | `/api/auth/login` | Verify credentials. Returns a token; or `{twoFactorRequired:true}` (resubmit with `code`); or a non-active `status` with no token. Body: `{email, password, code?}`. | public |
+| POST | `/api/auth/register` | Create an account. Always starts `unverified` with no token and emails a 6-digit code; the client then calls verify-email. Body: `{email, displayName, password}`. | public |
+| POST | `/api/auth/verify-email` | Confirm the emailed code. On success applies the approval gate: returns a token (open registration/admin) or `status:"pending"`. Body: `{email, code}`. | public |
+| POST | `/api/auth/resend-verification` | Resend the verification code. Always 204 (anti-enumeration). Body: `{email}`. | public |
+| POST | `/api/auth/login` | Verify credentials. Returns a token; or `{twoFactorRequired:true}` (resubmit with `code`); or a non-active `status` (`unverified`, `pending`, `rejected`) with no token. Body: `{email, password, code?}`. | public |
 | POST | `/api/auth/forgot-password` | Begin password reset. Always 204 (anti-enumeration). Body: `{email}`. | public |
 | POST | `/api/auth/reset-password` | Complete reset with the emailed token. Body: `{token, newPassword}`. | public |
 | GET | `/api/account/2fa/status` | Whether TOTP is enabled for the caller. | authenticated |

@@ -19,13 +19,25 @@ Sensitive documents and all stored secrets are encrypted at rest.
 
 ## 2. Authentication
 
-### 2.1 Registration and the approval gate
+### 2.1 Registration, email verification, and the approval gate
 
-Because the audience is small and trusted, sign-up is gated: a new account is created with
-status `pending` and receives no token. It cannot sign in until the admin approves it, at
-which point its status becomes `active`. The admin's own account, or an explicitly open
-registration mode, is issued a token immediately. This keeps the vault invite-only without
-building a full invitation-email system. See section 5 for the admin mechanism.
+Sign-up has two gates in order. First, **email verification**: a new account is created with
+status `unverified` and no token, and a six-digit code is emailed to the address. The user
+must enter that code (`verify-email`) to prove the email is real and reachable, since Trove
+relies on it for password resets and reminder nudges. The code is stored only as a SHA-256
+hash with a 15-minute expiry and at most five attempts (one active code per user, resendable);
+this is the same hash-and-expire design as password reset. Verification is required, not
+skippable, so an account can never exist with an address that cannot receive mail.
+
+Only once the email is verified does the second gate apply: **admin approval**. Because the
+audience is small and trusted, the now-verified account becomes `pending` and cannot sign in
+until the admin approves it (status then `active`); the admin is emailed the access request at
+this point, not before. The admin's own account, or an explicitly open registration mode, goes
+straight to `active` with a token. This keeps the vault invite-only, with only real addresses,
+without building a full invitation-email system. See section 5 for the admin mechanism.
+
+The account status therefore progresses `unverified` -> `pending` -> `active` (or `rejected`).
+Existing accounts predate the email step and remain `active`/`pending`, unaffected.
 
 ### 2.2 Login and the JWT
 
