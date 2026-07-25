@@ -51,8 +51,19 @@ export class AuthService {
   register(email: string, displayName: string, password: string) {
     return this.http
       .post<AuthResponse>(`${API_BASE}/api/auth/register`, { email, displayName, password })
-      // A pending (admin-approval) signup returns no token; only auto-login when one is issued.
+      // A new sign-up is always 'unverified' with no token; the client sends them to verify.
       .pipe(tap((r) => { if (r.token) this.store(r); }));
+  }
+
+  // --- email verification (OTP) ---
+  verifyEmail(email: string, code: string) {
+    return this.http
+      .post<AuthResponse>(`${API_BASE}/api/auth/verify-email`, { email, code })
+      // Verifying may return a token (open registration/admin) or a pending status.
+      .pipe(tap((r) => { if (r.token) this.store(r); }));
+  }
+  resendVerification(email: string) {
+    return this.http.post<void>(`${API_BASE}/api/auth/resend-verification`, { email });
   }
 
   // --- admin: approve/decline new signups ---

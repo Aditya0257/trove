@@ -47,6 +47,11 @@ export class Login {
     this.error.set(null);
     this.auth.login(this.email, this.password, this.code || undefined).subscribe({
       next: (r) => {
+        if (r.status === 'unverified') {
+          // Email never confirmed: send them to enter the code (resendable there).
+          this.router.navigate(['/verify'], { queryParams: { email: this.email } });
+          return;
+        }
         if (r.status && r.status !== 'active') {
           this.error.set(r.status === 'rejected'
             ? 'This account request was declined.'

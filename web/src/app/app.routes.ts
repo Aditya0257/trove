@@ -5,6 +5,7 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'documents' },
   { path: 'login', loadComponent: () => import('./features/auth/login').then((m) => m.Login) },
   { path: 'register', loadComponent: () => import('./features/auth/register').then((m) => m.Register) },
+  { path: 'verify', loadComponent: () => import('./features/auth/verify').then((m) => m.Verify) },
   { path: 'forgot', loadComponent: () => import('./features/auth/forgot').then((m) => m.Forgot) },
   { path: 'reset', loadComponent: () => import('./features/auth/reset').then((m) => m.Reset) },
   {
