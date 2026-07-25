@@ -1,16 +1,16 @@
 # =============================================================================
-#  Trove mobile (Flutter) — pubspec
+#  Trove mobile (Flutter) - pubspec
 # =============================================================================
 #  A thin, camera-first client over the verified Trove API. Single codebase for
 #  Android + iOS. State via Riverpod, HTTP via Dio (its interceptors are where the
-#  Notice System — D23 — hooks in), secure token storage, image_picker for the
+#  Notice System - D23 - hooks in), secure token storage, image_picker for the
 #  scan/upload flow. No codegen (manual fromJson) so it builds without build_runner.
 #
 #  Run:  flutter pub get
 #        flutter run --dart-define=TROVE_API_BASE=http://10.0.2.2:8080   # Android emu → host
 # =============================================================================
 name: trove
-description: Trove — your private document vault (mobile client).
+description: Trove - your private document vault (mobile client).
 publish_to: "none"
 version: 0.1.0+1
 
@@ -31,7 +31,19 @@ dependencies:
   flutter_timezone: ^3.0.1    # resolves the device's local timezone for scheduling
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
+
+# App launcher icon (run: dart run flutter_launcher_icons)
+flutter_launcher_icons:
+  image_path: "assets/icon/icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#2F6F6A"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"

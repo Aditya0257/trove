@@ -29,6 +29,23 @@ cd <repo>/mobile
 flutter pub get
 ```
 
+## 1b. Generate the platform folders and app icon (once per clone)
+
+The repository tracks only source (`lib/`, `pubspec.yaml`, `assets/`, `test/`); the
+platform folders (`android/`, `ios/`) and the generated launcher icons are not committed,
+so regenerate them once after cloning:
+
+```bash
+cd <repo>/mobile
+flutter create --org com.trove --platforms=android,ios .   # scaffolds android/ and ios/ around lib/
+flutter pub get
+dart run flutter_launcher_icons                            # writes the Trove keyhole icon from assets/icon/
+```
+
+`flutter create` never touches `lib/`; it only fills in the missing platform folders. The
+icon is built from the committed source at `assets/icon/icon.png` (plus the adaptive
+foreground), so it comes out the same on every machine.
+
 ## 2. VSCode extensions
 
 Install **Flutter** and **Dart** (the Flutter one pulls in Dart). Reload VSCode. You'll
