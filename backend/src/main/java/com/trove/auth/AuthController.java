@@ -43,31 +43,74 @@ public class AuthController {
     private final TotpService totpService;
     private final EncryptionService encryptionService;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
+    private final UserRepository userRepository;
 
     public AuthController(UserService userService, JwtService jwtService, TotpService totpService,
-                         EncryptionService encryptionService, PasswordResetService passwordResetService) {
+                         EncryptionService encryptionService, PasswordResetService passwordResetService,
+                         EmailVerificationService emailVerificationService, UserRepository userRepository) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.totpService = totpService;
         this.encryptionService = encryptionService;
         this.passwordResetService = passwordResetService;
+        this.emailVerificationService = emailVerificationService;
+        this.userRepository = userRepository;
     }
 
     /**
-     * Create an account (+ personal space). If registration is gated (an admin is
-     * configured), a new account starts pending and gets NO token - the response carries
-     * status="pending" and the client shows an "awaiting approval" message. The admin's
-     * own account, or open registration, returns a token immediately.
+     * Create an account (+ personal space) and email a verification code. The account
+     * starts "unverified" and gets NO token; the client shows the code-entry screen. Only
+     * after the email is verified does the approval gate apply (see verifyEmail).
      */
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest req) {
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public AuthResponse register(@RequestBody RegisterRequest req) {
         User user = userService.register(req.email(), req.displayName(), req.password());
-        if (!"active".equals(user.getStatus())) {
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                    new AuthResponse(null, user.getId(), user.getEmail(), user.getDisplayName(),
-                            false, false, user.getStatus()));
+        emailVerificationService.send(user.getId(), user.getEmail(), user.getDisplayName());
+        return new AuthResponse(null, user.getId(), user.getEmail(), user.getDisplayName(),
+                false, false, user.getStatus()); // status = "unverified"
+    }
+
+    /**
+     * Verify the sign-up email with the emailed 6-digit code. On success the approval gate
+     * applies: an open-registration or admin account goes active (token returned); otherwise
+     * it becomes pending and the admin is notified (status="pending", no token).
+     */
+    @PostMapping("/verify-email")
+    public ResponseEntity<AuthResponse> verifyEmail(@RequestBody VerifyEmailRequest req) {
+        User user = userRepository.findByEmailIgnoreCase(normalize(req.email()))
+                .orElseThrow(() -> new IllegalArgumentException("That code is not correct."));
+        EmailVerificationService.Result result = emailVerificationService.verify(user.getId(), req.code());
+        switch (result) {
+            case OK -> {
+                User updated = userService.finishVerification(user.getId());
+                if ("active".equals(updated.getStatus())) {
+                    return ResponseEntity.ok(tokenFor(updated));
+                }
+                return ResponseEntity.status(HttpStatus.ACCEPTED).body(
+                        new AuthResponse(null, updated.getId(), updated.getEmail(), updated.getDisplayName(),
+                                false, false, updated.getStatus()));
+            }
+            case EXPIRED -> throw new IllegalArgumentException("That code has expired. Send yourself a new one.");
+            case LOCKED -> throw new IllegalArgumentException("Too many tries. Send yourself a new code.");
+            default -> throw new IllegalArgumentException("That code is not correct.");
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(tokenFor(user));
+    }
+
+    /** Resend the verification code. Always 204 (never leaks whether the email exists). */
+    @PostMapping("/resend-verification")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resendVerification(@RequestBody ForgotRequest req) {
+        userRepository.findByEmailIgnoreCase(normalize(req.email())).ifPresent(user -> {
+            if ("unverified".equals(user.getStatus())) {
+                emailVerificationService.send(user.getId(), user.getEmail(), user.getDisplayName());
+            }
+        });
+    }
+
+    private String normalize(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
     }
 
     /**
@@ -123,6 +166,9 @@ public class AuthController {
     }
 
     public record LoginRequest(@NotBlank String email, @NotBlank String password, String code) {
+    }
+
+    public record VerifyEmailRequest(@Email @NotBlank String email, @NotBlank String code) {
     }
 
     public record ForgotRequest(@Email @NotBlank String email) {

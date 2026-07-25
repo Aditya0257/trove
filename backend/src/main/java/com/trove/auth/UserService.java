@@ -50,6 +50,7 @@ public class UserService {
     static final String ACTIVE = "active";
     static final String PENDING = "pending";
     static final String REJECTED = "rejected";
+    static final String UNVERIFIED = "unverified"; // email OTP not yet confirmed
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -88,13 +89,31 @@ public class UserService {
         }
         String name = (displayName == null || displayName.isBlank()) ? normalized : displayName.trim();
         User user = new User(normalized, name, passwordEncoder.encode(password));
-        // Closed registration: unless registration is open (no admin configured) or this IS
-        // the admin, new accounts start pending and can't sign in until approved.
-        boolean gated = !adminEmail.isBlank();
-        boolean isTheAdmin = gated && adminEmail.equalsIgnoreCase(normalized);
-        user.setStatus(!gated || isTheAdmin ? ACTIVE : PENDING);
+        // Every new account must first verify its email (OTP). It starts 'unverified' and
+        // only reaches the admin-approval gate once the email is confirmed (finishVerification).
+        user.setStatus(UNVERIFIED);
         user = userRepository.save(user);
         spaceService.createPersonalSpace(user.getId(), name);
+        return user;
+    }
+
+    /**
+     * Called once the email OTP is confirmed: applies the approval gate. With no admin
+     * configured (open registration) or for the admin's own account the user goes ACTIVE;
+     * otherwise it goes PENDING and the admin is emailed the access request. Returns the
+     * updated user so the caller can mint a token when ACTIVE.
+     */
+    @Transactional
+    public User finishVerification(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        if (!UNVERIFIED.equals(user.getStatus())) {
+            return user; // already verified/active/pending; idempotent
+        }
+        boolean gated = !adminEmail.isBlank();
+        boolean isTheAdmin = gated && adminEmail.equalsIgnoreCase(user.getEmail());
+        user.setStatus(!gated || isTheAdmin ? ACTIVE : PENDING);
+        user = userRepository.save(user);
         if (PENDING.equals(user.getStatus())) {
             notifyAdminOfRequest(user);
         }
