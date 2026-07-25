@@ -80,7 +80,8 @@ and Ollama are configurable alternatives to Cloudflare. See
 | `TROVE_JWT_SECRET` | dev-only placeholder | HMAC-SHA256 signing key. Must be a strong random value in production (32+ bytes). |
 | `TROVE_JWT_EXPIRATION_MINUTES` | `720` | Token lifetime (12 hours). |
 | `TROVE_ENCRYPTION_KEY` | dev-only placeholder | AES-256-GCM key for vital documents and stored secrets. Must be strong in production. |
-| `TROVE_ADMIN_EMAIL` | unset | The single admin account (approves sign-ups, runs backup/rebuild). Set to a real email in production, not a `.local` address. |
+| `TROVE_ADMIN_EMAIL` | unset | Legacy single admin account (approves sign-ups, runs backup/rebuild). Still honored, and unioned with `TROVE_ADMIN_EMAILS`. Set to a real email in production, not a `.local` address. |
+| `TROVE_ADMIN_EMAILS` | unset | Admin allow-list: a comma- or space-separated set of emails, merged (unioned) with the legacy `TROVE_ADMIN_EMAIL`. Either or both may be set. Blank/unset for both means open registration (no approval gate, no admin). Admin identity is decided purely by this config - there is no privileged flag in the database - so a backup or second admin is added here without a code change. |
 
 ## Email (Brevo) and ingestion
 

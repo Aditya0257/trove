@@ -32,7 +32,10 @@ it counts toward spend, becomes searchable, and can generate reminders.
 See [../api/reference.md](../api/reference.md) under Documents. In short: `POST /api/documents`
 (upload), `GET /api/documents` and `/{id}` (read), `/{id}/file` and `/{id}/content`
 (download or decrypt-stream), `POST /{id}/confirm`, `DELETE /{id}`, `POST /{id}/restore`,
-`DELETE /{id}/purge`, `GET /trash`.
+`DELETE /{id}/purge`, `GET /trash`. The list is paged server-side (`page` and `size` query
+params; the total match count is returned in the `X-Total-Count` header) and ordered
+newest-first with the id as a stable tiebreaker. The default listing (no category filter)
+excludes the `email` category at the database level, since emails live under Mail.
 
 ## 4. Data touched
 
@@ -87,6 +90,10 @@ Notable details:
   (D4).
 - **The pending sentinel.** `extraction_confidence IS NULL` means extraction has not finished;
   the review screen polls until it is set (D5).
+- **One document per file.** The API stores exactly one document per uploaded file; the web
+  client uploads a multi-file selection as separate requests, so two images become two
+  documents. Extraction runs only for images and only when the caller sets `extract=true` (the
+  saved "read images with AI" preference); PDFs are always stored straight to manual review.
 
 ## 7. Confirm flow
 

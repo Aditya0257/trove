@@ -82,6 +82,9 @@ app is closed.
 
 - Data: the `reminder` table (see [data model](../architecture/02-data-model.md)); a partial
   index on `remind_on where status='pending'` keeps the dispatch scan cheap.
+- Listing: each reminder's linked document filename is resolved in a single batch query
+  (`findAllById` over just the referenced document ids) and returned as `documentFilename`, so
+  listing reminders triggers no per-document fetch and the page needs no document list.
 - Endpoints: see [../api/reference.md](../api/reference.md) under Reminders.
 - Configuration: `trove.reminder.scan-fixed-delay-ms`, `lead-days-list` (default 7,1,0), and
   `warranty-lead-days-list` (default 14,0).

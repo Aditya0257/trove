@@ -213,7 +213,7 @@ flowchart TB
     Jobs --> Drive[("Google Drive")]
     R2 -.rebuild.-> PG
         </pre></div>
-        <figcaption>Actors: a user (personal plus shared spaces) and a single configured admin who approves sign-ups.</figcaption>
+        <figcaption>Actors: a user (personal plus shared spaces) and one or more configured admins who approve sign-ups.</figcaption>
       </figure>
     </section>
 
@@ -224,7 +224,7 @@ flowchart TB
         <div class="card"><h4>document</h4><p>Upload, list, confirm, soft delete, restore, purge, export, import. Owns the lifecycle and sidecar writes.</p></div>
         <div class="card"><h4>storage</h4><p>The S3-compatible seam; sidecar read/write; presigned URLs. Same code for R2 and MinIO.</p></div>
         <div class="card"><h4>extraction</h4><p>The provider fallback chain, the async worker, and the AI budget guard.</p></div>
-        <div class="card"><h4>auth</h4><p>Stateless JWT, TOTP two-factor, password reset, admin approval.</p></div>
+        <div class="card"><h4>auth</h4><p>Stateless JWT, TOTP two-factor, password reset, sign-up email verification (OTP), admin approval and account deletion, and self-service profile (name, email, photo).</p></div>
         <div class="card"><h4>space</h4><p>Personal and shared spaces, roles, invitations, join links, ingest addresses.</p></div>
         <div class="card"><h4>reminder</h4><p>Due, renewal and warranty reminders; recurrence; auto-creation; dispatch.</p></div>
         <div class="card"><h4>chat</h4><p>Retrieval-augmented "Ask your vault": embeddings, grounded answers, routing.</p></div>
@@ -235,6 +235,7 @@ flowchart TB
         <div class="card"><h4>backup</h4><p>pg_dump, the B2 mirror, and the full export or import ZIP.</p></div>
         <div class="card"><h4>integrity</h4><p>Verifies the three tiers agree; reports what is rebuildable.</p></div>
         <div class="card"><h4>ingestion</h4><p>Forward-to-file email and WhatsApp webhooks.</p></div>
+        <div class="card"><h4>mail</h4><p>Filed emails grouped into threads by a shared bundle id; a paginated thread list and a single-thread view.</p></div>
       </div>
     </section>
 
@@ -282,7 +283,7 @@ sequenceDiagram
 
     <section id="data">
       <h2>Data model</h2>
-      <p>Nineteen tables. The database holds metadata and extracted text only, never the files, and is a rebuildable projection of the sidecars in object storage. Flyway owns the schema across migrations V1 to V23; Hibernate only validates it.</p>
+      <p>Twenty tables. The database holds metadata and extracted text only, never the files, and is a rebuildable projection of the sidecars in object storage. Flyway owns the schema across migrations V1 to V25; Hibernate only validates it.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
 erDiagram
@@ -293,6 +294,7 @@ erDiagram
     document ||--o{ line_item : itemises
     document ||--o| document_embedding : embedded
     document ||--o{ document_sync : "synced copies"
+    app_user ||--o| email_verification : "sign-up OTP"
     category ||--o{ document : classifies
     merchant ||--o{ document : "issued by"
     drive_connection ||--o{ drive_folder : "folder cache"
@@ -303,7 +305,7 @@ erDiagram
         <table>
           <thead><tr><th>Group</th><th>Tables</th></tr></thead>
           <tbody>
-            <tr><td>Identity and access</td><td><code>app_user</code>, <code>space</code>, <code>space_member</code>, <code>password_reset_token</code>, <code>ingest_token</code></td></tr>
+            <tr><td>Identity and access</td><td><code>app_user</code> (with <code>avatar_key</code>, <code>pending_email</code>), <code>space</code>, <code>space_member</code>, <code>password_reset_token</code>, <code>email_verification</code>, <code>ingest_token</code></td></tr>
             <tr><td>Documents</td><td><code>document</code>, <code>line_item</code>, <code>category</code>, <code>merchant</code>, <code>merchant_alias</code>, <code>tag</code>, <code>document_tag</code></td></tr>
             <tr><td>Retrieval</td><td><code>document_embedding</code> (vector 768)</td></tr>
             <tr><td>Reminders</td><td><code>reminder</code></td></tr>
@@ -317,6 +319,7 @@ erDiagram
     <section id="upload">
       <h2>Capture to confirm</h2>
       <p>The core path. Extraction is asynchronous and always lands in <code>needs_review</code>; a human confirms the fields before a document is trusted, because the AI will misread an amount or a date. Confirming is what makes a document count toward spend, become searchable, and generate reminders.</p>
+      <p>Several files can be uploaded at once, and each becomes its own separate document. Images are read by the vision model when the "Read images with AI" toggle is on; PDFs are stored safely but are not auto-read yet, so they go straight to manual review. This is unlike Mail, where several screenshots are grouped into a single email thread.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
 flowchart LR
@@ -368,11 +371,12 @@ flowchart LR
         <figcaption>A cheap classifier routes each question to the smallest adequate model; over 75% of the daily budget everything drops to the light model, then to retrieval-only.</figcaption>
       </figure>
       <p>Extraction downscales images and reads images only; indexing uses a tiny embedding model; answering routes to the cheapest adequate model; search and anomaly fall back to rules and arithmetic. Every path degrades rather than failing. That is how a genuinely useful AI feature set fits inside a free tier.</p>
+      <p>Because the documents are English (Indian bills and receipts) and the embedding model is English-only, a Hindi or Hinglish question ("kya meri saari tax receipts dikhao") would otherwise match nothing. So the question is first normalized to an English search query before it is embedded: a cheap heuristic passes plain English through untouched, and only a likely non-English question spends one tiny classifier call, falling back to the original text on any error. Retrieval, reminder detection and the grounded answer all run on the normalized query, so the English corpus keeps its English embedder with no multilingual model or re-index.</p>
     </section>
 
     <section id="security">
       <h2>Security and access</h2>
-      <p>Authentication is a stateless JWT (12-hour default), optionally reinforced by a TOTP second factor. Sign-up is gated: a new account is <code>pending</code> until the single configured admin approves it. Authorization is per space: a document belongs to exactly one space, and rights are decided by the caller's role there.</p>
+      <p>Authentication is a stateless JWT (12-hour default), optionally reinforced by a TOTP second factor. Sign-up is gated in two steps: a new account starts <code>unverified</code> and must confirm a 6-digit code emailed to it, then it becomes <code>pending</code> until a configured admin approves it (<code>active</code>). Admins are an allow-list of one or more emails, set purely by configuration with no privileged flag in the database. Authorization is per space: a document belongs to exactly one space, and rights are decided by the caller's role there.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Capability</th><th>Viewer</th><th>Member</th><th>Owner</th></tr></thead>
@@ -384,6 +388,7 @@ flowchart LR
         </table>
       </div>
       <p>Vital documents (passport, ID, policies) are encrypted at rest with AES-256-GCM through a single storage seam, and served through a decrypt-stream path rather than a public link. The same service encrypts stored TOTP secrets and Google refresh tokens. Secrets come from environment variables only.</p>
+      <p>Users manage their own account from a profile screen: display name, profile photo, an email change confirmed by an OTP to the new address, and a password change that re-checks the current one. Deleting an account is deliberately admin-only and irreversible: it purges every document in the user's spaces from R2, Google Drive and the database, guarded so an admin cannot delete themselves or another admin and must re-type the target's exact email. The append-only B2 mirror still keeps an archival copy.</p>
     </section>
 
     <section id="reminders">
@@ -410,13 +415,13 @@ stateDiagram-v2
       <div class="doc-index">
         <div class="doc"><div class="path">architecture/00-concepts.md</div><div class="t">Concepts primer</div><p>Every recurring concept from first principles, with trade-offs and industry examples.</p></div>
         <div class="doc"><div class="path">architecture/01-hld.md</div><div class="t">High-Level Design</div><p>Context, principles, modules, topology, request lifecycle, non-functionals.</p></div>
-        <div class="doc"><div class="path">architecture/02-data-model.md</div><div class="t">Data model</div><p>All 19 tables, columns, keys, the ER diagram, and the V1 to V23 migration map.</p></div>
-        <div class="doc"><div class="path">architecture/03-security-and-access.md</div><div class="t">Security and access</div><p>Auth, TOTP, reset, the role matrix, the admin, encryption at rest.</p></div>
+        <div class="doc"><div class="path">architecture/02-data-model.md</div><div class="t">Data model</div><p>All 20 tables, columns, keys, the ER diagram, and the V1 to V25 migration map.</p></div>
+        <div class="doc"><div class="path">architecture/03-security-and-access.md</div><div class="t">Security and access</div><p>Auth, email verification, TOTP, reset, the role matrix, admins, account deletion, encryption at rest.</p></div>
         <div class="doc"><div class="path">architecture/04-resilience-and-backup.md</div><div class="t">Resilience and backup</div><p>The three tiers, sidecars, delete lifecycle, export/import, DR, integrity.</p></div>
         <div class="doc"><div class="path">architecture/05-ai-and-extraction.md</div><div class="t">AI and extraction</div><p>Budget guard, provider chain, embeddings, grounded RAG, routing, anomaly.</p></div>
         <div class="doc"><div class="path">api/reference.md</div><div class="t">API reference</div><p>Every REST endpoint by resource: method, path, purpose, access rule.</p></div>
-        <div class="doc"><div class="path">lld/*.md</div><div class="t">Low-Level Design</div><p>Per-module implementation: documents, reminders, spaces, search/chat, spend/anomaly, drive/mirror, ingestion, notice.</p></div>
-        <div class="doc"><div class="path">frontend/web.md</div><div class="t">Frontend</div><p>The Angular client: components, signals, services, and the screen map.</p></div>
+        <div class="doc"><div class="path">lld/*.md</div><div class="t">Low-Level Design</div><p>Per-module implementation: documents, reminders, spaces, search/chat, spend/anomaly, drive/mirror, ingestion, mail, notice.</p></div>
+        <div class="doc"><div class="path">frontend/web.md</div><div class="t">Frontend</div><p>The Angular client: components, signals, services, the account screen, and the screen map.</p></div>
         <div class="doc"><div class="path">operations/configuration.md</div><div class="t">Configuration</div><p>Every environment variable and property, with dev and production guidance.</p></div>
       </div>
       <footer>Trove engineering documentation. This guide complements the repository docs under <code>docs/</code> and the decision log in <code>DECISIONS.md</code>.</footer>

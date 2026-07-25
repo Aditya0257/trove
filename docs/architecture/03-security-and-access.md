@@ -14,8 +14,9 @@ one-time code (TOTP). A successful login yields a stateless JWT that the client 
 every request. Authorization is not global: a user's rights are decided per space by their
 membership role (owner, member or viewer). A document always belongs to exactly one space,
 so "can this user see this document" reduces to "is this user a member of that document's
-space, and with what role". A single configured admin account approves new sign-ups.
-Sensitive documents and all stored secrets are encrypted at rest.
+space, and with what role". One or more configured admin accounts (a config-only
+allow-list) approve new sign-ups. Sensitive documents and all stored secrets are
+encrypted at rest.
 
 ## 2. Authentication
 
@@ -100,6 +101,15 @@ sequenceDiagram
     API-->>U: 204
 ```
 
+### 2.5 Changing the account email
+
+Changing the sign-in email from account settings re-checks the current password, then
+emails a six-digit code to the **new** address (never the old one). The pending address is
+held in `app_user.pending_email` while the live `email` column stays authoritative, and the
+two are swapped only once the code is confirmed (`/api/account/email/verify`). This proves
+the new address is reachable before Trove relies on it for logins, resets and reminders,
+mirroring the sign-up verification step.
+
 ## 3. Authorization: per-space access control
 
 Authorization is enforced in the service layer, not scattered through controllers, by a
@@ -148,10 +158,25 @@ pending row is visible to the owner and does not silently grant access.
 ## 5. The admin
 
 There is no privileged flag on a user row that could be leaked or misassigned. Instead, the
-admin is whoever the configuration `trove.admin.email` names. The admin-only endpoints
-(approve or reject pending sign-ups, and the backup and rebuild controls) check the caller's
-email against that value. This keeps privilege out of the mutable data entirely: to change who
-the admin is, you change configuration and redeploy, not a database row.
+admin is an allow-list in configuration: `trove.admin.emails` (a comma- or space-separated
+set of emails), unioned with the legacy single `trove.admin.email`. Either or both may be
+set, and the two are merged, so a backup or second admin is added by a configuration change
+alone, never a code change or a database row. If both are blank, registration is open: there
+is no approval gate and no admin. The admin-only endpoints (approve or reject pending
+sign-ups, delete an account, and the backup and rebuild controls) check the caller's email
+against that allow-list. This keeps privilege out of the mutable data entirely: to change who
+the admin is, you change configuration and redeploy.
+
+### 5.1 Account deletion is admin-only and irreversible
+
+Deleting an account is an admin-only, destructive operation. It purges every document in the
+user's spaces from live object storage (R2), from Google Drive, and from the database index,
+then clears the remaining per-space and per-user rows and the account row itself. Three guards
+protect it: an admin cannot delete their own account here; an admin cannot delete another
+admin (remove that email from the configuration first); and the caller must re-type the
+target's exact email, which is checked server-side against the target account. The independent
+Backblaze B2 mirror is append-only by design, so it retains an archival copy even after a
+deletion.
 
 ## 6. Encryption at rest and secrets
 

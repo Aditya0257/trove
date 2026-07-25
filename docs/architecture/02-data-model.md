@@ -9,7 +9,7 @@ each file's sidecar JSON. The database exists to make the vault fast to query, s
 aggregate; it holds metadata and extracted text only (kilobytes per document), never the
 images or PDFs themselves.
 
-Flyway owns the schema (migrations `V1` to `V23`); Hibernate runs with
+Flyway owns the schema (migrations `V1` to `V25`); Hibernate runs with
 `ddl-auto: validate`, so the code never mutates the schema, only verifies it matches.
 
 ## Entity-relationship overview
@@ -40,6 +40,7 @@ erDiagram
     drive_connection ||--o{ drive_folder : "folder cache"
     drive_connection ||--o{ document_sync : "external ids"
     app_user ||--o{ password_reset_token : "reset requests"
+    app_user ||--o| email_verification : "signup OTP"
     app_user ||--o{ ai_usage : "daily spend"
 ```
 
@@ -70,7 +71,9 @@ The account. Passwords are BCrypt hashes; the TOTP secret, when set, is encrypte
 | created_at | timestamptz | no | now() | |
 | totp_secret_enc | text | yes | | AES-GCM encrypted TOTP secret; null until 2FA is set up |
 | totp_enabled | boolean | no | false | whether two-factor is active |
-| status | text | no | 'active' | `active`, `pending` (awaiting admin approval), `rejected` |
+| status | text | no | 'active' | `unverified` (email not yet confirmed), `pending` (awaiting admin approval), `active`, `rejected` |
+| avatar_key | text | yes | | R2 object key of an optional profile photo; the image bytes live in object storage, never the DB; null = no photo (V25) |
+| pending_email | text | yes | | a new sign-in email awaiting OTP confirmation during an email change; the live `email` stays authoritative until confirmed (V25) |
 
 ### space
 
@@ -112,6 +115,19 @@ Single-use, hashed, expiring reset tokens (V20).
 | token_hash | text | no | | SHA-256 of the emailed token; the raw token is never stored |
 | expires_at | timestamptz | no | | 30-minute window |
 | used_at | timestamptz | yes | | set when redeemed; single use |
+| created_at | timestamptz | no | now() | |
+
+### email_verification
+
+The one active sign-up OTP per user (V24). Natural key on `user_id`. Only the SHA-256
+hash of the six-digit code is stored; the raw code is never persisted.
+
+| Column | Type | Null | Default | Notes |
+| --- | --- | --- | --- | --- |
+| user_id | uuid | no | | PK, FK app_user |
+| code_hash | text | no | | SHA-256 of the emailed 6-digit code |
+| expires_at | timestamptz | no | | 15-minute window |
+| attempts | int | no | | wrong-attempt counter; locks after 5 |
 | created_at | timestamptz | no | now() | |
 
 ### ingest_token
@@ -368,3 +384,5 @@ edited in place by the application.
 | V21 | `app_user.status` (admin approval) |
 | V22 | `space.join_token` |
 | V23 | reminder lifecycle: `title`, `recurrence`, `completed_at` (and the `done` status) |
+| V24 | `email_verification` (sign-up OTP: one active code per user, SHA-256 hashed, 15-minute expiry, 5 attempts) |
+| V25 | `app_user.avatar_key` (profile photo object key) and `app_user.pending_email` (email-change pending address) |

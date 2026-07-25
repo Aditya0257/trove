@@ -81,7 +81,8 @@ document. The stored `model` column means a model change transparently re-embeds
 
 ```mermaid
 flowchart LR
-    Q["Question"] --> E["embed question"]
+    Q["Question"] --> N["normalize to English<br/>(QueryNormalizer)"]
+    N --> E["embed question"]
     E --> R["pgvector cosine search,<br/>scoped to current space, top-k"]
     R --> Floor["drop hits beyond a distance floor"]
     Floor --> Ctx["build context block<br/>(+ reminders if the question is about them)"]
@@ -94,6 +95,13 @@ flowchart LR
 
 Grounding and honesty:
 
+- The question is normalized to an English search query before embedding. Indian documents are
+  printed in English and the embedding model (`bge-base-en`) is English-only, so a Hindi or
+  Hinglish question would otherwise match nothing. A cheap heuristic passes plain-English
+  questions through untouched (no model call); a likely non-English one is rewritten by a single
+  tiny router-model call, falling back to the original on any error. Retrieval, reminder-detection
+  and the grounded answer all use the normalized query, so the English corpus keeps its English
+  embedder with no multilingual model or re-index.
 - Retrieval is always scoped to the caller's current space, so one user's question never reaches
   another's documents.
 - The model is instructed to answer only from the retrieved context and to cite each fact by

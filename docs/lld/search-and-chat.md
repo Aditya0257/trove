@@ -29,7 +29,8 @@ Grounded question answering over the user's own documents, with citations.
 | Class | Role |
 | --- | --- |
 | `ChatController` | `POST /api/chat/ask` and `POST /api/chat/reindex`. |
-| `VaultChatService` | The RAG orchestration: retrieve, build context, route, answer, enforce honesty. |
+| `VaultChatService` | The RAG orchestration: normalize, retrieve, build context, route, answer, enforce honesty. |
+| `QueryNormalizer` | Rewrites a non-English question to an English search query before embedding; plain-English questions pass through untouched with no model call. |
 | `EmbeddingProvider` (interface) / `CloudflareEmbeddingProvider` / `StubEmbeddingProvider` | Produce the 768-dim vector; Cloudflare when configured, else the offline stub. |
 | `EmbeddingService` | Compose the document text, embed, upsert into pgvector, and run space-scoped similarity search. |
 | `ModelRouter` | Classify the question and pick the answer model, with budget-aware downgrade. |
@@ -41,7 +42,8 @@ Grounded question answering over the user's own documents, with citations.
 
 ```mermaid
 flowchart LR
-    Q[question] --> Emb[embed]
+    Q[question] --> Norm["QueryNormalizer:<br/>normalize to English"]
+    Norm --> Emb[embed]
     Emb --> KNN["EmbeddingService.search:<br/>pgvector cosine, space-scoped, top-k"]
     KNN --> Floor["drop hits beyond max-distance"]
     Floor --> Ctx["build context blocks (+ reminders if the question is about them)"]
@@ -51,6 +53,15 @@ flowchart LR
     Honest -->|yes| Out["answer + cited sources"]
     Honest -->|no| Refuse["clean not-found, no sources"]
 ```
+
+Query normalization: because Indian documents are printed in English and the embedding model
+(`bge-base-en`) is English-only, a Hindi or Hinglish question ("kya meri saari tax receipts
+dikhao") would otherwise match nothing. `QueryNormalizer` runs before embedding: a cheap
+heuristic passes a plain-English question through untouched (no model call), while a likely
+non-English one is rewritten by a single tiny router-model call, falling back to the original
+text on any error. Retrieval, reminder-detection and the grounded answer all use the normalized
+query, so the English corpus keeps its English embedder and no multilingual model or re-index is
+needed.
 
 Honesty mechanisms: retrieval is scoped to the current space; a cosine distance floor drops
 clearly-unrelated hits; and if the grounded answer cites no document, the sources are suppressed

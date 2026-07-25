@@ -13,6 +13,7 @@ configuration, notable flows, and edge cases.
 | Document | Modules covered |
 | --- | --- |
 | [documents.md](documents.md) | `document`, `storage`, `extraction`, `category`, `merchant` - the capture-to-confirm core |
+| [mail.md](mail.md) | `mail` - email documents grouped into threads, thread paging, add-form facets |
 | [reminders.md](reminders.md) | `reminder`, `notification` - lifecycle, recurrence, auto-creation, dispatch |
 | [spaces-and-access.md](spaces-and-access.md) | `space`, `auth`, `common/security` - spaces, membership, roles, joining |
 | [search-and-chat.md](search-and-chat.md) | `search`, `chat` - NL search, embeddings, retrieval-augmented answering |

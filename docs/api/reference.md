@@ -21,7 +21,7 @@ header, the space-scoping query parameter, and the error envelope, see
 - **Public routes (no token):** `POST /api/auth/**`, `GET /api/health`, `POST /api/ingest/**`,
   and `GET /api/integrations/google-drive/callback`.
 - **Admin routes:** the endpoints marked "admin" check the caller's email against the configured
-  `trove.admin.email`.
+  admin allow-list (`trove.admin.emails`, merged with the legacy single `trove.admin.email`).
 
 ## Auth and account
 
@@ -33,6 +33,13 @@ header, the space-scoping query parameter, and the error envelope, see
 | POST | `/api/auth/login` | Verify credentials. Returns a token; or `{twoFactorRequired:true}` (resubmit with `code`); or a non-active `status` (`unverified`, `pending`, `rejected`) with no token. Body: `{email, password, code?}`. | public |
 | POST | `/api/auth/forgot-password` | Begin password reset. Always 204 (anti-enumeration). Body: `{email}`. | public |
 | POST | `/api/auth/reset-password` | Complete reset with the emailed token. Body: `{token, newPassword}`. | public |
+| GET | `/api/account/me` | The caller's profile: `{email, displayName, admin, twoFactorEnabled, avatarUrl, pendingEmail, createdAt}`. | authenticated |
+| POST | `/api/account/profile` | Update the display name. Body: `{displayName}`. | authenticated |
+| POST | `/api/account/password` | Change password; re-checks the current one. Body: `{currentPassword, newPassword}`. | authenticated |
+| POST | `/api/account/email` | Start an email change; emails an OTP to the new address. Body: `{newEmail, password}`. | authenticated |
+| POST | `/api/account/email/verify` | Confirm the new email with the code, swapping the live email. Body: `{code}`. | authenticated |
+| POST | `/api/account/photo` | Upload a profile photo (multipart `file`), stored in R2. Returns `{avatarUrl}` (presigned). | authenticated |
+| DELETE | `/api/account/photo` | Remove the profile photo. | authenticated |
 | GET | `/api/account/2fa/status` | Whether TOTP is enabled for the caller. | authenticated |
 | POST | `/api/account/2fa/setup` | Begin TOTP setup; returns the secret and `otpauth://` URI. | authenticated |
 | POST | `/api/account/2fa/enable` | Enable TOTP after proving a code. Body: `{code}`. | authenticated |
@@ -42,16 +49,19 @@ header, the space-scoping query parameter, and the error envelope, see
 
 | Method | Path | Purpose | Access |
 | --- | --- | --- | --- |
+| GET | `/api/admin/users` | List all accounts. | admin |
 | GET | `/api/admin/pending` | List accounts awaiting approval. | admin |
 | POST | `/api/admin/users/{id}/approve` | Approve a pending account (status becomes active). | admin |
 | POST | `/api/admin/users/{id}/reject` | Reject a pending account. | admin |
+| POST | `/api/admin/users/{id}/delete` | Irreversibly delete an account and all its data (live storage, Drive and the index). Body: `{confirmEmail}` must match the target's email. Cannot delete your own account or another admin. | admin |
 
 ## Documents
 
 | Method | Path | Purpose | Access |
 | --- | --- | --- | --- |
 | POST | `/api/documents` | Upload a file (multipart). Query: `spaceId?`, `vital?`, `extract?`. Rejects non image/PDF (400) and oversize (413). Returns the created document in `needs_review`. | write |
-| GET | `/api/documents` | List live documents. Query: `spaceId?`, `category?`. | read |
+| GET | `/api/documents` | List live documents. Query: `spaceId?`, `category?`, `page?`, `size?`. Returns one page as the array body; the total match count is in the `X-Total-Count` response header (CORS-exposed). `size=0` or omitted returns all (back-compatible). With no category the `email` category is excluded (emails live under Mail). | read |
+| GET | `/api/documents/mail-bundle` | The emails in one mail thread, oldest first. Query: `spaceId?`, `bundleId`. | read |
 | GET | `/api/documents/{id}` | Get one document (fields, extraction trail, presigned file URL). | read |
 | GET | `/api/documents/{id}/file` | Redirect or presigned URL to the original file (non-vital). | read |
 | GET | `/api/documents/{id}/content` | Stream the file bytes, decrypting vital documents in transit. | read |
@@ -60,6 +70,12 @@ header, the space-scoping query parameter, and the error envelope, see
 | POST | `/api/documents/{id}/restore` | Restore a trashed document. | write |
 | DELETE | `/api/documents/{id}/purge` | Permanently remove from live storage and the database (B2 archive retains a copy). | write |
 | GET | `/api/documents/trash` | List trashed documents. Query: `spaceId?`. | read |
+
+## Mail
+
+| Method | Path | Purpose | Access |
+| --- | --- | --- | --- |
+| GET | `/api/mail` | List email threads (bundles), grouped server-side. Query: `spaceId?`, `page?`, `size?`. Returns one page of bundles plus autocomplete facets `{bundles, total, accounts, topics, addresses}`; the total thread count is also in the `X-Total-Count` response header. `size=0` returns all. | read |
 
 ## Categories, search, spend, anomalies
 
@@ -77,7 +93,7 @@ header, the space-scoping query parameter, and the error envelope, see
 
 | Method | Path | Purpose | Access |
 | --- | --- | --- | --- |
-| GET | `/api/reminders` | List reminders. Query: `spaceId?`, `status?`. | read |
+| GET | `/api/reminders` | List reminders; each row includes `documentFilename` (the linked document's file name, resolved in one batch query). Query: `spaceId?`, `status?`. | read |
 | POST | `/api/reminders` | Create one. Query: `spaceId?`. Body: `{type, title?, remindOn, recurrence?, documentId?}`. | write |
 | PATCH | `/api/reminders/{id}` | Edit type, title, date, recurrence, linked document. | write |
 | POST | `/api/reminders/{id}/snooze` | Re-date to `days` from today (default 1; 0 reopens). Query: `days`. | write |

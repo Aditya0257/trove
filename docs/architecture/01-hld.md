@@ -120,10 +120,10 @@ providers are swappable and features stay decoupled.
 ```mermaid
 flowchart LR
     subgraph Capture
-      document; storage; extraction; category; merchant
+      document; mail; storage; extraction; category; merchant
     end
     subgraph Identity
-      auth; space; common
+      auth; account; space; common
     end
     subgraph Insight
       reminder; anomaly; analytics; notification; search; chat
@@ -136,10 +136,12 @@ flowchart LR
 | Module | Responsibility |
 | --- | --- |
 | `document` | The heart: upload, list, get, confirm, soft delete, restore, purge, export and import. Owns the document lifecycle and the sidecar writes. |
+| `mail` | Email documents (category `email`) grouped into threads by a shared bundle id; server-side thread paging and add-form facets, reusing the document mapping. |
 | `storage` | The `StorageService` seam over S3-compatible object storage; sidecar read and write; presigned URLs. |
 | `extraction` | The `ExtractionProvider` chain (Cloudflare vision first, stub fallback), the async extraction worker, and the AI usage tracker and daily budget. |
 | `category` / `merchant` | Category taxonomy (global plus per-space) and merchant canonicalisation with aliases. |
 | `auth` | Registration, login, stateless JWT, TOTP two-factor, password reset, and admin approval of new sign-ups. |
+| `account` | User profile: display name, profile photo (stored in R2, served via presigned URL), email change confirmed by an OTP to the new address, password change, and an admin-only account deletion. |
 | `space` | Personal and shared spaces, membership and roles, invitations, join links, and per-space ingest addresses. |
 | `common` | Cross-cutting concerns: the JWT filter and `CurrentUser`, the global exception handler and the Notice envelope, the AES-GCM encryption service, and shared errors. |
 | `reminder` | Due, renewal and warranty reminders; recurrence; snooze, done, edit, dismiss; auto-creation from confirmed documents; subscription detection; scheduled dispatch. |

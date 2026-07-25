@@ -1,7 +1,7 @@
-# Trove — Deployment (all free tier)
+# Trove - Deployment (all free tier)
 
 Deploy the **API** (stateless jar/container) + the **web** (static Angular) onto
-permanently-free services. No code changes — only env vars (see `.env.example`) and
+permanently-free services. No code changes - only env vars (see `.env.example`) and
 one web constant. Iterate locally, `git push`, redeploy.
 
 ## The pieces (all free, no card except the Oracle VM signup)
@@ -37,7 +37,7 @@ SPRING_APPLICATION_JSON={"trove":{"extraction":{"acceptance-confidence":0.4,"cha
 - **Cloudflare Workers AI**: an API token with Workers AI permission → `CF_*`. The
   default vision model (`@cf/meta/llama-3.2-11b-vision-instruct`) and the search text
   model (`@cf/meta/llama-3.1-8b-instruct`) are **Meta Llama models that require a
-  one-time license acceptance per account** before first use — otherwise every call
+  one-time license acceptance per account** before first use - otherwise every call
   returns HTTP 403 "Model Agreement". Accept once with:
   ```bash
   curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/ai/run/@cf/meta/llama-3.2-11b-vision-instruct" \
@@ -45,13 +45,13 @@ SPRING_APPLICATION_JSON={"trove":{"extraction":{"acceptance-confidence":0.4,"cha
   # if the search model also 403s with "Model Agreement", repeat for @cf/meta/llama-3.1-8b-instruct
   ```
   These models are free within the daily Neuron allowance; over-limit calls just fall
-  back to the stub (extraction) or rule-based parser (search) — you are never charged.
+  back to the stub (extraction) or rule-based parser (search) - you are never charged.
 - **Backblaze B2**: bucket + Application Key → `TROVE_MIRROR_*`.
 - **Google**: add the HTTPS redirect URI to your OAuth client → `GOOGLE_OAUTH_*`.
 
 ## 3. Run the API on the Oracle VM
 
-**Option A — plain jar + systemd (simplest):**
+**Option A - plain jar + systemd (simplest):**
 ```bash
 # on your machine
 cd backend && mvn -DskipTests package
@@ -65,7 +65,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now trove
 journalctl -u trove -f
 ```
 
-**Option B — Docker (portable):**
+**Option B - Docker (portable):**
 ```bash
 # on the VM (Docker installed)
 docker build -t trove-api backend/
@@ -74,7 +74,7 @@ docker run -d --env-file /etc/trove.env -p 8080:8080 --restart unless-stopped tr
 
 ## 4. HTTPS
 Point `api.yourdomain.com` DNS at the VM, edit `infra/deploy/Caddyfile` (domain), and
-run Caddy — it gets + renews a Let's Encrypt cert and proxies to `localhost:8080`.
+run Caddy - it gets + renews a Let's Encrypt cert and proxies to `localhost:8080`.
 (A free hostname works too, e.g. a DuckDNS subdomain.)
 
 ## 5. Web on Cloudflare Pages
@@ -84,7 +84,7 @@ repoint). Set it to your API:
 { "apiBase": "https://api.yourdomain.com" }
 ```
 Then connect the repo in the Cloudflare Pages dashboard (build command `ng build`,
-output dir `web/dist/trove-web/browser`, root `web`) or upload that folder — the
+output dir `web/dist/trove-web/browser`, root `web`) or upload that folder - the
 `config.json` ships at the site root and is fetched on load. Pages serves it free
 over HTTPS.
 
