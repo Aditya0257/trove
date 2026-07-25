@@ -70,11 +70,13 @@ public class VaultChatService {
     private final AiUsageTracker usage;
     private final ModelRouter router;
     private final CloudflareChatClient chatClient;
+    private final QueryNormalizer queryNormalizer;
 
     public VaultChatService(ChatProperties props, EmbeddingService embeddings, SpaceAuthorization authorization,
                             DocumentRepository documentRepository, CategoryRepository categoryRepository,
                             MerchantRepository merchantRepository, ReminderRepository reminderRepository,
-                            AiUsageTracker usage, ModelRouter router, CloudflareChatClient chatClient) {
+                            AiUsageTracker usage, ModelRouter router, CloudflareChatClient chatClient,
+                            QueryNormalizer queryNormalizer) {
         this.props = props;
         this.embeddings = embeddings;
         this.authorization = authorization;
@@ -85,6 +87,7 @@ public class VaultChatService {
         this.usage = usage;
         this.router = router;
         this.chatClient = chatClient;
+        this.queryNormalizer = queryNormalizer;
     }
 
     /** Answers {@code question} from documents in {@code spaceId} (caller must be a member). */
@@ -94,13 +97,19 @@ public class VaultChatService {
             return new ChatAnswer("Ask me something about your documents.", false, List.of());
         }
 
+        // 0) Normalize to an English search query. Documents here are English (Indian bills), and
+        //    the embedder is English-only, so a Hindi/Hinglish question would not match anything.
+        //    Retrieval and reminder-detection use this English query; the original question still
+        //    drives the answer below, so the assistant can reply in the user's own language.
+        String searchQuery = queryNormalizer.toSearchQuery(question, userId);
+
         // 1) Retrieve the most relevant documents (semantic), scoped to this space. Then apply
         //    the relevance floor: search always returns the topK nearest documents however far
         //    away, so drop clearly-unrelated ones - otherwise an off-topic question surfaces weak
         //    "sources" beneath a refusal, which reads as broken.
-        List<EmbeddingService.Hit> raw = embeddings.search(spaceId, question, userId, props.getTopK());
+        List<EmbeddingService.Hit> raw = embeddings.search(spaceId, searchQuery, userId, props.getTopK());
         if (log.isDebugEnabled()) {
-            log.debug("Vault chat '{}' distances: {}", question,
+            log.debug("Vault chat '{}' (search: '{}') distances: {}", question, searchQuery,
                     raw.stream().map(h -> String.format("%.3f", h.distance())).toList());
         }
         List<EmbeddingService.Hit> hits = raw.stream()
@@ -123,7 +132,7 @@ public class VaultChatService {
         // "reminders / renewals / what's due / warranties" would otherwise retrieve nothing. When
         // the question is about them, fold the space's reminders into the context - pulling each
         // reminder's linked document in as a citation - so the assistant can actually answer.
-        String reminderCtx = isReminderQuestion(question)
+        String reminderCtx = isReminderQuestion(searchQuery)
                 ? reminderContext(spaceId, sources, context, docIndex, nextIdx) : "";
 
         if (sources.isEmpty() && reminderCtx.isBlank()) {
@@ -142,9 +151,12 @@ public class VaultChatService {
                     false, sources);
         }
         try {
-            ModelRouter.Decision route = router.pick(question, userId);
+            // Answer from the normalized (English) query too: the English-only context and the
+            // small model give a far more reliable, consistent answer than mixing a Hinglish
+            // question with English sources (which can flip into a contradictory refusal).
+            ModelRouter.Decision route = router.pick(searchQuery, userId);
             log.info("Vault chat routed to {} ({}: {})", route.model(), route.tier(), route.reason());
-            String answer = chatClient.chat(route.model(), buildPrompt(question, context + reminderCtx),
+            String answer = chatClient.chat(route.model(), buildPrompt(searchQuery, context + reminderCtx),
                     300, 0.2, props.getTimeoutSeconds(), userId);
             // The small model occasionally degenerates to just a citation marker ("[1]") or
             // whitespace. Never surface that — fall back to a plain summary of the top match.
