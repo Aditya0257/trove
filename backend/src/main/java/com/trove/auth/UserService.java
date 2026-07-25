@@ -144,10 +144,40 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
         user.setStatus(ACTIVE);
         userRepository.save(user);
-        emailSender.send(List.of(user.getEmail()), "Your Trove access is approved",
-                "Hi " + user.getDisplayName() + ",\n\nYour Trove account has been approved. "
-                        + "You can now sign in: " + webBaseUrl.replaceAll("/+$", "") + "/login");
+        String loginUrl = webBaseUrl.replaceAll("/+$", "") + "/login";
+        String text = "Hi " + user.getDisplayName() + ",\n\n"
+                + "Good news - your Trove account has been approved and is ready to use.\n\n"
+                + "Sign in here: " + loginUrl + "\n\n"
+                + "Trove keeps your bills, receipts, policies and IDs in one private vault, "
+                + "with reminders before anything is due.";
+        String html = buildApprovalHtml(user.getDisplayName(), loginUrl);
+        emailSender.send(List.of(user.getEmail()), "Your Trove access is approved", text, html);
         log.info("Approved account {}", user.getEmail());
+    }
+
+    /** A themed welcome email matching the verification one: greeting, a short line, a clear
+     *  sign-in button, and a one-line note on what Trove does. Inline styles for email clients. */
+    private String buildApprovalHtml(String displayName, String loginUrl) {
+        return """
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\
+            max-width:480px;margin:0 auto;padding:8px 4px;color:#21252c;">
+              <p style="font-size:15px;line-height:1.5;margin:0 0 6px;">Hi %s,</p>
+              <p style="font-size:15px;line-height:1.5;margin:0 0 20px;">Good news - your Trove account is \
+            approved and ready to use.</p>
+              <div style="text-align:center;margin:0 0 22px;">
+                <a href="%s" style="display:inline-block;background:#2f6f6a;color:#ffffff;text-decoration:none;\
+            font-size:15px;font-weight:600;padding:13px 30px;border-radius:12px;">Sign in to Trove</a>
+              </div>
+              <p style="font-size:13px;line-height:1.6;color:#6c6a63;margin:0 0 4px;">Trove keeps your bills, \
+            receipts, policies and IDs in one private vault, and reminds you before anything is due.</p>
+              <p style="font-size:12px;line-height:1.55;color:#9a978d;margin:0;">If the button does not work, \
+            paste this link into your browser: %s</p>
+            </div>""".formatted(escape(displayName), loginUrl, loginUrl);
+    }
+
+    /** Minimal HTML escaping for the one interpolated free-text value (the display name). */
+    private String escape(String s) {
+        return s == null ? "" : s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     /** Declines a pending account (kept as rejected; can't sign in). */
