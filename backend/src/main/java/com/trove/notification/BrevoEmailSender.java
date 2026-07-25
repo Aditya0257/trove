@@ -60,6 +60,11 @@ public class BrevoEmailSender implements EmailSender {
 
     @Override
     public boolean send(List<String> to, String subject, String textBody) {
+        return send(to, subject, textBody, null);
+    }
+
+    @Override
+    public boolean send(List<String> to, String subject, String textBody, String htmlBody) {
         if (!props.isConfigured()) {
             log.info("Email not configured (trove.email.*) - skipping send of '{}'", subject);
             return false;
@@ -73,7 +78,7 @@ public class BrevoEmailSender implements EmailSender {
                     .header("api-key", props.getApiKey())
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(buildBody(to, subject, textBody)))
+                    .POST(HttpRequest.BodyPublishers.ofString(buildBody(to, subject, textBody, htmlBody)))
                     .build();
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() / 100 == 2) {
@@ -87,7 +92,7 @@ public class BrevoEmailSender implements EmailSender {
         }
     }
 
-    private String buildBody(List<String> to, String subject, String textBody) {
+    private String buildBody(List<String> to, String subject, String textBody, String htmlBody) {
         ObjectNode root = mapper.createObjectNode();
         ObjectNode sender = root.putObject("sender");
         sender.put("name", props.getFromName());
@@ -98,6 +103,10 @@ public class BrevoEmailSender implements EmailSender {
         }
         root.put("subject", subject);
         root.put("textContent", textBody);
+        // A themed HTML version renders in clients that support it; textContent is the fallback.
+        if (htmlBody != null && !htmlBody.isBlank()) {
+            root.put("htmlContent", htmlBody);
+        }
         return root.toString();
     }
 }

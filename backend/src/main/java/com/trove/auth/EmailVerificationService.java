@@ -61,11 +61,40 @@ public class EmailVerificationService {
         String code = String.format("%06d", random.nextInt(1_000_000));
         String hash = HashUtil.sha256Hex(code.getBytes(StandardCharsets.UTF_8));
         repository.save(new EmailVerification(userId, hash, Instant.now().plus(EXPIRY_MINUTES, ChronoUnit.MINUTES)));
-        boolean sent = emailSender.send(java.util.List.of(email), "Your Trove verification code",
-                "Hi " + displayName + ",\n\nYour Trove email verification code is:\n\n    " + code
-                        + "\n\nEnter it in the app to verify this email. The code expires in "
-                        + EXPIRY_MINUTES + " minutes. If you did not sign up for Trove, you can ignore this email.");
+
+        String text = "Hi " + displayName + ",\n\n"
+                + "Your Trove verification code is:\n\n"
+                + "    " + code + "\n\n"
+                + "Enter it in the app to confirm your email. It stays valid for the next "
+                + EXPIRY_MINUTES + " minutes.\n\n"
+                + "If you did not sign up for Trove, you can safely ignore this email.";
+        String html = buildHtml(displayName, code);
+
+        boolean sent = emailSender.send(java.util.List.of(email), "Your Trove verification code", text, html);
         log.info("Issued email-verification code for user {} (emailed={})", userId, sent);
+    }
+
+    /** A small, themed HTML email: greeting, the code shown large and evenly spaced (so the
+     *  digits never look cramped), and a plain expiry line. Inline styles for email clients. */
+    private String buildHtml(String displayName, String code) {
+        return """
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\
+            max-width:480px;margin:0 auto;padding:8px 4px;color:#21252c;">
+              <p style="font-size:15px;line-height:1.5;margin:0 0 6px;">Hi %s,</p>
+              <p style="font-size:15px;line-height:1.5;margin:0 0 18px;">Enter this code in Trove to confirm your email:</p>
+              <div style="font-size:34px;font-weight:700;letter-spacing:10px;text-indent:10px;\
+            background:#f3f2ef;border:1px solid #e3e1da;border-radius:14px;padding:20px 0;\
+            text-align:center;color:#2f6f6a;margin:0 0 18px;">%s</div>
+              <p style="font-size:14px;line-height:1.55;color:#6c6a63;margin:0 0 4px;">\
+            This code is valid for the next %d minutes.</p>
+              <p style="font-size:13px;line-height:1.55;color:#9a978d;margin:0;">\
+            If you did not sign up for Trove, you can safely ignore this email.</p>
+            </div>""".formatted(escape(displayName), code, EXPIRY_MINUTES);
+    }
+
+    /** Minimal HTML escaping for the one interpolated free-text value (the display name). */
+    private String escape(String s) {
+        return s == null ? "" : s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     /** Checks a presented code. On OK the row is consumed (deleted); on a wrong code the

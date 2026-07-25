@@ -24,4 +24,13 @@ public interface EmailSender {
      * @return true if the provider accepted the message, false if skipped/failed.
      */
     boolean send(List<String> to, String subject, String textBody);
+
+    /**
+     * Same, but with a themed HTML body for clients that render it; {@code textBody} is
+     * the plain-text fallback. Implementations that don't support HTML fall back to the
+     * text-only send.
+     */
+    default boolean send(List<String> to, String subject, String textBody, String htmlBody) {
+        return send(to, subject, textBody);
+    }
 }
