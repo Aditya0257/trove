@@ -17,6 +17,27 @@ export interface PendingUser {
   requestedAt: string | null;
 }
 
+/** The signed-in user's own profile + security summary (GET /api/account/me). */
+export interface AccountResponse {
+  email: string;
+  displayName: string;
+  admin: boolean;
+  twoFactorEnabled: boolean;
+  avatarUrl: string | null;     // short-lived presigned URL, or null when no photo
+  pendingEmail: string | null;  // a new email awaiting OTP confirmation, if any
+  createdAt: string;
+}
+
+/** One account in the admin's user list (for the delete-account picker). */
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  status: string;
+  admin: boolean;
+  createdAt: string;
+}
+
 export interface LineItem {
   description: string | null;
   quantity: number | null;

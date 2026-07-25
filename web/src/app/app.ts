@@ -11,10 +11,11 @@ import { NoticeToast } from './core/notice/notice-toast';
 import { DevDrawer } from './core/notice/dev-drawer';
 import { AssistantWidget } from './features/ask/assistant';
 import { ConfirmDialog } from './core/confirm-dialog';
+import { Avatar } from './core/avatar';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, FormsModule, TroveSelect, NoticeToast, DevDrawer, AssistantWidget, ConfirmDialog],
+  imports: [RouterOutlet, RouterLink, FormsModule, TroveSelect, NoticeToast, DevDrawer, AssistantWidget, ConfirmDialog, Avatar],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -44,6 +45,10 @@ export class App {
     effect(() => {
       if (this.auth.isLoggedIn() && !this.spaceCtx.loaded()) {
         this.spaceCtx.load();
+      }
+      // Load the profile once per login so the top-bar avatar shows the photo + name.
+      if (this.auth.isLoggedIn() && !this.auth.account()) {
+        this.auth.loadAccount().subscribe({ error: () => {} });
       }
       // Once per login, surface any pending space invitations as a nudge toast.
       if (this.auth.isLoggedIn() && !this.invitesChecked) {

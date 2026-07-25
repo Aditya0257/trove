@@ -113,7 +113,13 @@ body {
 .topbar nav a { text-decoration: none; color: var(--muted); font-weight: 500; font-size: 0.95rem; white-space: nowrap; }
 .topbar nav a:hover { color: var(--ink); }
 .topbar .spacer { flex: 1; }
-.topbar .user-email { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Profile chip: avatar + name, links to the account screen. */
+.topbar .profile-link {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink);
+  max-width: 200px; flex: none;
+}
+.topbar .profile-link:hover { color: var(--accent); }
+.topbar .profile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; font-weight: 500; }
 /* Hamburger toggle - hidden on desktop, shown when the nav collapses. */
 .topbar .hamburger {
   display: none; margin: 0 0 0 auto; padding: 0.25rem 0.55rem; background: transparent;
@@ -127,9 +133,9 @@ body {
 }
 .theme-toggle:hover { background: var(--hover); }
 
-/* Hide the email label before things get tight, so the inline nav fits down to ~1024px. */
+/* Hide the profile name before things get tight (avatar stays), so the inline nav fits down to ~1024px. */
 @media (max-width: 1200px) {
-  .topbar .user-email { display: none; }
+  .topbar .profile-name { display: none; }
 }
 
 /* Collapse the nav into a dropdown below the bar on narrow screens / small windows. */
@@ -145,7 +151,8 @@ body {
   .topbar-menu nav { flex-direction: column; gap: 0; }
   .topbar-menu nav a { padding: 0.65rem 0.25rem; border-bottom: 1px solid var(--line); font-size: 1rem; }
   .topbar-menu .spacer { display: none; }
-  .topbar-menu .user-email { display: block; max-width: none; padding: 0.5rem 0.25rem 0; font-size: 0.85rem; }
+  .topbar-menu .profile-link { padding: 0.5rem 0.25rem; max-width: none; }
+  .topbar-menu .profile-name { display: inline; }
   .topbar-menu .space-select { width: 100%; margin: 0.5rem 0; }
   .topbar-menu .theme-toggle { align-self: flex-start; margin-top: 0.5rem; }
   .topbar-menu .link { align-self: flex-start; padding: 0.5rem 0.25rem; margin: 0; }

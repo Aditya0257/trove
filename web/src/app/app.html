@@ -40,7 +40,12 @@
       {{ theme.theme() === 'dark' ? '☀️' : '🌙' }}
     </button>
     @if (auth.isLoggedIn()) {
-      <a class="muted user-email" routerLink="/security" title="Account security">{{ auth.user()?.email }}</a>
+      <a class="profile-link" routerLink="/account" title="Your profile and account settings"
+         (click)="menuOpen.set(false)">
+        <trove-avatar [name]="auth.account()?.displayName || auth.user()?.displayName || ''"
+                      [url]="auth.account()?.avatarUrl ?? null" [size]="30"></trove-avatar>
+        <span class="profile-name">{{ auth.account()?.displayName || auth.user()?.displayName || auth.user()?.email }}</span>
+      </a>
       <button class="link" (click)="logout()">Sign out</button>
     }
   </div>

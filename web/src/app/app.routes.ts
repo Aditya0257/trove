@@ -9,10 +9,12 @@ export const routes: Routes = [
   { path: 'forgot', loadComponent: () => import('./features/auth/forgot').then((m) => m.Forgot) },
   { path: 'reset', loadComponent: () => import('./features/auth/reset').then((m) => m.Reset) },
   {
-    path: 'security',
+    path: 'account',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/auth/security').then((m) => m.Security),
+    loadComponent: () => import('./features/account/account').then((m) => m.Account),
   },
+  // The old security page is now a section of the account screen.
+  { path: 'security', redirectTo: 'account', pathMatch: 'full' },
   {
     path: 'admin',
     canActivate: [authGuard],
