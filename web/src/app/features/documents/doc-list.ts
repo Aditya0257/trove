@@ -180,19 +180,16 @@ import { AuthService } from '../../core/auth.service';
       .rs-text { flex: 1; line-height: 1.4; }
       .rs-cta { flex: none; color: var(--accent); font-weight: 600; white-space: nowrap; }
       .reminder-strip.overdue .rs-cta { color: var(--danger); }
-      /* Admin-only nudge: sign-ups awaiting approval. Bluish so it reads as informational,
-         distinct from the teal reminders strip and the red overdue state. */
+      /* Admin-only nudge: sign-ups awaiting approval. Uses the indigo secondary hue so it
+         reads as informational and stays distinct from the teal reminders strip and the red
+         overdue state. Tokens recolour with the theme, so it is correct in light and dark. */
       .admin-strip {
         display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 14px;
-        border: 1px solid #b7cdea; background: #eef4fc; border-radius: 10px;
-        text-decoration: none; color: #1f3b5c; font-size: 13px;
+        border: 1px solid var(--accent-2-line); background: var(--accent-2-soft); border-radius: 10px;
+        text-decoration: none; color: var(--ink); font-size: 13px;
       }
-      .admin-strip:hover { filter: brightness(1.01); border-color: #7ea8dc; }
-      .admin-strip .rs-cta { color: #2563a8; }
-      @media (prefers-color-scheme: dark) {
-        .admin-strip { border-color: #2c3f57; background: #182432; color: #b9d3f2; }
-        .admin-strip .rs-cta { color: #7fb0e8; }
-      }
+      .admin-strip:hover { filter: brightness(1.02); border-color: var(--accent-2); }
+      .admin-strip .rs-cta { color: var(--accent-2); }
       .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
       .chip {
         border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
