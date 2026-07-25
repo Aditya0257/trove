@@ -53,7 +53,7 @@ get device selection in the status bar, Run/Debug, and hot reload.
 
 ## 3. Pick your phone
 
-### Android (any Android phone) — simplest
+### Android (any Android phone) - simplest
 1. Install the Android toolchain (SDK + platform-tools). Easiest no-fuss option:
    ```bash
    brew install --cask android-commandlinetools   # or Android Studio if you prefer a GUI
@@ -69,7 +69,7 @@ get device selection in the status bar, Run/Debug, and hot reload.
    flutter devices        # your phone should be listed
    ```
 
-### iPhone — needs Xcode (you're on a Mac)
+### iPhone - needs Xcode (you're on a Mac)
 1. Install **Xcode** from the App Store, then:
    ```bash
    sudo xcodebuild -license accept
