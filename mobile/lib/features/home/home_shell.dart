@@ -24,6 +24,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/space.dart';
 import '../../core/providers.dart';
 import '../../ui/widgets/dev_drawer.dart';
+import '../spaces/spaces_api.dart';
 
 /// The current user's spaces (personal + shared).
 final spacesProvider = FutureProvider.autoDispose<List<Space>>((ref) async {
@@ -61,6 +62,11 @@ class HomeShell extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Trove'),
         actions: [
+          IconButton(
+            tooltip: 'New shared space',
+            icon: const Icon(Icons.create_new_folder_outlined),
+            onPressed: () => _createSpace(context, ref),
+          ),
           if (captureSpace != null)
             IconButton(
               tooltip: 'Reminders',
@@ -91,7 +97,8 @@ class HomeShell extends ConsumerWidget {
                     .textTheme
                     .headlineSmall
                     ?.copyWith(fontWeight: FontWeight.w700),),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
+            _invitations(context, ref, scheme),
             Text('Your spaces', style: TextStyle(color: scheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             spaces.when(
@@ -125,5 +132,90 @@ class HomeShell extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// The pending-invitations banner (empty when there are none).
+  Widget _invitations(BuildContext context, WidgetRef ref, ColorScheme scheme) {
+    final invites = ref.watch(invitationsProvider);
+    return invites.maybeWhen(
+      data: (list) => list.isEmpty
+          ? const SizedBox.shrink()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Invitations', style: TextStyle(color: scheme.onSurfaceVariant)),
+                const SizedBox(height: 8),
+                for (final inv in list)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(inv.spaceName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(
+                            inv.invitedByName != null
+                                ? '${inv.role} - invited by ${inv.invitedByName}'
+                                : inv.role,
+                            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () => _respondInvite(ref, inv.spaceId, false),
+                                child: const Text('Decline'),
+                              ),
+                              FilledButton(
+                                onPressed: () => _respondInvite(ref, inv.spaceId, true),
+                                child: const Text('Accept'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+              ],
+            ),
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  Future<void> _respondInvite(WidgetRef ref, String spaceId, bool accept) async {
+    final api = ref.read(spacesApiProvider);
+    if (accept) {
+      await api.accept(spaceId);
+    } else {
+      await api.decline(spaceId);
+    }
+    ref.invalidate(invitationsProvider);
+    ref.invalidate(spacesProvider);
+  }
+
+  /// Prompt for a name and create a shared space.
+  Future<void> _createSpace(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New shared space'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Name', hintText: 'e.g. Household'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Create')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (name == null || name.isEmpty) return;
+    await ref.read(spacesApiProvider).create(name);
+    ref.invalidate(spacesProvider);
   }
 }

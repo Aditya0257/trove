@@ -37,6 +37,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       appBar: AppBar(
         title: Text(widget.space.name),
         actions: [
+          if (!widget.space.isPersonal)
+            IconButton(
+              tooltip: 'Manage space',
+              icon: const Icon(Icons.manage_accounts_outlined),
+              onPressed: () => context.push('/space-manage', extra: widget.space),
+            ),
           IconButton(
             tooltip: 'Spend',
             icon: const Icon(Icons.bar_chart_outlined),
