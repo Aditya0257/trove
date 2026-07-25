@@ -37,6 +37,7 @@ class DevLogEntry {
     this.requestId,
     this.notice,
     this.extractionMeta,
+    this.body,
   });
 
   final DateTime at;
@@ -47,6 +48,7 @@ class DevLogEntry {
   final String? requestId;
   final Notice? notice;
   final Map<String, dynamic>? extractionMeta;
+  final Object? body; // the response body (size-capped), for the Developer drawer
 
   bool get ok => statusCode >= 200 && statusCode < 300;
   bool get reachedServer => statusCode != 0;

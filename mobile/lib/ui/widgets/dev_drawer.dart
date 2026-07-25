@@ -16,6 +16,8 @@
 /// ============================================================================
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../core/notice/dev_log.dart';
@@ -89,6 +91,7 @@ class _EntryTile extends StatelessWidget {
             ? const Color(0xFF2E7D5B)
             : const Color(0xFFB8860B);
     final trail = entry.extractionMeta?['attempts'];
+    final m = _meaningFor(entry.method, entry.path);
 
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -108,14 +111,24 @@ class _EntryTile extends StatelessWidget {
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          '${entry.durationMs}ms'
-          '${entry.requestId != null ? '  ·  req ${entry.requestId}' : ''}',
-          style: TextStyle(
-              fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant,),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(m.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(
+              '${entry.durationMs}ms'
+              '${entry.requestId != null ? '  ·  req ${entry.requestId}' : ''}',
+              style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant,),
+            ),
+          ],
         ),
       ),
       children: [
+        _kv('you', m.user, scheme),
+        _kv('dev', m.dev, scheme),
+        if (m.business.isNotEmpty && m.business != '-') _kv('biz', m.business, scheme),
+        _kv('flow', m.flow, scheme),
         if (entry.notice != null) ...[
           _kv('notice', '${entry.notice!.code} (${entry.notice!.level.name})', scheme),
           _kv('user', entry.notice!.userMessage, scheme),
@@ -140,6 +153,31 @@ class _EntryTile extends StatelessWidget {
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),
             ),
+        ],
+        if (entry.body != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('response body',
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant,),),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 260),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                _prettyBody(entry.body!),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5, height: 1.4),
+              ),
+            ),
+          ),
         ],
       ],
     );
@@ -176,4 +214,140 @@ class _EntryTile extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// Three-lens meaning for a call plus its backend flow - the mobile twin of the web
+/// drawer's registry. Short by design: read the drawer and understand what happened.
+typedef _Meaning = ({String label, String user, String dev, String business, String flow});
+
+_Meaning _meaningFor(String method, String path) {
+  final p = path.split('?').first;
+  final m = method.toUpperCase();
+  const a = 'Flutter';
+  _Meaning mk(String label, String user, String dev, String business, String flow) =>
+      (label: label, user: user, dev: dev, business: business, flow: flow);
+
+  if (p == '/api/auth/login') {
+    return mk('Sign in', 'Signing you in', 'verify credentials, mint a JWT', 'gate to a private vault', '$a -> AuthController.login() -> UserService + JwtService');
+  }
+  if (p == '/api/auth/register') {
+    return mk('Create account', 'Creating your account', 'create user (unverified) + personal space, email an OTP', 'a new owner joins', '$a -> AuthController.register() -> UserService.register()');
+  }
+  if (p == '/api/auth/verify-email') {
+    return mk('Verify email', 'Confirming your email', 'check the OTP, then apply the admin-approval gate', 'only real, reachable emails get in', '$a -> AuthController.verifyEmail() -> EmailVerificationService + UserService');
+  }
+  if (p == '/api/account/me') {
+    return mk('Your profile', 'Loading your profile', 'profile + 2FA + avatar summary', 'account self-service', '$a -> AccountController.me()');
+  }
+  if (p == '/api/account/password') {
+    return mk('Change password', 'Updating your password', 're-check current, BCrypt the new one', 'account security', '$a -> AccountController.changePassword() -> UserService');
+  }
+  if (p.startsWith('/api/account/email')) {
+    return mk('Change email', 'Changing your email', 'OTP to the new address, swap on confirm', 'keep a reachable email', '$a -> AccountController.startEmailChange()/verify');
+  }
+  if (p.startsWith('/api/account/photo')) {
+    return mk('Profile photo', 'Saving your photo', 'store the avatar in object storage (R2)', 'a friendly profile', '$a -> AccountController.uploadPhoto()/deletePhoto()');
+  }
+  if (p.startsWith('/api/account/2fa')) {
+    return mk('Two-factor', 'Managing two-factor', 'TOTP secret AES-GCM encrypted at rest', 'a second sign-in factor', '$a -> AccountController.2fa*()');
+  }
+  if (p == '/api/admin/users') {
+    return mk('All accounts', 'Loading accounts', 'every account for the admin', 'closed-circle control', '$a -> AdminController.users()');
+  }
+  if (p == '/api/admin/pending') {
+    return mk('Approvals', 'Loading approvals', 'accounts awaiting approval', 'nobody in until the admin says so', '$a -> AdminController.pending()');
+  }
+  if (RegExp(r'^/api/admin/users/[^/]+/delete$').hasMatch(p)) {
+    return mk('Delete account', 'Deleting an account', 'purge R2 + Drive + index, then the row', 'the one destructive, guarded op', '$a -> AdminController.deleteUser() -> AccountDeletionService');
+  }
+  if (p.startsWith('/api/admin/users/')) {
+    return mk('Approve / reject', 'Updating an account', 'approve or decline a sign-up', 'gate the private circle', '$a -> AdminController.approve()/reject()');
+  }
+  if (p == '/api/spaces') {
+    return mk('Your spaces', 'Loading your spaces', 'personal + shared spaces you belong to', 'who can see which documents', '$a -> SpaceController.mine() -> SpaceService');
+  }
+  if (p == '/api/spaces/invitations') {
+    return mk('Invitations', 'Loading invitations', 'pending space invitations for you', 'join a shared space', '$a -> SpaceController.invitations()');
+  }
+  if (p.contains('/ingest-address')) {
+    return mk('Ingest address', 'Your forward-to-file address', 'per-space unguessable ingest token', 'forward a bill and it self-files', '$a -> IngestTokenController');
+  }
+  if (p.startsWith('/api/spaces/')) {
+    return mk('Space', 'Managing a space', 'members, roles, join links', 'shared-space administration', '$a -> SpaceController');
+  }
+  if (p == '/api/categories') {
+    return mk('Categories', 'Loading categories', 'global + space category taxonomy', 'how the vault is organised', '$a -> CategoryController.list()');
+  }
+  if (p == '/api/search') {
+    return mk('Search', 'Finding your documents', 'NL query -> parse -> filtered DB query with a limit', 'plain-English retrieval', '$a -> SearchController.search() -> SearchService');
+  }
+  if (p == '/api/chat/ask') {
+    return mk('Ask your vault', 'Answering from your documents', 'normalize -> embed -> retrieve -> grounded LLM answer', 'ask in plain language', '$a -> ChatController.ask() -> VaultChatService');
+  }
+  if (p == '/api/chat/reindex') {
+    return mk('Re-index', 'Rebuilding the search index', 'embed documents that are not yet indexed', 'keep search fresh', '$a -> ChatController.reindex()');
+  }
+  if (p == '/api/mail') {
+    return mk('Mail', 'Loading your email threads', 'one page of bundles grouped in the DB + facets', 'file important emails as threads', '$a -> MailController.list() -> MailService.bundles()');
+  }
+  if (p == '/api/documents/mail-bundle') {
+    return mk('Mail thread', 'Opening this email thread', "one bundle's emails, oldest first", 'read a filed email thread', '$a -> DocumentController.mailBundle()');
+  }
+  if (p == '/api/documents/trash') {
+    return mk('Trash', 'Loading Trash', 'soft-deleted documents (30-day window)', 'recover an accidental delete', '$a -> DocumentController.trash()');
+  }
+  if (RegExp(r'^/api/documents/[^/]+/restore$').hasMatch(p)) {
+    return mk('Restore', 'Restoring a document', 'move it back to the live vault', 'undo a delete', '$a -> DocumentController.restore()');
+  }
+  if (RegExp(r'^/api/documents/[^/]+/purge$').hasMatch(p)) {
+    return mk('Delete forever', 'Permanently deleting', 'remove from live R2 + Drive + DB', 'clear it for good', '$a -> DocumentController.purge()');
+  }
+  if (RegExp(r'^/api/documents/[^/]+/confirm$').hasMatch(p)) {
+    return mk('Confirm a document', 'Saving your reviewed details', 'human-review -> confirmed; fires reminders + anomaly', 'nothing is trusted until confirmed', '$a -> DocumentController.confirm()');
+  }
+  if (RegExp(r'^/api/documents/[^/]+/content$').hasMatch(p)) {
+    return mk('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes', 'sensitive PII stays encrypted at rest', '$a -> DocumentController.content()');
+  }
+  if (p == '/api/documents' && m == 'POST') {
+    return mk('Upload a document', 'Saving your document', 'store in R2 + sidecar; async extraction queued', 'an item enters the vault', '$a -> DocumentController.upload() -> DocumentService + ExtractionProvider');
+  }
+  if (p == '/api/documents' && m == 'GET') {
+    return mk('List documents', 'Loading your documents', 'one page of the rebuildable index', 'browse the vault', '$a -> DocumentController.list() -> DocumentService.listPaged()');
+  }
+  if (RegExp(r'^/api/documents/[^/]+$').hasMatch(p)) {
+    if (m == 'DELETE') {
+      return mk('Move to Trash', 'Moving to Trash', 'soft delete; file moved to a _trash prefix', 'recoverable for 30 days', '$a -> DocumentController.delete()');
+    }
+    return mk('Fetch a document', 'Loading a document', 'index row + a presigned view URL', 'reads the rebuildable index', '$a -> DocumentController.get()');
+  }
+  if (p == '/api/reminders' && m == 'GET') {
+    return mk('Reminders', 'Loading reminders', 'pending reminders, soonest first, with linked file names', 'never miss a due date / warranty', '$a -> ReminderController.list()');
+  }
+  if (p.startsWith('/api/reminders')) {
+    return mk('Reminder', 'Updating a reminder', 'create / done / snooze / dismiss', 'stay on top of dates', '$a -> ReminderController');
+  }
+  if (p == '/api/spend/by-month') {
+    return mk('Spend by month', 'Loading monthly spend', 'aggregate confirmed documents by month', 'see the trend over time', '$a -> SpendController.byMonth()');
+  }
+  if (p.startsWith('/api/spend')) {
+    return mk('Spend', 'Loading your spend', 'aggregate confirmed documents by category', 'understand where money goes', '$a -> SpendController.summary()');
+  }
+  if (p.startsWith('/api/integrations/google-drive')) {
+    return mk('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-navigable third copy', '$a -> DriveController');
+  }
+  if (p.startsWith('/api/integrity')) {
+    return mk('Data health', 'Checking your backups', 'verify the tiers agree; recent runs', 'proof the copies are intact', '$a -> IntegrityController');
+  }
+  return mk('API request', 'Working...', '$m $p', '-', '$a -> $m $p');
+}
+
+/// Pretty-prints a response body: indented JSON for maps/lists, the string as-is
+/// for a truncated preview, else toString.
+String _prettyBody(Object body) {
+  if (body is String) return body;
+  try {
+    return const JsonEncoder.withIndent('  ').convert(body);
+  } catch (_) {
+    return body.toString();
+  }
 }

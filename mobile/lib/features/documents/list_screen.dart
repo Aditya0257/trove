@@ -202,20 +202,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
               dev: null,
             ),
           ),
-          SizedBox(
-            height: 52,
-            child: categories.maybeWhen(
-              data: (list) => ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+          categories.maybeWhen(
+            data: (list) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Wrap(
                 children: [
                   _chip('All', _category == null, () => _setCategory(null)),
                   for (final c in list)
                     _chip(c.label, _category == c.code, () => _setCategory(c.code)),
                 ],
               ),
-              orElse: () => const SizedBox.shrink(),
             ),
+            orElse: () => const SizedBox.shrink(),
           ),
           Expanded(
             child: RefreshIndicator(

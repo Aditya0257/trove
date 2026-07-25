@@ -30,6 +30,8 @@
 /// ============================================================================
 library;
 
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../config.dart';
@@ -83,6 +85,7 @@ class ApiClient {
       response.statusCode ?? 200,
       response.headers.value('x-trove-request-id'),
       extractionMeta: _extractionMetaOf(response.data),
+      body: _capBody(response.data),
     ),);
     handler.next(response);
   }
@@ -93,6 +96,7 @@ class ApiClient {
     final notice = _noticeFromError(err, status);
     DeveloperLog.instance.add(_entry(
       err.requestOptions, status, requestId, notice: notice,
+      body: _capBody(err.response?.data),
     ),);
     final silent = err.requestOptions.extra[kSilentNotice] == true;
     // 401 is handled centrally by the auth layer (redirect to login); still toast it.
@@ -109,7 +113,7 @@ class ApiClient {
   // ---- helpers ------------------------------------------------------------
 
   DevLogEntry _entry(RequestOptions o, int status, String? requestId,
-      {Notice? notice, Map<String, dynamic>? extractionMeta,}) {
+      {Notice? notice, Map<String, dynamic>? extractionMeta, Object? body,}) {
     final sw = o.extra['sw'];
     final ms = sw is Stopwatch ? sw.elapsedMilliseconds : 0;
     return DevLogEntry(
@@ -121,6 +125,7 @@ class ApiClient {
       requestId: requestId,
       notice: notice,
       extractionMeta: extractionMeta,
+      body: body,
     );
   }
 
@@ -173,6 +178,22 @@ class ApiClient {
       if (meta is Map) return meta.cast<String, dynamic>();
     }
     return null;
+  }
+
+  /// The response body for the Developer drawer, size-capped so the bounded log never
+  /// holds a huge blob. Small bodies are kept as-is (rendered as pretty JSON); an
+  /// oversized one becomes a truncated string preview.
+  Object? _capBody(Object? data) {
+    if (data == null) return null;
+    try {
+      final encoded = jsonEncode(data);
+      if (encoded.length > 20000) {
+        return '${encoded.substring(0, 20000)}\n... (truncated, ${encoded.length} chars total)';
+      }
+      return data;
+    } catch (_) {
+      return data.toString();
+    }
   }
 
   // ---- verbs --------------------------------------------------------------
