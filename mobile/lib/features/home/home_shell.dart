@@ -79,6 +79,12 @@ class HomeShell extends ConsumerWidget {
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
+          if (user?.admin ?? false)
+            IconButton(
+              tooltip: 'Admin',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              onPressed: () => context.push('/admin'),
+            ),
           IconButton(
             tooltip: 'Your profile',
             icon: const Icon(Icons.account_circle_outlined),

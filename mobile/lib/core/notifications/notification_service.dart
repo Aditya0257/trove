@@ -27,6 +27,7 @@
 /// ============================================================================
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -54,6 +55,12 @@ class NotificationService {
 
   /// One-time init: timezone data, plugin, and OS permission prompts.
   Future<void> init() async {
+    // On-device notifications don't exist on the web target; skip init there so the
+    // app (e.g. a Chrome preview build) still boots. Mobile is unaffected.
+    if (kIsWeb) {
+      _ready = false;
+      return;
+    }
     tzdata.initializeTimeZones();
     try {
       tz.setLocalLocation(tz.getLocation(await FlutterTimezone.getLocalTimezone()));

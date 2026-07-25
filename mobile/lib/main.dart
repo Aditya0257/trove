@@ -29,7 +29,12 @@ import 'core/notice/notice_center.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/providers.dart';
 import 'features/account/account_screen.dart';
+import 'features/admin/admin_screen.dart';
 import 'features/auth/login_screen.dart';
+import 'features/backups/backups_screen.dart';
+import 'features/chat/chat_screen.dart';
+import 'features/mail/mail_detail_screen.dart';
+import 'features/mail/mail_list_screen.dart';
 import 'features/documents/capture_screen.dart';
 import 'features/documents/confirm_screen.dart';
 import 'features/documents/detail_screen.dart';
@@ -110,6 +115,29 @@ class _TroveAppState extends ConsumerState<TroveApp> {
           builder: (_, state) => SpaceManageScreen(space: state.extra! as Space),
         ),
         GoRoute(path: '/account', builder: (_, __) => const AccountScreen()),
+        GoRoute(path: '/admin', builder: (_, __) => const AdminScreen()),
+        GoRoute(
+          path: '/chat',
+          builder: (_, state) => ChatScreen(spaceId: state.extra! as String),
+        ),
+        GoRoute(
+          path: '/mail',
+          builder: (_, state) => MailListScreen(spaceId: state.extra! as String),
+        ),
+        GoRoute(
+          path: '/mail-thread',
+          builder: (_, state) {
+            final args = state.extra! as Map<String, dynamic>;
+            return MailThreadScreen(
+              spaceId: args['spaceId'] as String,
+              bundleId: args['bundleId'] as String,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/backups',
+          builder: (_, state) => BackupsScreen(spaceId: state.extra! as String),
+        ),
       ],
     );
   }

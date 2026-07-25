@@ -58,6 +58,33 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             icon: const Icon(Icons.search),
             onPressed: () => context.push('/search', extra: widget.space.id),
           ),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: (v) => context.push('/$v', extra: widget.space.id),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'chat',
+                child: ListTile(
+                  leading: Icon(Icons.auto_awesome_outlined),
+                  title: Text('Ask your vault'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'mail',
+                child: ListTile(
+                  leading: Icon(Icons.mail_outline),
+                  title: Text('Mail'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'backups',
+                child: ListTile(
+                  leading: Icon(Icons.cloud_done_outlined),
+                  title: Text('Backups & data health'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

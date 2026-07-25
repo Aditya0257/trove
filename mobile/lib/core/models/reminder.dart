@@ -13,6 +13,7 @@ class Reminder {
     this.title,
     this.recurrence = 'none',
     this.documentId,
+    this.documentFilename,
     this.completedAt,
   });
 
@@ -24,6 +25,7 @@ class Reminder {
   final String recurrence; // none | weekly | monthly | quarterly | yearly
   final String status; // pending | sent | dismissed | done
   final String? documentId;
+  final String? documentFilename; // linked file name, resolved server-side
   final DateTime? completedAt;
 
   bool get isPending => status == 'pending';
@@ -48,6 +50,7 @@ class Reminder {
         recurrence: (json['recurrence'] as String?) ?? 'none',
         status: (json['status'] as String?) ?? 'pending',
         documentId: json['documentId'] as String?,
+        documentFilename: json['documentFilename'] as String?,
         completedAt: (json['completedAt'] is String)
             ? DateTime.tryParse(json['completedAt'] as String)
             : null,
