@@ -114,6 +114,17 @@ public class DocumentController {
                 .body(paged.items());
     }
 
+    /** The email documents in one mail bundle (thread), oldest first, so the Mail detail view
+     *  loads just that thread instead of every email in the space. */
+    @GetMapping("/mail-bundle")
+    public List<DocumentResponse> mailBundle(
+            @RequestParam(value = "spaceId", required = false) UUID spaceId,
+            @RequestParam("bundleId") String bundleId) {
+        UUID user = currentUser.requireUserId();
+        UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
+        return documentService.listMailBundle(space, user, bundleId);
+    }
+
     /** Fetch one document by id (must be a member of its space). */
     @GetMapping("/{id}")
     public DocumentResponse get(@PathVariable UUID id) {

@@ -70,6 +70,10 @@ export class ApiService {
   getDocument(id: string) {
     return this.http.get<DocumentResponse>(`${API_BASE}/api/documents/${id}`);
   }
+  /** Just the emails in one mail bundle (thread), so the Mail detail view needn't load them all. */
+  mailBundle(spaceId: string | undefined, bundleId: string) {
+    return this.http.get<DocumentResponse[]>(`${API_BASE}/api/documents/mail-bundle${this.qs({ spaceId, bundleId })}`);
+  }
   uploadDocument(file: File, vital: boolean, spaceId?: string, extract = true) {
     const form = new FormData();
     form.append('file', file);

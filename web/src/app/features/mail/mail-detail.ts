@@ -148,9 +148,8 @@ export class MailDetail {
 
   ngOnInit(): void {
     this.bundleId = this.route.snapshot.paramMap.get('bundleId') ?? '';
-    this.api.listDocuments(this.spaceCtx.currentSpaceId(), 'email').subscribe({
-      next: (all) => {
-        const mine = all.filter((d) => (d.extra?.['mailBundleId'] as string) === this.bundleId);
+    this.api.mailBundle(this.spaceCtx.currentSpaceId(), this.bundleId).subscribe({
+      next: (mine) => {
         this.docs.set(mine);
         const first = mine[0];
         if (first) {

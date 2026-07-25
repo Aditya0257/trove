@@ -83,6 +83,16 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>,
     /** Documents whose extraction never completed (crash-recovery sweep). */
     List<Document> findByExtractionConfidenceIsNull();
 
+    /** The email documents in one mail bundle (thread), oldest first - so the Mail detail view
+     *  can load just that thread instead of every email in the space. */
+    @Query(value = """
+            select * from document
+            where space_id = :spaceId and status <> 'deleted'
+              and extra->>'mailBundleId' = :bundleId
+            order by coalesce(extra->>'mailDate', doc_date::text) asc
+            """, nativeQuery = true)
+    List<Document> findEmailBundle(@Param("spaceId") UUID spaceId, @Param("bundleId") String bundleId);
+
     /** Confirmed documents flagged as anomalous (extra.anomaly.anomaly == true). */
     @Query(value = """
             select * from document

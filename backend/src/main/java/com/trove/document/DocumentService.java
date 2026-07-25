@@ -240,6 +240,14 @@ public class DocumentService {
     public record Paged<T>(List<T> items, long total) {
     }
 
+    /** The email documents in one mail bundle (thread), oldest first. Lets the Mail detail
+     *  view load just that thread instead of pulling every email in the space. */
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> listMailBundle(UUID spaceId, UUID userId, String bundleId) {
+        spaceAuthorization.requireCanRead(spaceId, userId);
+        return documentRepository.findEmailBundle(spaceId, bundleId).stream().map(this::toResponse).toList();
+    }
+
     /**
      * Returns the document's file bytes for viewing/download, decrypting if the file
      * is stored encrypted (vital). Enforces space membership.
