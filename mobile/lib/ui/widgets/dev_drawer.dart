@@ -19,14 +19,17 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/notice/ai_usage.dart';
 import '../../core/notice/dev_log.dart';
 
-class DeveloperDrawer extends StatelessWidget {
+class DeveloperDrawer extends ConsumerWidget {
   const DeveloperDrawer({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.92,
@@ -52,6 +55,8 @@ class DeveloperDrawer extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
+            const _AiUsageGauge(),
+            const Divider(height: 1),
             Expanded(
               child: ListenableBuilder(
                 listenable: DeveloperLog.instance,
@@ -74,6 +79,136 @@ class DeveloperDrawer extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Today's AI-budget gauge: shows the shared and per-user spend as two clamped
+/// progress bars, refreshable in place. Degrades quietly - never throws into the UI.
+class _AiUsageGauge extends ConsumerWidget {
+  const _AiUsageGauge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final async = ref.watch(aiUsageProvider);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 14),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text('AI usage today',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,),),
+                const Spacer(),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  tooltip: 'Refresh',
+                  onPressed: () => ref.invalidate(aiUsageProvider),
+                  icon: Icon(Icons.refresh, color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+            async.when(
+              data: (usage) => _bars(usage, scheme),
+              loading: () => Padding(
+                padding: const EdgeInsets.only(top: 8, right: 6),
+                child: LinearProgressIndicator(
+                  minHeight: 6,
+                  backgroundColor: scheme.surface,
+                ),
+              ),
+              error: (_, __) => Padding(
+                padding: const EdgeInsets.only(top: 6, right: 6),
+                child: Text('AI usage unavailable',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bars(AiUsage usage, ColorScheme scheme) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _row(
+              'Everyone today',
+              used: usage.globalNeurons,
+              limit: usage.limitNeurons,
+              tokens: usage.globalTokens,
+              scheme: scheme,
+            ),
+            const SizedBox(height: 12),
+            _row(
+              'You today',
+              used: usage.userNeurons,
+              limit: usage.perUserLimitNeurons,
+              tokens: usage.userTokens,
+              scheme: scheme,
+            ),
+          ],
+        ),
+      );
+
+  Widget _row(
+    String label, {
+    required num used,
+    required num limit,
+    required num tokens,
+    required ColorScheme scheme,
+  }) {
+    final fmt = NumberFormat.compact();
+    final progress = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,),),
+            const Spacer(),
+            Text('${fmt.format(used)} / ${fmt.format(limit)} credits',
+                style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,),),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: scheme.surface,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text('${fmt.format(tokens)} tokens',
+            style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10.5,
+                color: scheme.onSurfaceVariant,),),
+      ],
     );
   }
 }

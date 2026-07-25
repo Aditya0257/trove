@@ -20,6 +20,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/account.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
+import '../../core/theme_controller.dart';
 import 'account_api.dart';
 
 class AccountScreen extends ConsumerWidget {
@@ -133,6 +134,7 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
           _emailCard(scheme),
           _passwordCard(scheme),
           _twoFactorCard(scheme),
+          _appearanceCard(scheme),
           _sessionCard(scheme),
         ],
       ),
@@ -516,6 +518,38 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
       ref.invalidate(accountProfileProvider);
       _toast(NoticeLevel.info, '2FA_OFF', 'Two-factor has been turned off.');
     }, (b) => setState(() => _busy2fa = b),);
+  }
+
+  // ---- appearance (light / dark) ------------------------------------------
+  Widget _appearanceCard(ColorScheme scheme) {
+    final mode = ref.watch(themeModeProvider);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Appearance',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: ThemeMode.system, label: Text('Auto')),
+                  ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                  ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+                ],
+                selected: {mode},
+                onSelectionChanged: (set) =>
+                    ref.read(themeModeProvider.notifier).set(set.first),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ---- session ------------------------------------------------------------

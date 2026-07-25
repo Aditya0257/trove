@@ -28,6 +28,7 @@ import 'core/notice/notice.dart';
 import 'core/notice/notice_center.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/providers.dart';
+import 'core/theme_controller.dart';
 import 'features/account/account_screen.dart';
 import 'features/admin/admin_screen.dart';
 import 'features/auth/login_screen.dart';
@@ -159,6 +160,7 @@ class _TroveAppState extends ConsumerState<TroveApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: _router,
       builder: (context, child) => NoticeHost(child: child ?? const SizedBox.shrink()),
     );

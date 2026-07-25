@@ -16,6 +16,7 @@ import '../../core/models/document.dart';
 import '../../core/models/space.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
+import '../../ui/widgets/dev_drawer.dart';
 import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
 
@@ -30,6 +31,7 @@ class DocumentListScreen extends ConsumerStatefulWidget {
 class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   static const int _pageSize = 30;
 
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _category; // null = all
   bool _filtersOpen = false; // category filter collapsed by default (it can be long)
   final List<TroveDocument> _docs = [];
@@ -113,6 +115,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     _setCategory(code);
   }
 
+  /// Overflow-menu routing: Developer opens the right-side drawer, the rest navigate.
+  void _onMenu(String v) {
+    switch (v) {
+      case 'developer':
+        _scaffoldKey.currentState?.openEndDrawer();
+      case 'account':
+        context.push('/account');
+      default:
+        context.push('/$v', extra: widget.space.id);
+    }
+  }
+
   Future<void> _delete(TroveDocument doc) async {
     try {
       await ref.read(documentsApiProvider).delete(doc.id);
@@ -133,6 +147,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     final categories = ref.watch(categoriesProvider);
 
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: const DeveloperDrawer(),
       appBar: AppBar(
         title: Text(widget.space.name),
         actions: [
@@ -159,7 +175,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           ),
           PopupMenuButton<String>(
             tooltip: 'More',
-            onSelected: (v) => context.push('/$v', extra: widget.space.id),
+            onSelected: _onMenu,
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'chat',
@@ -187,6 +203,20 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
                   title: Text('Trash'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'account',
+                child: ListTile(
+                  leading: Icon(Icons.account_circle_outlined),
+                  title: Text('Your profile'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'developer',
+                child: ListTile(
+                  leading: Icon(Icons.terminal),
+                  title: Text('Developer'),
                 ),
               ),
             ],

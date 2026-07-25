@@ -22,6 +22,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/space.dart';
 import '../../core/providers.dart';
+import '../../ui/widgets/app_drawer.dart';
 import '../../ui/widgets/dev_drawer.dart';
 import '../spaces/spaces_api.dart';
 
@@ -50,6 +51,7 @@ class HomeShell extends ConsumerWidget {
         : spaceList.firstWhere((s) => s.isPersonal, orElse: () => spaceList.first);
 
     return Scaffold(
+      drawer: AppDrawer(space: captureSpace),
       endDrawer: const DeveloperDrawer(),
       floatingActionButton: captureSpace == null
           ? null

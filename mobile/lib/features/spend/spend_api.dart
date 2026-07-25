@@ -3,6 +3,11 @@
 /// ============================================================================
 ///  Purpose:  read /api/spend/summary for a space (total + per-category), for the
 ///            spend glance screen. Confirmed documents only, as on the backend.
+///
+///  Time series: /api/spend/by-month accepts a `granularity` query of
+///            "day" | "week" | "month" (defaults to month). The provider is
+///            keyed by (spaceId, granularity) so switching granularity refetches
+///            and caches each granularity independently.
 /// ============================================================================
 library;
 
@@ -21,12 +26,22 @@ final spendSummaryProvider =
   return SpendSummary.fromJson(data);
 });
 
-/// The monthly spend series for a space (one entry per period).
-final spendByMonthProvider =
-    FutureProvider.autoDispose.family<List<MonthlySpend>, String>((ref, spaceId) async {
+/// Key for [spendByMonthProvider]: which space, at which granularity. A record
+/// so the family caches (and refetches) each granularity independently while
+/// still comparing by value.
+typedef SpendSeriesKey = ({String spaceId, String granularity});
+
+/// The time series for a space (one entry per period), at the requested
+/// granularity ("day" | "week" | "month").
+final spendByMonthProvider = FutureProvider.autoDispose
+    .family<List<MonthlySpend>, SpendSeriesKey>((ref, key) async {
   final rows = await ref.read(apiClientProvider).get(
         '/api/spend/by-month',
-        query: {'spaceId': spaceId, 'currency': 'INR', 'granularity': 'month'},
+        query: {
+          'spaceId': key.spaceId,
+          'currency': 'INR',
+          'granularity': key.granularity,
+        },
       ) as List<dynamic>;
   return rows
       .map((e) => MonthlySpend.fromJson((e as Map).cast<String, dynamic>()))
