@@ -36,6 +36,7 @@ import 'features/documents/list_screen.dart';
 import 'features/home/home_shell.dart';
 import 'features/reminders/reminders_screen.dart';
 import 'features/search/search_screen.dart';
+import 'features/spend/spend_screen.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/notice_toast.dart';
 
@@ -97,6 +98,10 @@ class _TroveAppState extends ConsumerState<TroveApp> {
         GoRoute(
           path: '/reminders',
           builder: (_, state) => RemindersScreen(spaceId: state.extra! as String),
+        ),
+        GoRoute(
+          path: '/spend',
+          builder: (_, state) => SpendScreen(spaceId: state.extra! as String),
         ),
       ],
     );

@@ -38,6 +38,11 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         title: Text(widget.space.name),
         actions: [
           IconButton(
+            tooltip: 'Spend',
+            icon: const Icon(Icons.bar_chart_outlined),
+            onPressed: () => context.push('/spend', extra: widget.space.id),
+          ),
+          IconButton(
             tooltip: 'Reminders',
             icon: const Icon(Icons.notifications_none),
             onPressed: () => context.push('/reminders', extra: widget.space.id),
