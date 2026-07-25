@@ -29,6 +29,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _code = TextEditingController();
   bool _register = false;
   bool _needCode = false; // revealed once the backend asks for a 2FA code
+  bool _needVerify = false; // shown once the backend says the email needs verifying
+  String _verifyEmail = ''; // the address being verified
 
   @override
   void dispose() {
@@ -45,10 +47,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ? await ctrl.register(_email.text, _password.text, _name.text)
         : await ctrl.login(_email.text, _password.text,
             code: _needCode ? _code.text : null,);
-    if (outcome == AuthOutcome.needCode && mounted) {
+    if (!mounted) return;
+    if (outcome == AuthOutcome.needCode) {
       // 2FA is on: reveal the code field and let the user enter it, then resubmit.
       setState(() => _needCode = true);
+    } else if (outcome == AuthOutcome.needVerify) {
+      // Email not verified: switch to the code-entry step.
+      setState(() {
+        _needVerify = true;
+        _verifyEmail = _email.text.trim();
+        _code.clear();
+      });
     }
+  }
+
+  Future<void> _verify() async {
+    final outcome = await ref.read(authControllerProvider.notifier).verifyEmail(_verifyEmail, _code.text);
+    // success -> the router redirects on the new session; pending -> notice shown, drop back to sign-in.
+    if (outcome == AuthOutcome.pending && mounted) {
+      setState(() {
+        _needVerify = false;
+        _register = false;
+        _password.clear();
+        _code.clear();
+      });
+    }
+  }
+
+  Future<void> _resendVerify() async {
+    await ref.read(authControllerProvider.notifier).resendVerification(_verifyEmail);
   }
 
   Future<void> _forgot() async {
@@ -88,77 +115,111 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Text('Your private document vault.',
                       style: TextStyle(color: scheme.onSurfaceVariant),),
                   const SizedBox(height: 32),
-                  if (_register)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: TextField(
-                        controller: _name,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(labelText: 'Name (optional)'),
-                      ),
+                  if (_needVerify) ...[
+                    Text('Verify your email',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Enter the 6-digit code we emailed to $_verifyEmail. Trove needs a real, '
+                      'reachable email for password resets and reminders, so this step is required.',
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
                     ),
-                  TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(labelText: 'Email'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _password,
-                    obscureText: true,
-                    textInputAction:
-                        _needCode ? TextInputAction.next : TextInputAction.done,
-                    onSubmitted: (_) => busy ? null : _submit(),
-                    decoration: const InputDecoration(labelText: 'Password'),
-                  ),
-                  if (_needCode) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _code,
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.done,
                       autofocus: true,
                       maxLength: 6,
-                      onSubmitted: (_) => busy ? null : _submit(),
-                      decoration: const InputDecoration(
-                        labelText: 'Authenticator code',
-                        helperText: 'Enter the 6-digit code from your authenticator app',
-                        counterText: '',
-                      ),
+                      onSubmitted: (_) => busy ? null : _verify(),
+                      decoration: const InputDecoration(labelText: 'Email code', counterText: ''),
                     ),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: busy ? null : _submit,
-                    child: busy
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),)
-                        : Text(_needCode
-                            ? 'Verify'
-                            : (_register ? 'Create account' : 'Sign in'),),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: busy
-                        ? null
-                        : () => setState(() {
-                              _register = !_register;
-                              _needCode = false;
-                              _code.clear();
-                            }),
-                    child: Text(_register
-                        ? 'I already have an account'
-                        : 'New here? Create an account',),
-                  ),
-                  if (!_register && !_needCode)
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: busy ? null : _verify,
+                      child: busy
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Verify email'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(onPressed: busy ? null : _resendVerify, child: const Text('Resend code')),
                     TextButton(
-                      onPressed: busy ? null : _forgot,
-                      child: const Text('Forgot password?'),
+                      onPressed: busy ? null : () => setState(() { _needVerify = false; _code.clear(); }),
+                      child: const Text('Back'),
                     ),
+                  ] else ...[
+                    if (_register)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: TextField(
+                          controller: _name,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(labelText: 'Name (optional)'),
+                        ),
+                      ),
+                    TextField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(labelText: 'Email'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _password,
+                      obscureText: true,
+                      textInputAction:
+                          _needCode ? TextInputAction.next : TextInputAction.done,
+                      onSubmitted: (_) => busy ? null : _submit(),
+                      decoration: const InputDecoration(labelText: 'Password'),
+                    ),
+                    if (_needCode) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _code,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        autofocus: true,
+                        maxLength: 6,
+                        onSubmitted: (_) => busy ? null : _submit(),
+                        decoration: const InputDecoration(
+                          labelText: 'Authenticator code',
+                          helperText: 'Enter the 6-digit code from your authenticator app',
+                          counterText: '',
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: busy ? null : _submit,
+                      child: busy
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),)
+                          : Text(_needCode
+                              ? 'Verify'
+                              : (_register ? 'Create account' : 'Sign in'),),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => setState(() {
+                                _register = !_register;
+                                _needCode = false;
+                                _code.clear();
+                              }),
+                      child: Text(_register
+                          ? 'I already have an account'
+                          : 'New here? Create an account',),
+                    ),
+                    if (!_register && !_needCode)
+                      TextButton(
+                        onPressed: busy ? null : _forgot,
+                        child: const Text('Forgot password?'),
+                      ),
+                  ],
                 ],
               ),
             ),

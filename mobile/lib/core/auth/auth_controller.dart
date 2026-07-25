@@ -27,9 +27,10 @@ import '../providers.dart';
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, void>(AuthController.new);
 
-/// What a sign-in / sign-up attempt led to. The screen reacts: reveal the code
-/// field for [needCode], keep the form up for [pending]/[failed], route on [success].
-enum AuthOutcome { success, needCode, pending, failed }
+/// What a sign-in / sign-up attempt led to. The screen reacts: reveal the 2FA code
+/// field for [needCode], the email-code field for [needVerify], keep the form up for
+/// [pending]/[failed], route on [success].
+enum AuthOutcome { success, needCode, needVerify, pending, failed }
 
 class AuthController extends AsyncNotifier<void> {
   @override
@@ -58,6 +59,53 @@ class AuthController extends AsyncNotifier<void> {
       level: NoticeLevel.info,
       code: 'RESET_SENT',
       userMessage: 'If that email is registered, a reset link is on its way. Open it on the web to set a new password.',
+    ),);
+  }
+
+  /// Confirm the sign-up email with the 6-digit code. On success a token (open
+  /// registration/admin) signs the user in; otherwise the account is verified and now
+  /// awaiting admin approval.
+  Future<AuthOutcome> verifyEmail(String email, String code) async {
+    state = const AsyncLoading();
+    try {
+      final data = await _api.post('/api/auth/verify-email',
+          body: {'email': email.trim(), 'code': code.trim()}, silent: true,) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      state = const AsyncData(null);
+      if (token != null) {
+        final user = AuthUser.fromJson(data);
+        await ref.read(authStoreProvider).save(token, user);
+        NoticeCenter.instance.show(Notice.local(
+          level: NoticeLevel.success, code: 'SIGNED_IN',
+          userMessage: 'Email verified. Welcome, ${user.shortName}.',
+        ),);
+        return AuthOutcome.success;
+      }
+      NoticeCenter.instance.show(Notice.local(
+        level: NoticeLevel.info, code: 'VERIFIED_PENDING',
+        userMessage: 'Email verified. Your account is now awaiting admin approval.',
+      ),);
+      return AuthOutcome.pending;
+    } catch (e) {
+      state = const AsyncData(null);
+      NoticeCenter.instance.show(Notice.local(
+        level: NoticeLevel.warning, code: 'VERIFY_FAILED',
+        userMessage: 'That code is incorrect or expired. Check it, or resend a new one.',
+      ),);
+      return AuthOutcome.failed;
+    }
+  }
+
+  /// Resend the email verification code. Always reports the same (anti-enumeration).
+  Future<void> resendVerification(String email) async {
+    try {
+      await _api.post('/api/auth/resend-verification', body: {'email': email.trim()}, silent: true);
+    } catch (_) {
+      // ignore: response is intentionally the same regardless of whether the email exists
+    }
+    NoticeCenter.instance.show(Notice.local(
+      level: NoticeLevel.info, code: 'CODE_RESENT',
+      userMessage: 'Code resent. Check your inbox and spam.',
     ),);
   }
 
@@ -96,12 +144,15 @@ class AuthController extends AsyncNotifier<void> {
         return AuthOutcome.success;
       }
 
-      // No token. Either 2FA is required, or the account isn't active yet.
+      // No token. Either 2FA is required, the email isn't verified, or not active yet.
       state = const AsyncData(null);
       if (data['twoFactorRequired'] == true) {
         return AuthOutcome.needCode;
       }
       final status = data['status'] as String?;
+      if (status == 'unverified') {
+        return AuthOutcome.needVerify; // screen shows the email-code step
+      }
       NoticeCenter.instance.show(Notice.local(
         level: NoticeLevel.info,
         code: 'ACCOUNT_$status',
