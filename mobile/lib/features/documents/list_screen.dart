@@ -31,6 +31,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   static const int _pageSize = 30;
 
   String? _category; // null = all
+  bool _filtersOpen = false; // category filter collapsed by default (it can be long)
   final List<TroveDocument> _docs = [];
   final ScrollController _scroll = ScrollController();
   int _page = 0;
@@ -104,6 +105,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     if (_category == code) return;
     setState(() => _category = code);
     _reset();
+  }
+
+  /// Pick a category from the filter, then collapse the filter to give the list room.
+  void _pickCategory(String? code) {
+    setState(() => _filtersOpen = false);
+    _setCategory(code);
   }
 
   Future<void> _delete(TroveDocument doc) async {
@@ -203,16 +210,49 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             ),
           ),
           categories.maybeWhen(
-            data: (list) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Wrap(
+            data: (list) {
+              // Emails live under Mail, not Documents (match the web) - drop the chip.
+              final cats = list.where((c) => c.code != 'email').toList();
+              var selected = 'All';
+              for (final c in cats) {
+                if (c.code == _category) selected = c.label;
+              }
+              return Column(
                 children: [
-                  _chip('All', _category == null, () => _setCategory(null)),
-                  for (final c in list)
-                    _chip(c.label, _category == c.code, () => _setCategory(c.code)),
+                  InkWell(
+                    onTap: () => setState(() => _filtersOpen = !_filtersOpen),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.filter_list, size: 18, color: scheme.onSurfaceVariant),
+                          const SizedBox(width: 8),
+                          Text('Category: $selected',
+                              style: const TextStyle(fontWeight: FontWeight.w600),),
+                          const Spacer(),
+                          Icon(_filtersOpen ? Icons.expand_less : Icons.expand_more,
+                              color: scheme.onSurfaceVariant,),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_filtersOpen)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        children: [
+                          _chip('All', _category == null, () => _pickCategory(null)),
+                          for (final c in cats)
+                            _chip(c.label, _category == c.code, () => _pickCategory(c.code)),
+                        ],
+                      ),
+                    ),
+                  const Divider(height: 1),
                 ],
-              ),
-            ),
+              );
+            },
             orElse: () => const SizedBox.shrink(),
           ),
           Expanded(
@@ -277,11 +317,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   }
 
   Widget _chip(String label, bool selected, VoidCallback onTap) => Padding(
-        padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+        padding: const EdgeInsets.only(right: 6, bottom: 4),
         child: ChoiceChip(
           label: Text(label),
           selected: selected,
           onSelected: (_) => onTap(),
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       );
 }

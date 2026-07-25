@@ -157,27 +157,78 @@ class _MailThreadScreenState extends ConsumerState<MailThreadScreen> {
       color: scheme.surfaceContainerHighest,
       child: const Center(child: Icon(Icons.broken_image_outlined, size: 40)),
     );
+    final image = Image.network(
+      doc.fileUrl!,
+      fit: BoxFit.contain,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return SizedBox(
+          height: 200,
+          child: Center(
+            child: CircularProgressIndicator(
+              value: progress.expectedTotalBytes != null
+                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (_, __, ___) => placeholder,
+    );
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          doc.fileUrl!,
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return SizedBox(
-              height: 200,
-              child: Center(
-                child: CircularProgressIndicator(
-                  value: progress.expectedTotalBytes != null
-                      ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                      : null,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (_, __, ___) => placeholder,
+        // Match DocumentDetailScreen: wrap the image so it pinch-zooms and pans.
+        // A tap opens the same image full-screen for a larger zoom canvas.
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => _FullScreenImage(url: doc.fileUrl!),
+              fullscreenDialog: true,
+            ),
+          ),
+          child: _zoomable(image),
+        ),
+      ),
+    );
+  }
+
+  /// Wraps a preview so it pinch-zooms and pans, matching DocumentDetailScreen.
+  Widget _zoomable(Widget child) => InteractiveViewer(
+        minScale: 0.8,
+        maxScale: 4,
+        child: Center(child: child),
+      );
+}
+
+/// A single screenshot opened full-screen for a larger zoom canvas. Reuses the
+/// same InteractiveViewer bounds as the inline preview.
+class _FullScreenImage extends StatelessWidget {
+  const _FullScreenImage({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      body: InteractiveViewer(
+        minScale: 0.8,
+        maxScale: 4,
+        child: Center(
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Icon(
+              Icons.broken_image_outlined,
+              size: 48,
+              color: Colors.white70,
+            ),
+          ),
         ),
       ),
     );

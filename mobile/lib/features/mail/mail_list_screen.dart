@@ -156,7 +156,10 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // The extended FAB (bottom-right) sits over the trailing edge, so keep
+        // roughly its width clear on the right and add a little bottom room so
+        // "Page X of Y" and the Prev/Next controls are never hidden under it.
+        padding: const EdgeInsets.fromLTRB(12, 8, 150, 16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

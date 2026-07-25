@@ -39,10 +39,11 @@ class HelpCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       color: scheme.primaryContainer.withValues(alpha: 0.25),
-      child: Theme(
-        // Drop ExpansionTile's default dividers for a cleaner card.
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
+      child: ExpansionTile(
+          // Borderless shapes drop ExpansionTile's default dividers without wrapping the
+          // subtree in a Theme (an InheritedWidget), which could be torn down mid-navigation.
+          shape: const RoundedRectangleBorder(side: BorderSide.none),
+          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
           initiallyExpanded: initiallyExpanded,
           tilePadding: const EdgeInsets.symmetric(horizontal: 14),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -90,7 +91,6 @@ class HelpCard extends StatelessWidget {
             ],
           ],
         ),
-      ),
     );
   }
 }

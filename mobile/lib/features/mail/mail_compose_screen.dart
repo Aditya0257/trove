@@ -47,10 +47,11 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
   final _address = TextEditingController();
   final _topic = TextEditingController();
   final _subject = TextEditingController();
-  final _date = TextEditingController();
   final _notes = TextEditingController();
 
   final List<XFile> _shots = [];
+  // The email's date, chosen via showDatePicker and shown/stored as YYYY-MM-DD.
+  DateTime? _date;
   bool _busy = false;
   // Human-readable filing progress while the bundle uploads ("Filing 2 of 3...").
   String? _progress;
@@ -61,7 +62,6 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
     _address.dispose();
     _topic.dispose();
     _subject.dispose();
-    _date.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -76,6 +76,22 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
     final stamp = DateTime.now().microsecondsSinceEpoch.toString();
     final suffix = Random().nextInt(0x7fffffff).toRadixString(36);
     return 'mail-$stamp-$suffix';
+  }
+
+  /// A date as YYYY-MM-DD, matching how the documents pipeline stores dates.
+  String? _iso(DateTime? d) => d?.toIso8601String().substring(0, 10);
+
+  /// Open a calendar to pick the email's date (mirrors ConfirmScreen's picker).
+  Future<void> _pickDate() async {
+    if (_busy) return;
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) setState(() => _date = picked);
   }
 
   Future<void> _addScreenshots() async {
@@ -96,7 +112,7 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
 
   Future<void> _save() async {
     if (_busy || _shots.isEmpty) return;
-    final date = _date.text.trim();
+    final date = _iso(_date);
     final notes = _notes.text.trim();
     final account = _account.text.trim();
     final address = _address.text.trim();
@@ -116,14 +132,14 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
         await api.confirm(
           doc.id,
           category: 'email',
-          docDate: date.isNotEmpty ? date : null,
+          docDate: date,
           extra: {
             'mailBundleId': bundleId,
             'mailAccount': account,
             'mailAddress': address,
             'mailTopic': topic,
             'mailSubject': subject,
-            'mailDate': date,
+            'mailDate': date ?? '',
             if (notes.isNotEmpty) 'notes': notes,
           },
         );
@@ -140,6 +156,23 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
         });
       }
     }
+  }
+
+  /// A tap-to-open date field: shows the picked date as YYYY-MM-DD, or a
+  /// muted "Pick a date" hint when empty. Opens showDatePicker on tap.
+  Widget _dateField() {
+    final scheme = Theme.of(context).colorScheme;
+    final has = _date != null;
+    return InkWell(
+      onTap: _busy ? null : _pickDate,
+      child: InputDecorator(
+        decoration: const InputDecoration(labelText: 'Date'),
+        child: Text(
+          has ? _iso(_date)! : 'Pick a date',
+          style: has ? null : TextStyle(color: scheme.onSurfaceVariant),
+        ),
+      ),
+    );
   }
 
   @override
@@ -159,33 +192,38 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
           ),
           TextField(
             controller: _account,
-            decoration: const InputDecoration(labelText: 'Account'),
+            decoration: const InputDecoration(
+              labelText: 'Account',
+              hintText: 'e.g. Personal or Office',
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _address,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Address (email inbox)'),
+            decoration: const InputDecoration(
+              labelText: 'Address (email inbox)',
+              hintText: 'you@example.com',
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _topic,
-            decoration: const InputDecoration(labelText: 'Topic'),
+            decoration: const InputDecoration(
+              labelText: 'Topic',
+              hintText: 'e.g. Plum Insurance',
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _subject,
-            decoration: const InputDecoration(labelText: 'Subject'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _date,
-            keyboardType: TextInputType.datetime,
             decoration: const InputDecoration(
-              labelText: 'Date',
-              hintText: 'YYYY-MM-DD',
+              labelText: 'Subject',
+              hintText: 'the exact subject line',
             ),
           ),
+          const SizedBox(height: 12),
+          _dateField(),
           const SizedBox(height: 12),
           TextField(
             controller: _notes,
@@ -193,6 +231,7 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
             maxLines: 5,
             decoration: const InputDecoration(
               labelText: 'Notes (optional)',
+              hintText: 'anything to find it by later',
               alignLabelWithHint: true,
             ),
           ),

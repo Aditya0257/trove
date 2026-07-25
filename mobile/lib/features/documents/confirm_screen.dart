@@ -22,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/category.dart';
 import '../../core/models/document.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
@@ -38,26 +39,90 @@ class ConfirmScreen extends ConsumerStatefulWidget {
 }
 
 class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
-  late final TextEditingController _merchant =
-      TextEditingController(text: widget.doc.merchant ?? '');
-  late final TextEditingController _amount = TextEditingController(
-      text: widget.doc.amount != null ? widget.doc.amount!.toStringAsFixed(2) : '',);
-  late final TextEditingController _currency =
-      TextEditingController(text: widget.doc.currency ?? 'INR');
-  late String? _category = widget.doc.category;
-  late DateTime? _docDate = widget.doc.docDate;
-  late DateTime? _dueDate = widget.doc.dueDate;
-  late DateTime? _warrantyUntil = _parseIso(widget.doc.extra?['warrantyUntil']);
-  late bool _vital = widget.doc.vital;
+  // Controllers are stable objects; their `.text` is (re)populated from the current
+  // document, so extraction that lands via polling can refill the fields after init.
+  final TextEditingController _merchant = TextEditingController();
+  final TextEditingController _amount = TextEditingController();
+  final TextEditingController _currency = TextEditingController();
+  String? _category;
+  DateTime? _docDate;
+  DateTime? _dueDate;
+  DateTime? _warrantyUntil;
+  bool _vital = false;
   bool _busy = false;
+
+  /// The latest known version of the document. Starts as the one routed in and is
+  /// replaced when extraction polling lands, so raw text / notice / anomaly / the
+  /// `extra` trail all reflect what the server actually extracted.
+  late TroveDocument _doc = widget.doc;
+
+  /// True while we poll for a still-running server-side extraction.
+  bool _reading = false;
+
+  static const int _maxPollAttempts = 20;
+  static const Duration _pollInterval = Duration(milliseconds: 1500);
 
   static DateTime? _parseIso(Object? v) =>
       (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
   /// The anomaly verdict stored on the document at its last confirm, if flagged.
   Map<String, dynamic>? get _anomaly {
-    final a = widget.doc.extra?['anomaly'];
+    final a = _doc.extra?['anomaly'];
     return (a is Map && a['anomaly'] == true) ? a.cast<String, dynamic>() : null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _populate(widget.doc);
+    // A freshly uploaded document arrives before extraction finishes: no confidence
+    // yet and (for non-encrypted files) fields still blank. Show a "reading" banner
+    // and poll until the extraction lands, then refill. Encrypted docs are never
+    // auto-extracted, so leave them for manual entry.
+    if (widget.doc.extractionConfidence == null && !widget.doc.encrypted) {
+      _reading = true;
+      _pollForExtraction();
+    }
+  }
+
+  /// (Re)fill the editable state from [doc]. Called once on init and again if
+  /// polling lands a completed extraction.
+  void _populate(TroveDocument doc) {
+    _merchant.text = doc.merchant ?? '';
+    _amount.text = doc.amount != null ? doc.amount!.toStringAsFixed(2) : '';
+    _currency.text = doc.currency ?? 'INR';
+    _category = doc.category;
+    _docDate = doc.docDate;
+    _dueDate = doc.dueDate;
+    _warrantyUntil = _parseIso(doc.extra?['warrantyUntil']);
+    _vital = doc.vital;
+  }
+
+  /// Poll the server for the extraction result. Stops when a fetched document has a
+  /// non-null confidence (refilling the fields) or after [_maxPollAttempts]; either
+  /// way the banner comes down. `mounted`/`_reading` guard against a disposed screen.
+  Future<void> _pollForExtraction() async {
+    final api = ref.read(documentsApiProvider);
+    for (var i = 0; i < _maxPollAttempts; i++) {
+      await Future<void>.delayed(_pollInterval);
+      if (!mounted || !_reading) return;
+      try {
+        final fresh = await api.get(widget.doc.id);
+        if (!mounted || !_reading) return;
+        if (fresh.extractionConfidence != null) {
+          setState(() {
+            _doc = fresh;
+            _populate(fresh);
+            _reading = false;
+          });
+          return;
+        }
+      } catch (_) {
+        // Transient read error: the client already toasts. Keep trying.
+      }
+    }
+    // Never settled: drop the banner and leave the fields for manual entry.
+    if (mounted) setState(() => _reading = false);
   }
 
   @override
@@ -105,7 +170,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
     try {
       // Confirm replaces `extra` on the backend, so send the existing map plus the
       // warranty date (or drop the key when cleared) to preserve the extraction trail.
-      final extra = {...?widget.doc.extra};
+      final extra = {...?_doc.extra};
       if (_warrantyUntil != null) {
         extra['warrantyUntil'] = _iso(_warrantyUntil);
       } else {
@@ -138,7 +203,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final notice = widget.doc.extractionNotice;
+    final notice = _doc.extractionNotice;
     final categories = ref.watch(categoriesProvider);
 
     return Scaffold(
@@ -146,6 +211,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (_reading) _readingBanner(scheme),
           const HelpCard(
             title: 'Confirming a document',
             user:
@@ -169,21 +235,15 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
           categories.when(
             loading: () => const LinearProgressIndicator(),
             error: (_, __) => _categoryFallback(),
-            data: (list) => DropdownButtonFormField<String>(
-              initialValue:
-                  list.any((c) => c.code == _category) ? _category : null,
-              decoration: const InputDecoration(labelText: 'Category'),
-              items: [
-                for (final c in list)
-                  DropdownMenuItem(value: c.code, child: Text(c.label)),
-              ],
-              onChanged: (v) => setState(() => _category = v),
-            ),
+            data: (list) => _categoryField(list),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _merchant,
-            decoration: const InputDecoration(labelText: 'Merchant'),
+            decoration: const InputDecoration(
+              labelText: 'Merchant',
+              hintText: 'e.g. Reliance Energy',
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -196,7 +256,10 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                   ],
-                  decoration: const InputDecoration(labelText: 'Amount'),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    hintText: 'e.g. 1299.00',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -236,7 +299,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
             'For a purchase with a warranty (earbuds, a phone). Trove reminds you before it expires.',
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
           ),
-          if ((widget.doc.rawText ?? '').isNotEmpty) ...[
+          if ((_doc.rawText ?? '').isNotEmpty) ...[
             const SizedBox(height: 8),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
@@ -244,7 +307,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(widget.doc.rawText!,
+                  child: Text(_doc.rawText!,
                       style: const TextStyle(fontFamily: 'monospace', fontSize: 12),),
                 ),
               ],
@@ -279,7 +342,7 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
     final pct = (((a['deltaPct'] as num?) ?? 0) * 100).round();
     final avg = a['average'];
     final avgText = avg is num
-        ? ' (you normally pay around ${avg.toStringAsFixed(2)} ${widget.doc.currency ?? ''})'.trimRight()
+        ? ' (you normally pay around ${avg.toStringAsFixed(2)} ${_doc.currency ?? ''})'.trimRight()
         : '';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -295,6 +358,93 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
         'This is about $pct% higher than usual for this category$avgText. Worth a second look before you confirm.',
       ),
     );
+  }
+
+  /// The "extraction still running" banner shown at the top while polling.
+  Widget _readingBanner(ColorScheme scheme) => Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: scheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border(
+            left: BorderSide(color: scheme.primary, width: 3),
+          ),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Reading this with AI. The fields below will fill in automatically in a moment.',
+              ),
+            ),
+          ],
+        ),
+      );
+
+  /// Tap-to-pick category field: shows the current label and opens a bottom sheet
+  /// with the full category list (nicer on mobile than a raw dropdown menu).
+  Widget _categoryField(List<Category> list) {
+    final match = list.where((c) => c.code == _category);
+    final label =
+        match.isNotEmpty ? match.first.label : (_category ?? 'Uncategorized');
+    return InkWell(
+      onTap: () => _pickCategory(list),
+      child: InputDecorator(
+        decoration: const InputDecoration(labelText: 'Category'),
+        child: Row(
+          children: [
+            Expanded(child: Text(label)),
+            const Icon(Icons.arrow_drop_down),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Modal bottom sheet with a titled, scrollable list of categories.
+  Future<void> _pickCategory(List<Category> list) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Text(
+                'Choose a category',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final c in list)
+                    ListTile(
+                      title: Text(c.label),
+                      trailing:
+                          c.code == _category ? const Icon(Icons.check) : null,
+                      onTap: () => Navigator.of(ctx).pop(c.code),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) setState(() => _category = picked);
   }
 
   Widget _categoryFallback() => TextField(
