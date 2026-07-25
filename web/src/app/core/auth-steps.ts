@@ -41,9 +41,13 @@ import { Component, Input } from '@angular/core';
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 13px; font-weight: 700; background: var(--surface-2, #eee);
         color: var(--muted); border: 2px solid var(--line);
+        transition: background 200ms ease, box-shadow 200ms ease;
       }
-      .step.active .dot { background: var(--accent); color: var(--brand-ink, #fff); border-color: var(--accent); }
+      .step.active .dot,
       .step.done .dot { background: var(--accent); color: var(--brand-ink, #fff); border-color: var(--accent); }
+      /* soft halo on the step you're on, for a modern focus cue */
+      .step.active .dot { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent); }
+      @media (prefers-reduced-motion: reduce) { .dot { transition: none; } }
       .label { font-size: 12px; color: var(--muted); line-height: 1.3; max-width: 84px; }
       .step.active .label { color: var(--ink); font-weight: 600; }
     `,
