@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { AuthSteps } from '../../core/auth-steps';
 
 /**
  * Email verification: a new sign-up confirms the 6-digit code we emailed before the
@@ -11,21 +12,23 @@ import { AuthService } from '../../core/auth.service';
  */
 @Component({
   selector: 'app-verify',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, AuthSteps],
   template: `
     <div class="card auth-card">
       <h1>Verify your email</h1>
+      <trove-auth-steps [active]="done() ? 3 : 2"></trove-auth-steps>
       @if (done()) {
-        <p>✅ Email verified. Your request has been sent to the admin for approval. You'll be able to
-          sign in once it's approved.</p>
+        <p>✅ Email verified. Step 3 of 3: your request has been sent to the admin for approval.
+          You'll be able to sign in once it's approved (we'll email you then).</p>
         <p class="muted"><a routerLink="/login">Back to sign in</a></p>
       } @else {
         <p class="muted">We sent a 6-digit code to <b>{{ email || 'your email' }}</b>. Enter it below to
           confirm this address is yours.</p>
         <div class="why">
-          <b>Why this step?</b> Trove sends password resets and reminder nudges to your email, so we
-          confirm it is real and reachable before your account goes live. It is required, not optional.
-          If the code has not arrived in a minute, check your spam folder or resend it below.
+          <b>How sign-up works:</b> after you enter this code, your account goes to the admin for a
+          quick approval, and you can sign in once approved. We verify your email first because Trove
+          sends password resets and reminder nudges to it, so it must be real and reachable. This step
+          is required, not optional. If the code has not arrived in a minute, check spam or resend below.
         </div>
         <form (ngSubmit)="submit()">
           <label>6-digit code

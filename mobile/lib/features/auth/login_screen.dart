@@ -116,12 +116,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: TextStyle(color: scheme.onSurfaceVariant),),
                   const SizedBox(height: 32),
                   if (_needVerify) ...[
-                    Text('Verify your email',
+                    Text('Verify your email  (step 2 of 3)',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),),
                     const SizedBox(height: 4),
                     Text(
-                      'Enter the 6-digit code we emailed to $_verifyEmail. Trove needs a real, '
-                      'reachable email for password resets and reminders, so this step is required.',
+                      'Enter the 6-digit code we emailed to $_verifyEmail. After this, an admin approves '
+                      'your account and then you can sign in. We verify your email first because Trove '
+                      'sends password resets and reminders to it, so it must be real and reachable.',
                       style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
                     ),
                     const SizedBox(height: 16),
