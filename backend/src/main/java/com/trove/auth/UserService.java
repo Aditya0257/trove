@@ -40,7 +40,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -56,25 +59,49 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final SpaceService spaceService;
     private final EmailSender emailSender;
-    /** The one admin who approves new sign-ups. Blank = open registration (no gate). */
-    private final String adminEmail;
+    /**
+     * The admin email allow-list (lowercased). These accounts approve sign-ups and hold the
+     * admin controls. Empty = open registration (no gate). Populated from two properties so a
+     * deployment can name one or several admins without a code change and without a privileged
+     * DB flag: trove.admin.emails (comma/space separated) plus the legacy single
+     * trove.admin.email, unioned. To add a backup admin, add their email to the env var and
+     * restart - nothing in the database decides who is admin.
+     */
+    private final Set<String> adminEmails;
     private final String webBaseUrl;
 
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        SpaceService spaceService, EmailSender emailSender,
                        @Value("${trove.admin.email:}") String adminEmail,
+                       @Value("${trove.admin.emails:}") String adminEmails,
                        @Value("${trove.web.base-url:http://localhost:4200}") String webBaseUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.spaceService = spaceService;
         this.emailSender = emailSender;
-        this.adminEmail = adminEmail == null ? "" : adminEmail.trim();
+        this.adminEmails = parseAdminEmails(adminEmail, adminEmails);
         this.webBaseUrl = webBaseUrl;
     }
 
-    /** True when this account is the configured admin (approves sign-ups). */
+    /** Merges the single- and list-valued admin properties into one lowercased set,
+     *  splitting on commas, semicolons or whitespace and dropping blanks. */
+    private static Set<String> parseAdminEmails(String single, String csv) {
+        Set<String> out = new LinkedHashSet<>();
+        for (String source : List.of(single == null ? "" : single, csv == null ? "" : csv)) {
+            for (String part : source.split("[,;\\s]+")) {
+                String e = part.trim().toLowerCase();
+                if (!e.isBlank()) {
+                    out.add(e);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** True when this account is one of the configured admins (approve sign-ups, admin controls). */
     public boolean isAdmin(User user) {
-        return !adminEmail.isBlank() && user != null && adminEmail.equalsIgnoreCase(user.getEmail());
+        return user != null && user.getEmail() != null
+                && adminEmails.contains(user.getEmail().trim().toLowerCase());
     }
 
     /** Registers a new user (hashed password) and provisions their personal space. */
@@ -110,8 +137,8 @@ public class UserService {
         if (!UNVERIFIED.equals(user.getStatus())) {
             return user; // already verified/active/pending; idempotent
         }
-        boolean gated = !adminEmail.isBlank();
-        boolean isTheAdmin = gated && adminEmail.equalsIgnoreCase(user.getEmail());
+        boolean gated = !adminEmails.isEmpty();
+        boolean isTheAdmin = gated && isAdmin(user);
         user.setStatus(!gated || isTheAdmin ? ACTIVE : PENDING);
         user = userRepository.save(user);
         if (PENDING.equals(user.getStatus())) {
@@ -189,11 +216,81 @@ public class UserService {
         log.info("Rejected account {}", user.getEmail());
     }
 
+    /** Loads an account by id (for the authenticated profile screens). */
+    @Transactional(readOnly = true)
+    public User require(UUID userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Account not found"));
+    }
+
+    /** Changes the signed-in user's password after re-checking the current one, so a
+     *  walk-up attacker on an open session cannot silently reset it. */
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        User user = require(userId);
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new UnauthorizedException("Your current password is incorrect");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new IllegalArgumentException("The new password must be at least 8 characters");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        log.info("Password changed for account {}", user.getEmail());
+    }
+
+    /** Renames the signed-in user (the name shown in the nav, spaces and sharing). */
+    @Transactional
+    public User updateDisplayName(UUID userId, String displayName) {
+        User user = require(userId);
+        String name = displayName == null ? "" : displayName.trim();
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Display name cannot be empty");
+        }
+        user.setDisplayName(name);
+        return userRepository.save(user);
+    }
+
+    /** Begins an email change: re-checks the password and that the new address is free, then
+     *  parks it as pending. The caller sends an OTP to the new address; the live email only
+     *  changes once {@link #finishEmailChange} runs on a correct code. */
+    @Transactional
+    public User startEmailChange(UUID userId, String newEmail, String password) {
+        User user = require(userId);
+        if (password == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new UnauthorizedException("Your password is incorrect");
+        }
+        String normalized = normalize(newEmail);
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("A valid email is required");
+        }
+        if (normalized.equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalArgumentException("That is already your email");
+        }
+        if (userRepository.existsByEmailIgnoreCase(normalized)) {
+            throw new ConflictException("That email is already registered");
+        }
+        user.setPendingEmail(normalized);
+        return userRepository.save(user);
+    }
+
+    /** Promotes a verified pending email to the live email (called after the OTP checks out). */
+    @Transactional
+    public User finishEmailChange(UUID userId) {
+        User user = require(userId);
+        if (user.getPendingEmail() != null && !user.getPendingEmail().isBlank()) {
+            user.setEmail(user.getPendingEmail());
+            user.setPendingEmail(null);
+            user = userRepository.save(user);
+            log.info("Email changed for account {}", user.getEmail());
+        }
+        return user;
+    }
+
     private void notifyAdminOfRequest(User user) {
-        if (adminEmail.isBlank()) {
+        if (adminEmails.isEmpty()) {
             return;
         }
-        emailSender.send(List.of(adminEmail), "New Trove access request",
+        emailSender.send(new ArrayList<>(adminEmails), "New Trove access request",
                 user.getDisplayName() + " (" + user.getEmail() + ") requested access to Trove. "
                         + "Approve or decline in the app: " + webBaseUrl.replaceAll("/+$", "") + "/admin");
     }

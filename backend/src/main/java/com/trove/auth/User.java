@@ -49,6 +49,16 @@ public class User extends BaseEntity {
     @Column(name = "status", nullable = false)
     private String status = "active";
 
+    // Optional profile photo: the R2 object key of the stored image (never the bytes).
+    // Null means no photo and the UI falls back to the user's initials.
+    @Column(name = "avatar_key")
+    private String avatarKey;
+
+    // A new sign-in email awaiting OTP confirmation during an email change. The `email`
+    // column stays authoritative until the code is verified, then this is promoted + cleared.
+    @Column(name = "pending_email")
+    private String pendingEmail;
+
     protected User() {
         // for JPA
     }
@@ -60,7 +70,14 @@ public class User extends BaseEntity {
     }
 
     public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
     public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getAvatarKey() { return avatarKey; }
+    public void setAvatarKey(String avatarKey) { this.avatarKey = avatarKey; }
+    public String getPendingEmail() { return pendingEmail; }
+    public void setPendingEmail(String pendingEmail) { this.pendingEmail = pendingEmail; }
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
