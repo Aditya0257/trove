@@ -39,7 +39,7 @@ export interface SelectOption {
                 <span class="ts-opt">{{ o.label }}</span>
                 @if (o.sub) { <span class="ts-sub">{{ o.sub }}</span> }
               </span>
-              @if (o.value === value()) { <span class="ts-check">✓</span> }
+              @if (o.value === value()) { <span class="ts-check"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4 4L19 7" /></svg></span> }
             </li>
           }
         </ul>
@@ -73,7 +73,7 @@ export interface SelectOption {
       .ts-main { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
       .ts-opt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ts-sub { font-size: 11px; color: var(--muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ts-check { flex: none; color: var(--accent); font-weight: 700; }
+      .ts-check { flex: none; color: var(--accent); display: inline-flex; align-items: center; }
     `,
   ],
 })

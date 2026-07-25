@@ -13,7 +13,12 @@ import { Component, Input } from '@angular/core';
       @for (label of labels; track label; let i = $index) {
         <li class="step" [class.active]="i + 1 === active" [class.done]="i + 1 < active"
             [attr.aria-current]="i + 1 === active ? 'step' : null">
-          <span class="dot">@if (i + 1 < active) { ✓ } @else { {{ i + 1 }} }</span>
+          <span class="dot">@if (i + 1 < active) {
+            <svg class="tick" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+              stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4 4L19 7" />
+            </svg>
+          } @else { {{ i + 1 }} }</span>
           <span class="label">{{ label }}</span>
         </li>
       }
@@ -43,6 +48,7 @@ import { Component, Input } from '@angular/core';
         color: var(--muted); border: 2px solid var(--line);
         transition: background 200ms ease, box-shadow 200ms ease;
       }
+      .dot .tick { display: block; }
       .step.active .dot,
       .step.done .dot { background: var(--accent); color: var(--brand-ink, #fff); border-color: var(--accent); }
       /* soft halo on the step you're on, for a modern focus cue */
