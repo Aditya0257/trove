@@ -20,7 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/auth/auth_controller.dart';
 import '../../core/models/space.dart';
 import '../../core/providers.dart';
 import '../../ui/widgets/dev_drawer.dart';
@@ -81,9 +80,9 @@ class HomeShell extends ConsumerWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            tooltip: 'Your profile',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () => context.push('/account'),
           ),
         ],
       ),

@@ -28,6 +28,7 @@ import 'core/notice/notice.dart';
 import 'core/notice/notice_center.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/providers.dart';
+import 'features/account/account_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/documents/capture_screen.dart';
 import 'features/documents/confirm_screen.dart';
@@ -108,6 +109,7 @@ class _TroveAppState extends ConsumerState<TroveApp> {
           path: '/space-manage',
           builder: (_, state) => SpaceManageScreen(space: state.extra! as Space),
         ),
+        GoRoute(path: '/account', builder: (_, __) => const AccountScreen()),
       ],
     );
   }

@@ -219,4 +219,13 @@ class ApiClient {
         options: Options(extra: {kSilentNotice: silent}),);
     return r.data;
   }
+
+  Future<dynamic> delete(String path,
+      {Object? body, Map<String, dynamic>? query, bool silent = false,}) async {
+    final r = await _dio.delete<dynamic>(path,
+        data: body,
+        queryParameters: query,
+        options: Options(extra: {kSilentNotice: silent}),);
+    return r.data;
+  }
 }
