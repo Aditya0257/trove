@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/document.dart';
 import '../../core/models/space.dart';
+import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
 
 class DocumentListScreen extends ConsumerStatefulWidget {
@@ -94,6 +95,15 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: HelpCard(
+              title: 'Your documents',
+              user:
+                  "Everything you have filed in this space. Tap a document to review and confirm its details. 'needs_review' means the AI read it and it is waiting for you to confirm; 'confirmed' means you have verified it - only confirmed documents count toward Spend and Search.",
+              dev: null,
+            ),
+          ),
           SizedBox(
             height: 52,
             child: categories.maybeWhen(

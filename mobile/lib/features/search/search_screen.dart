@@ -23,6 +23,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/document.dart';
 import '../../core/providers.dart';
+import '../../ui/widgets/help_card.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key, required this.spaceId});
@@ -103,6 +104,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const HelpCard(
+              title: 'Searching your vault',
+              user:
+                  "Search in plain language, like 'my last water bill' or 'all Nike purchases'. It understands the intent, not just keywords, and falls back to a keyword search if the daily AI budget is used up.",
+              dev: null,
+            ),
             TextField(
               controller: _q,
               autofocus: true,

@@ -24,6 +24,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/notice/notice_center.dart';
+import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
@@ -74,6 +75,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const HelpCard(
+              title: 'How adding documents works',
+              user:
+                  "Snap a photo, paste, or pick files: a bill, receipt, policy or ID. Images are read automatically by AI and you just confirm the details next. PDFs are stored safely but are not auto-read yet, so you fill in their details yourself. You can add several files at once and each becomes its own document.",
+              dev:
+                  "Each file uploads separately; images are sent to a vision model only when the read toggle is on, and extraction runs after upload and always lands in needs_review. If the model errors or the daily budget is spent, a free stub fallback fills in so an upload never fails.",
+            ),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(

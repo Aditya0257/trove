@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/reminder.dart';
 import '../../core/notifications/notification_service.dart';
+import '../../ui/widgets/help_card.dart';
 import 'reminders_api.dart';
 
 class RemindersScreen extends ConsumerWidget {
@@ -46,9 +47,21 @@ class RemindersScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('New reminder'),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.refresh(remindersProvider(spaceId).future),
-        child: reminders.when(
+      body: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: HelpCard(
+              title: 'How reminders work',
+              user:
+                  "Due, renewal and warranty nudges. Some are created automatically from a confirmed document; you can also add your own. Mark one done (a repeating one schedules its next date), snooze it, or dismiss it. The app also shows a device notification before a due date.",
+              dev: null,
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => ref.refresh(remindersProvider(spaceId).future),
+              child: reminders.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => ListView(children: [
             const SizedBox(height: 80),
@@ -83,7 +96,10 @@ class RemindersScreen extends ConsumerWidget {
                     );
                   },
                 ),
-        ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

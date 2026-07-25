@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/account.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
+import '../../ui/widgets/help_card.dart';
 import 'admin_api.dart';
 
 class AdminScreen extends ConsumerWidget {
@@ -85,6 +86,12 @@ class AdminScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const HelpCard(
+              title: 'Admin',
+              user:
+                  "Approve or decline people asking to join, and manage accounts. Deleting an account permanently removes it and all of its documents, so it asks you to type the email to confirm.",
+              dev: null,
+            ),
             _sectionTitle(scheme, 'Awaiting approval'),
             pending.when(
               loading: () => const Padding(

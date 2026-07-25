@@ -15,6 +15,7 @@ import '../../core/models/membership.dart';
 import '../../core/models/space.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
+import '../../ui/widgets/help_card.dart';
 import 'spaces_api.dart';
 
 class SpaceManageScreen extends ConsumerStatefulWidget {
@@ -75,6 +76,12 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          const HelpCard(
+            title: 'Managing a shared space',
+            user:
+                "Invite people to this space and set what they can do: owner (full control), member (add and edit documents), or viewer (read only). A document always belongs to exactly one space.",
+            dev: null,
+          ),
           Text('Members', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           members.when(

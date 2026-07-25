@@ -72,6 +72,11 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
   bool _busyPw = false;
   bool _busyEmail = false;
   bool _busy2fa = false;
+  // Each password field owns its own reveal flag so toggling one never exposes another.
+  bool _showCurPw = false;
+  bool _showNewPw = false;
+  bool _showConfirmPw = false;
+  bool _showEmailPw = false;
   // 'idle' | 'form' | 'code'
   String _emailStep = 'idle';
   Map<String, String>? _twoFaSetup;
@@ -94,6 +99,15 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
 
   void _toast(NoticeLevel level, String code, String message) {
     NoticeCenter.instance.show(Notice.local(level: level, code: code, userMessage: message));
+  }
+
+  /// The trailing eye that reveals/hides a single password field.
+  Widget _revealButton({required bool shown, required VoidCallback onToggle}) {
+    return IconButton(
+      icon: Icon(shown ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+      tooltip: shown ? 'Hide password' : 'Show password',
+      onPressed: onToggle,
+    );
   }
 
   Future<void> _guard(Future<void> Function() action, void Function(bool) setBusy) async {
@@ -262,8 +276,14 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
               const SizedBox(height: 8),
               TextField(
                 controller: _emailPw,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Current password'),
+                obscureText: !_showEmailPw,
+                decoration: InputDecoration(
+                  labelText: 'Current password',
+                  suffixIcon: _revealButton(
+                    shown: _showEmailPw,
+                    onToggle: () => setState(() => _showEmailPw = !_showEmailPw),
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
               Row(
@@ -346,20 +366,38 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
             const SizedBox(height: 10),
             TextField(
               controller: _curPw,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Current password'),
+              obscureText: !_showCurPw,
+              decoration: InputDecoration(
+                labelText: 'Current password',
+                suffixIcon: _revealButton(
+                  shown: _showCurPw,
+                  onToggle: () => setState(() => _showCurPw = !_showCurPw),
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _newPw,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'New password (at least 8 characters)'),
+              obscureText: !_showNewPw,
+              decoration: InputDecoration(
+                labelText: 'New password (at least 8 characters)',
+                suffixIcon: _revealButton(
+                  shown: _showNewPw,
+                  onToggle: () => setState(() => _showNewPw = !_showNewPw),
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _confirmPw,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirm new password'),
+              obscureText: !_showConfirmPw,
+              decoration: InputDecoration(
+                labelText: 'Confirm new password',
+                suffixIcon: _revealButton(
+                  shown: _showConfirmPw,
+                  onToggle: () => setState(() => _showConfirmPw = !_showConfirmPw),
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             Align(

@@ -1,18 +1,21 @@
 /// ============================================================================
-///  DocumentDetailScreen — one document: image + fields + review action
+///  DocumentDetailScreen - one document: image + fields + review action
 /// ============================================================================
 ///
 ///  Purpose
 ///  -------
 ///  Shows a document in full: the image (a presigned URL for normal docs, or the
-///  decrypt-stream bytes for vital ones), the extracted/confirmed fields, the
-///  extraction notice, and — if still needs_review — a jump to the confirm screen.
+///  decrypt-stream bytes for vital ones), the extracted/confirmed fields as a clean
+///  key-value card, the extraction notice, the collapsed raw text, and - if still
+///  needs_review - a jump to the confirm screen.
 ///
 ///  Design
 ///  ------
 ///  Re-fetches by id for a fresh presigned URL + latest status. Vital documents are
 ///  never handed a presigned URL (that would leak ciphertext); their bytes come from
-///  `GET /api/documents/{id}/content` via the authed client.
+///  `GET /api/documents/{id}/content` via the authed client. The preview is wrapped in
+///  an InteractiveViewer so it pinch-zooms and pans; anything we cannot render inline
+///  (PDF, or a protected/relative content URL) falls back to a clean placeholder card.
 /// ============================================================================
 library;
 
@@ -24,6 +27,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/document.dart';
 import '../../core/providers.dart';
+import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
 
 final _detailProvider = FutureProvider.autoDispose
@@ -57,6 +61,18 @@ class DocumentDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const HelpCard(
+            title: 'Reviewing a document',
+            user:
+                'Trove reads each document with AI and pre-fills the fields below so you '
+                'do not have to type them. Nothing is final yet: a document only counts '
+                'toward your spend, search and reminders once you confirm it. Tap Review '
+                'to check and edit any field before confirming.',
+            dev:
+                'The extractor returns {category, merchant, docDate, amount, dueDate, '
+                'rawText, confidence} and the record lands in needs_review. Confirm '
+                'promotes it to confirmed; until then downstream jobs skip it.',
+          ),
           AspectRatio(
             aspectRatio: 3 / 4,
             child: ClipRRect(
@@ -71,37 +87,112 @@ class DocumentDetailScreen extends ConsumerWidget {
               child: Text(doc.extractionNotice!.userMessage,
                   style: TextStyle(color: scheme.onSurfaceVariant),),
             ),
-          _row('Status', doc.needsReview ? 'Needs review' : 'Confirmed'),
-          _row('Category', doc.category ?? '-'),
-          _row('Merchant', doc.merchant ?? '-'),
-          _row('Amount',
-              doc.amount != null ? '${doc.currency ?? ''} ${doc.amount!.toStringAsFixed(2)}'.trim() : '-',),
-          _row('Document date',
-              doc.docDate?.toIso8601String().substring(0, 10) ?? '-',),
-          _row('Due date', doc.dueDate?.toIso8601String().substring(0, 10) ?? '-'),
-          if (doc.vital) _row('Protection', 'Encrypted at rest'),
+          _FieldsCard(doc: doc),
           if ((doc.rawText ?? '').isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text('What we read',
-                style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant),),
-            const SizedBox(height: 4),
-            Text(doc.rawText!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            _RawTextSection(text: doc.rawText!),
           ],
         ],
       ),
     );
   }
+}
 
-  Widget _row(String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
+/// The extracted/confirmed fields as a clean key-value card. Only present fields
+/// are shown; a run-on paragraph this is not.
+class _FieldsCard extends StatelessWidget {
+  const _FieldsCard({required this.doc});
+  final TroveDocument doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final amount = doc.amount != null
+        ? '${doc.currency ?? ''} ${doc.amount!.toStringAsFixed(2)}'.trim()
+        : null;
+
+    final rows = <Widget?>[
+      _row(scheme, 'Category', doc.category),
+      _row(scheme, 'Merchant', doc.merchant),
+      _row(scheme, 'Date', doc.docDate?.toIso8601String().substring(0, 10)),
+      _row(scheme, 'Amount', amount),
+      _row(scheme, 'Due date', doc.dueDate?.toIso8601String().substring(0, 10)),
+      _row(scheme, 'Status', doc.needsReview ? 'Needs review' : 'Confirmed'),
+      if (doc.vital) _row(scheme, 'Protection', 'Encrypted at rest'),
+    ].whereType<Widget>().toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          children: rows,
+        ),
+      ),
+    );
+  }
+
+  /// Returns null when the value is empty so the caller can drop the row.
+  Widget? _row(ColorScheme scheme, String label, String? value) {
+    if (value == null || value.isEmpty) return null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The raw AI-read text, collapsed by default and rendered in a readable,
+/// monospace-ish, selectable block.
+class _RawTextSection extends StatelessWidget {
+  const _RawTextSection({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Theme(
+        // Drop ExpansionTile's default dividers for a cleaner card.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: const Text(
+            'What the AI read (raw text)',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
           children: [
-            SizedBox(width: 120, child: Text(k, style: const TextStyle(fontWeight: FontWeight.w600))),
-            Expanded(child: Text(v)),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(
+                text,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.5),
+              ),
+            ),
           ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _DocImage extends ConsumerWidget {
@@ -110,26 +201,84 @@ class _DocImage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placeholder = Container(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: const Center(child: Icon(Icons.image_outlined, size: 40)),
-    );
     if (doc.vital) {
       final bytes = ref.watch(_vitalBytesProvider(doc.id));
       return bytes.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => placeholder,
-        data: (b) => Image.memory(
-          Uint8List.fromList(b),
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => placeholder,
+        error: (_, __) => const _PreviewUnavailable(),
+        data: (b) => _zoomable(
+          Image.memory(
+            Uint8List.fromList(b),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const _PreviewUnavailable(),
+          ),
         ),
       );
     }
-    if (doc.fileUrl != null && doc.fileUrl!.isNotEmpty) {
-      return Image.network(doc.fileUrl!,
-          fit: BoxFit.contain, errorBuilder: (_, __, ___) => placeholder,);
+
+    final url = doc.fileUrl;
+    final isHttp = url != null &&
+        (url.startsWith('http://') || url.startsWith('https://'));
+    if (!isHttp) {
+      // Null, empty, or a relative /api/documents/{id}/content path: we cannot
+      // render it inline here (PDF or protected file).
+      return const _PreviewUnavailable();
     }
-    return placeholder;
+
+    return _zoomable(
+      Image.network(
+        url,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          final expected = progress.expectedTotalBytes;
+          return Center(
+            child: CircularProgressIndicator(
+              value: expected != null ? progress.cumulativeBytesLoaded / expected : null,
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => const _PreviewUnavailable(),
+      ),
+    );
+  }
+
+  /// Wraps the preview so it pinch-zooms and pans.
+  Widget _zoomable(Widget child) => InteractiveViewer(
+        minScale: 0.8,
+        maxScale: 4,
+        child: Center(child: child),
+      );
+}
+
+/// Shown when there is nothing we can render inline: a PDF, a protected/encrypted
+/// file behind a relative content URL, or a load failure.
+class _PreviewUnavailable extends StatelessWidget {
+  const _PreviewUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      color: scheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.description_outlined, size: 44, color: scheme.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              "Preview isn't available in the app yet (PDF or protected file). "
+              'The file is stored safely and viewable on the web.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13, height: 1.5),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../ui/widgets/help_card.dart';
 import 'mail_api.dart';
 
 class MailListScreen extends ConsumerStatefulWidget {
@@ -76,6 +77,15 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
       appBar: AppBar(title: const Text('Mail')),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: HelpCard(
+              title: 'Mail',
+              user:
+                  "Emails you have filed, grouped into threads. Each thread can hold several screenshots of the same email. Tap a thread to view its screenshots and details.",
+              dev: null,
+            ),
+          ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,

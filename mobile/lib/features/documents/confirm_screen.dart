@@ -26,6 +26,7 @@ import '../../core/models/document.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
 import '../../ui/theme.dart';
+import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
 
 class ConfirmScreen extends ConsumerStatefulWidget {
@@ -145,6 +146,12 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          const HelpCard(
+            title: 'Confirming a document',
+            user:
+                "Check the details the AI pulled out and fix anything it misread (amounts and dates especially). Confirming is what makes a document count toward spend, become searchable, and generate reminders.",
+            dev: null,
+          ),
           if (notice != null)
             Container(
               margin: const EdgeInsets.only(bottom: 16),

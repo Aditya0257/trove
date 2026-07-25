@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
+import '../../ui/widgets/help_card.dart';
 import 'backups_api.dart';
 
 // TODO(backups): on-demand export/import ZIP (blob download/upload) is web-only for now.
@@ -95,9 +96,24 @@ class _BackupsScreenState extends ConsumerState<BackupsScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Backups & data health')),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _buildBody(scheme),
+      body: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: HelpCard(
+              title: 'Backups and data health',
+              user:
+                  "Your documents are kept in three independent copies: live storage, a second-cloud mirror, and a human-browsable Google Drive. This screen shows whether the copies agree, your recent backup runs, and lets you sync to Drive now.",
+              dev: null,
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: _buildBody(scheme),
+            ),
+          ),
+        ],
       ),
     );
   }

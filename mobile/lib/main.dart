@@ -207,11 +207,11 @@ class _NoticeHostState extends State<NoticeHost> {
         widget.child,
         if (_current != null)
           Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
+            bottom: MediaQuery.of(context).padding.bottom + 12,
             left: 12,
             right: 12,
             child: SafeArea(
-              bottom: false,
+              top: false,
               child: NoticeToast(notice: _current!, onDismiss: _dismiss),
             ),
           ),
