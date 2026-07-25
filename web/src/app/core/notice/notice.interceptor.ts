@@ -34,6 +34,7 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
           requestId: event.headers.get('X-Trove-Request-Id'),
           extractionMeta: extractionMetaOf(event.body),
           extracted: extractedOf(event.body),
+          body: capBody(event.body),
         });
       }
     }),
@@ -48,6 +49,7 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
           durationMs: Math.round(performance.now() - start),
           requestId: err.headers?.get('X-Trove-Request-Id'),
           notice,
+          body: capBody(err.error),
         });
         notices.show(notice);
       }
@@ -55,6 +57,25 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
     }),
   );
 };
+
+/**
+ * The response body for the drawer, size-capped so the bounded log never holds a huge blob.
+ * Small bodies are kept as-is (rendered as pretty JSON); an oversized one becomes a truncated
+ * string preview. This is a developer-only surface, so it shows what actually came back.
+ */
+function capBody(body: unknown): unknown {
+  if (body === null || body === undefined) return null;
+  try {
+    const compact = JSON.stringify(body);
+    // Small bodies are kept as an object so the drawer pretty-prints them (nested, indented).
+    if (compact.length <= 20000) return body;
+    // Large ones are indented first, THEN truncated, so what shows is still readable nested
+    // JSON (not one giant compact line) - the drawer renders a string as-is.
+    return `${JSON.stringify(body, null, 2).slice(0, 20000)}\n… (truncated, ${compact.length} chars total)`;
+  } catch {
+    return null; // non-serialisable (e.g. a Blob) - skip
+  }
+}
 
 /** The key stored fields of a document response - the "JSON in the DB" for the drawer. */
 function extractedOf(body: unknown): Record<string, unknown> | null {

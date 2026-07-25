@@ -106,6 +106,7 @@ import { SettingsService } from '../settings.service';
               <div class="kv"><span>you</span><div>{{ meaning(e).user }}</div></div>
               <div class="kv"><span>dev</span><div>{{ meaning(e).dev }}</div></div>
               <div class="kv"><span>biz</span><div>{{ meaning(e).business }}</div></div>
+              <div class="kv"><span>flow</span><code class="flow">{{ meaning(e).flow }}</code></div>
               @if (e.requestId) { <div class="kv"><span>req</span><code>{{ e.requestId }}</code></div> }
               @if (e.notice) {
                 <div class="kv"><span>notice</span><code>{{ e.notice.code }} · {{ e.notice.level }}</code></div>
@@ -129,6 +130,10 @@ import { SettingsService } from '../settings.service';
                   </div>
                   <pre class="json">{{ pretty(e.extracted) }}</pre>
                 </div>
+              }
+              @if (e.body != null) {
+                <div class="trail-title">response body</div>
+                <pre class="json body-json">{{ pretty(e.body) }}</pre>
               }
             </div>
           </details>
@@ -267,10 +272,17 @@ import { SettingsService } from '../settings.service';
         background: #2e7d5b; color: #fff; border-radius: 5px; padding: 1px 6px;
         font-size: 10px; font-weight: 700; font-family: monospace;
       }
+      /* Theme-aware code block: light surface in light mode, dark in dark mode (via tokens).
+         Wrap long lines so the drawer never scrolls sideways - only vertically. */
       .json {
-        background: #0f172a; color: #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;
-        line-height: 1.45; overflow-x: auto; white-space: pre; margin: 0;
+        background: var(--code-bg); color: var(--ink); border: 1px solid var(--line);
+        border-radius: 8px; padding: 10px; font-size: 11px; line-height: 1.5; margin: 0;
+        white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
       }
+      /* The full response body can be long - cap its height and scroll vertically in place. */
+      .body-json { max-height: 320px; overflow-y: auto; overflow-x: hidden; margin-top: 2px; }
+      /* The call chain wraps instead of forcing the drawer wider. */
+      .flow { white-space: normal; word-break: break-word; line-height: 1.5; }
     `,
   ],
 })
@@ -325,26 +337,32 @@ export class DevDrawer {
    * Three-lens meaning for a call - what it means to the user, the developer, and the
    * business. Short by design; the goal is to read the drawer and understand the flow.
    */
-  protected meaning(e: DevLogEntry): { label: string; user: string; dev: string; business: string } {
+  protected meaning(e: DevLogEntry): { label: string; user: string; dev: string; business: string; flow: string } {
     const p = this.path(e).split('?')[0];
     const m = e.method.toUpperCase();
-    const M = (label: string, user: string, dev: string, business: string) => ({ label, user, dev, business });
+    const A = 'Angular';
+    const M = (label: string, user: string, dev: string, business: string, flow: string) =>
+      ({ label, user, dev, business, flow });
 
-    if (p === '/api/auth/login') return M('Sign in', 'Signing you in', 'verify credentials → mint a JWT', 'gate to a private vault');
-    if (p === '/api/auth/register') return M('Create account', 'Creating your account', 'create user + provision a personal space', 'a new owner joins');
-    if (p === '/api/spaces') return M('Your spaces', 'Loading your spaces', 'personal + shared spaces you belong to', 'who can see which documents');
-    if (p === '/api/categories') return M('Categories', 'Loading categories', 'global + space category taxonomy', 'how the vault is organised');
-    if (p === '/api/search') return M('Search', 'Finding your documents', 'NL query → LLM/rule parse → filtered query', 'plain-English retrieval');
-    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', `multipart → ${TERMS.objectStorage} object + sidecar JSON; async extraction queued (${TERMS.mirrorStorage} runs about hourly as a separate job)`, 'an item enters the source-of-truth vault');
-    if (p === '/api/documents' && m === 'GET') return M('List documents', 'Loading your documents', 'reads the rebuildable DB index', 'browse the vault');
-    if (/^\/api\/documents\/[^/]+\/confirm$/.test(p)) return M('Confirm a document', 'Saving your reviewed details', 'human-review → status=confirmed; fires reminders + anomaly check', 'nothing is trusted until a human confirms');
-    if (/^\/api\/documents\/[^/]+\/content$/.test(p)) return M('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes (no presigned URL)', 'sensitive PII stays encrypted at rest');
-    if (/^\/api\/documents\/[^/]+$/.test(p)) return M('Fetch a document', 'Loading a document', 'reads the index row + a presigned view URL', 'reads the rebuildable index');
-    if (p === '/api/reminders' && m === 'GET') return M('Reminders', 'Loading reminders', 'pending reminders for the space, soonest first', 'never miss a due date / warranty');
-    if (/^\/api\/reminders\/[^/]+\/dismiss$/.test(p)) return M('Dismiss reminder', 'Dismissing a reminder', 'mark reminder dismissed', 'user acknowledged it');
-    if (p.startsWith('/api/spend')) return M('Spend analytics', 'Loading your spend', 'aggregate confirmed documents by category/month', 'understand where money goes');
-    if (p.startsWith('/api/integrations/google-drive')) return M(TERMS.driveBackup, `Talking to ${TERMS.driveBackup}`, 'per-owner OAuth backup / sync', 'human-navigable third copy of the data');
-    return M('API request', 'Working…', `${m} ${p}`, '-');
+    if (p === '/api/auth/login') return M('Sign in', 'Signing you in', 'verify credentials → mint a JWT', 'gate to a private vault', `${A} → AuthController.login() → UserService.verifyCredentials() → JwtService.issue()`);
+    if (p === '/api/auth/register') return M('Create account', 'Creating your account', 'create user + provision a personal space', 'a new owner joins', `${A} → AuthController.register() → UserService.register() → SpaceService.createPersonalSpace()`);
+    if (p === '/api/account/me') return M('Your profile', 'Loading your profile', 'profile + 2FA + avatar summary', 'account self-service', `${A} → AccountController.me() → UserRepository`);
+    if (p === '/api/account/password') return M('Change password', 'Updating your password', 're-check current → BCrypt the new one', 'account security', `${A} → AccountController.changePassword() → UserService.changePassword()`);
+    if (p.startsWith('/api/admin')) return M('Admin', 'Working…', 'admin-only user management', 'closed registration + account control', `${A} → AdminController → UserService / AccountDeletionService`);
+    if (p === '/api/spaces') return M('Your spaces', 'Loading your spaces', 'personal + shared spaces you belong to', 'who can see which documents', `${A} → SpaceController.mine() → SpaceService`);
+    if (p === '/api/categories') return M('Categories', 'Loading categories', 'global + space category taxonomy', 'how the vault is organised', `${A} → CategoryController.list() → CategoryService`);
+    if (p === '/api/search') return M('Search', 'Finding your documents', 'NL query → LLM/rule parse → filtered query', 'plain-English retrieval', `${A} → SearchController.search() → SearchService`);
+    if (p === '/api/chat/ask') return M('Ask your vault', 'Answering from your documents', 'normalize query → embed → retrieve → grounded LLM answer', 'ask questions in plain language', `${A} → ChatController.ask() → VaultChatService.ask() → QueryNormalizer + EmbeddingService + CloudflareChatClient`);
+    if (p === '/api/documents' && m === 'POST') return M('Upload a document', 'Saving your document', `multipart → ${TERMS.objectStorage} object + sidecar JSON; async extraction queued (${TERMS.mirrorStorage} runs about hourly as a separate job)`, 'an item enters the source-of-truth vault', `${A} → DocumentController.upload() → DocumentService.upload() → StorageService + ExtractionProvider`);
+    if (p === '/api/documents' && m === 'GET') return M('List documents', 'Loading your documents', 'one page of the rebuildable DB index (X-Total-Count header)', 'browse the vault', `${A} → DocumentController.list() → DocumentService.listPaged() → DocumentRepository`);
+    if (/^\/api\/documents\/[^/]+\/confirm$/.test(p)) return M('Confirm a document', 'Saving your reviewed details', 'human-review → status=confirmed; fires reminders + anomaly check', 'nothing is trusted until a human confirms', `${A} → DocumentController.confirm() → DocumentService.confirm()`);
+    if (/^\/api\/documents\/[^/]+\/content$/.test(p)) return M('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes (no presigned URL)', 'sensitive PII stays encrypted at rest', `${A} → DocumentController.content() → DocumentService.content() → EncryptionService`);
+    if (/^\/api\/documents\/[^/]+$/.test(p)) return M('Fetch a document', 'Loading a document', 'reads the index row + a presigned view URL', 'reads the rebuildable index', `${A} → DocumentController.get() → DocumentService.get()`);
+    if (p === '/api/reminders' && m === 'GET') return M('Reminders', 'Loading reminders', 'pending reminders for the space, soonest first', 'never miss a due date / warranty', `${A} → ReminderController.list() → ReminderService.list()`);
+    if (/^\/api\/reminders\/[^/]+\/dismiss$/.test(p)) return M('Dismiss reminder', 'Dismissing a reminder', 'mark reminder dismissed', 'user acknowledged it', `${A} → ReminderController.dismiss() → ReminderService`);
+    if (p.startsWith('/api/spend')) return M('Spend analytics', 'Loading your spend', 'aggregate confirmed documents by category/month', 'understand where money goes', `${A} → SpendController → SpendService`);
+    if (p.startsWith('/api/integrations/google-drive')) return M(TERMS.driveBackup, `Talking to ${TERMS.driveBackup}`, 'per-owner OAuth backup / sync', 'human-navigable third copy of the data', `${A} → DriveController → DriveService`);
+    return M('API request', 'Working…', `${m} ${p}`, '-', `${A} → ${m} ${p}`);
   }
 
   /** Entries honoring the errors-only filter. */
@@ -387,5 +405,5 @@ export class DevDrawer {
   protected fmt = (n: number) => Math.round(n).toLocaleString('en-US');
   protected pct = (used: number, limit: number) => Math.min(100, Math.round((used / limit) * 100));
   protected left = (used: number, limit: number) => Math.max(0, limit - used);
-  protected pretty = (o: unknown) => JSON.stringify(o, null, 2);
+  protected pretty = (o: unknown) => (typeof o === 'string' ? o : JSON.stringify(o, null, 2));
 }

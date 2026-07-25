@@ -13,6 +13,8 @@ export interface DevLogEntry {
   extractionMeta?: Record<string, unknown> | null;
   /** The key fields extracted + stored for a document response (the "JSON in the DB"). */
   extracted?: Record<string, unknown> | null;
+  /** The response body (size-capped), so the drawer can show exactly what came back. */
+  body?: unknown;
 }
 
 /**
