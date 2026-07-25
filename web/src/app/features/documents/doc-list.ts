@@ -105,7 +105,7 @@ import { AuthService } from '../../core/auth.service';
       </div>
 
       @if (loading()) { <p class="muted">Loading…</p> }
-      @else if (visibleDocs().length === 0) {
+      @else if (total() === 0) {
         <p class="muted">
           No documents{{ category ? ' in this category' : '' }} yet.
           <a routerLink="/upload">Snap or paste your first</a>.
@@ -126,7 +126,7 @@ import { AuthService } from '../../core/auth.service';
             <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
-            @for (d of pagedDocs(); track d.id) {
+            @for (d of docs(); track d.id) {
               <tr>
                 <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
                 <td>{{ d.category || '-' }}</td>
@@ -149,12 +149,12 @@ import { AuthService } from '../../core/auth.service';
             [options]="pageSizeOptions" ariaLabel="Page size"></trove-select>
           @if (pageSize() !== 0 && totalPages() > 1) {
             <div class="pages">
-              <button type="button" [disabled]="page() === 0" (click)="page.set(page() - 1)">‹ Prev</button>
+              <button type="button" [disabled]="page() === 0" (click)="goToPage(page() - 1)">‹ Prev</button>
               <span>Page {{ page() + 1 }} of {{ totalPages() }}</span>
-              <button type="button" [disabled]="page() >= totalPages() - 1" (click)="page.set(page() + 1)">Next ›</button>
+              <button type="button" [disabled]="page() >= totalPages() - 1" (click)="goToPage(page() + 1)">Next ›</button>
             </div>
           }
-          <span class="muted total">{{ visibleDocs().length }} document(s)</span>
+          <span class="muted total">{{ total() }} document(s)</span>
         </div>
       }
       }
@@ -242,7 +242,8 @@ export class DocList {
   private auth = inject(AuthService);
 
   categories = signal<Category[]>([]);
-  docs = signal<DocumentResponse[]>([]);
+  docs = signal<DocumentResponse[]>([]); // the current page of documents (server-side slice)
+  total = signal(0);                     // total matches across all pages (from X-Total-Count)
   category = '';
   loading = signal(false);
 
@@ -310,12 +311,12 @@ export class DocList {
     'everywhere" means the live R2 + Drive + DB.';
 
   /** Emails have their own home in the Mail section, so they're kept out of Documents
-   *  entirely - no "Email" filter chip, and never listed under "All". */
+   *  entirely - no "Email" filter chip (and the server leaves them out of the list). */
   visibleCategories = computed(() => this.categories().filter((c) => c.code !== 'email'));
-  visibleDocs = computed(() => this.docs().filter((d) => d.category !== 'email'));
 
-  /** Page size (0 = show All, so browser find works on the full list). */
-  pageSize = signal(25);
+  /** Page size (0 = show All, so browser find works on the full list). Paging is server-side:
+   *  the list holds one page and `total` is the full match count from the response header. */
+  pageSize = signal(50);
   page = signal(0);
   protected pageSizeStr = computed(() => String(this.pageSize()));
   protected pageSizeOptions: SelectOption[] = [
@@ -325,18 +326,9 @@ export class DocList {
     { value: '0', label: 'All (for Ctrl/⌘+F)' },
   ];
 
-  /** The slice of documents shown on the current page. */
-  pagedDocs = computed(() => {
-    const size = this.pageSize();
-    const all = this.visibleDocs();
-    if (size === 0) return all;
-    const start = this.page() * size;
-    return all.slice(start, start + size);
-  });
-
   totalPages = computed(() => {
     const size = this.pageSize();
-    return size === 0 ? 1 : Math.max(1, Math.ceil(this.visibleDocs().length / size));
+    return size === 0 ? 1 : Math.max(1, Math.ceil(this.total() / size));
   });
 
   private notices = inject(NoticeService);
@@ -345,11 +337,19 @@ export class DocList {
   setPageSize(value: string): void {
     this.pageSize.set(Number(value));
     this.page.set(0);
+    this.load();
   }
 
   setCategory(code: string): void {
     this.category = code;
     this.page.set(0);
+    this.load();
+  }
+
+  /** Move to a page (clamped) and fetch it from the server. */
+  goToPage(p: number): void {
+    const last = this.totalPages() - 1;
+    this.page.set(Math.min(Math.max(0, p), Math.max(0, last)));
     this.load();
   }
 
@@ -364,8 +364,8 @@ export class DocList {
       this.api.deleteDocument(d.id).subscribe({
         next: () => {
           this.confirm.close();
-          this.docs.update((list) => list.filter((x) => x.id !== d.id));
           this.notices.show({ level: 'success', code: 'DELETED', userMessage: 'Moved to Trash - recoverable for 30 days.' });
+          this.load(); // refetch the page so the total and pager stay correct
         },
         error: (e) => { this.confirm.close(); this.notices.show({ level: 'error', code: 'DELETE_FAIL', userMessage: e?.error?.message ?? 'Could not delete.' }); },
       });
@@ -453,11 +453,26 @@ export class DocList {
     });
   }
 
+  /** Tracks the space the list was last loaded for, so switching spaces resets to page 1. */
+  private lastSpaceId: string | undefined;
+
   load(): void {
+    const sid = this.spaceCtx.currentSpaceId();
+    if (sid !== this.lastSpaceId) {
+      this.lastSpaceId = sid;
+      this.page.set(0);
+    }
     this.loading.set(true);
-    this.api.listDocuments(this.spaceCtx.currentSpaceId(), this.category || undefined).subscribe({
-      next: (d) => {
-        this.docs.set(d);
+    this.api.listDocumentsPage(sid, this.category || undefined, this.page(), this.pageSize()).subscribe({
+      next: (r) => {
+        // Deleting the last row on the last page can leave us past the end; step back once.
+        if (r.items.length === 0 && r.total > 0 && this.page() > 0) {
+          this.page.set(this.page() - 1);
+          this.load();
+          return;
+        }
+        this.docs.set(r.items);
+        this.total.set(r.total);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),

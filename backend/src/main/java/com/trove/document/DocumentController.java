@@ -92,15 +92,26 @@ public class DocumentController {
                 .body(f.bytes());
     }
 
-    /** List documents in a space (defaults to personal), optionally by category. */
+    /**
+     * List documents in a space (defaults to personal), optionally by category and paged.
+     * The body is the page of documents; the total match count rides in the X-Total-Count
+     * header so the client can build a pager without a second call. Omitting size (or 0)
+     * returns every match - the back-compatible behaviour for callers that don't page and
+     * for the browser-find / export-all view.
+     */
     @GetMapping
-    public List<DocumentResponse> list(
+    public ResponseEntity<List<DocumentResponse>> list(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
-            @RequestParam(value = "category", required = false) String category) {
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "0") int size) {
 
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        return documentService.list(space, user, category);
+        DocumentService.Paged<DocumentResponse> paged = documentService.listPaged(space, user, category, page, size);
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(paged.total()))
+                .body(paged.items());
     }
 
     /** Fetch one document by id (must be a member of its space). */

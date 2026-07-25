@@ -97,7 +97,8 @@ public class SecurityConfig {
         config.setAllowedHeaders(List.of("*"));
         // Expose Trove's diagnostic headers so browser JS (the Developer surface, D23)
         // can read the per-request correlation id despite the same-origin header allowlist.
-        config.setExposedHeaders(List.of("X-Trove-Request-Id", "X-Trove-Duration-Ms", "X-Trove-Ai-Tokens-Today"));
+        config.setExposedHeaders(List.of("X-Trove-Request-Id", "X-Trove-Duration-Ms",
+                "X-Trove-Ai-Tokens-Today", "X-Total-Count"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
         return source;

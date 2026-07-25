@@ -62,6 +62,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -199,19 +204,40 @@ public class DocumentService {
         return toResponse(doc);
     }
 
-    /** Lists documents in a space, optionally filtered to one category code. */
+    /**
+     * One page of documents in a space plus the total match count, so a client can page
+     * through a large space without ever pulling every row. The default (no category) view
+     * excludes the "email" category - those belong to Mail, not Documents - so the page
+     * counts line up with what the list actually shows. A non-positive {@code size} means
+     * "no paging" and returns every match (the browser-find / export-all case). Results are
+     * ordered newest-first with the id as a stable tiebreaker, so a row never straddles pages.
+     */
     @Transactional(readOnly = true)
-    public List<DocumentResponse> list(UUID spaceId, UUID userId, String categoryCode) {
+    public Paged<DocumentResponse> listPaged(UUID spaceId, UUID userId, String categoryCode, int page, int size) {
         spaceAuthorization.requireCanRead(spaceId, userId);
-        List<Document> docs;
-        if (categoryCode != null && !categoryCode.isBlank()) {
-            Category category = categoryService.resolve(spaceId, categoryCode);
-            docs = documentRepository.findBySpaceIdAndCategoryIdAndStatusNotOrderByCreatedAtDesc(
-                    spaceId, category.getId(), DocumentStatus.DELETED);
-        } else {
-            docs = documentRepository.findBySpaceIdAndStatusNotOrderByCreatedAtDesc(spaceId, DocumentStatus.DELETED);
+        boolean hasCategory = categoryCode != null && !categoryCode.isBlank();
+        UUID categoryId = hasCategory ? categoryService.resolve(spaceId, categoryCode).getId() : null;
+
+        if (size <= 0) {
+            List<Document> docs = hasCategory
+                    ? documentRepository.findBySpaceIdAndCategoryIdAndStatusNotOrderByCreatedAtDesc(
+                            spaceId, categoryId, DocumentStatus.DELETED)
+                    : documentRepository.findLiveExcludingEmail(spaceId, DocumentStatus.DELETED);
+            List<DocumentResponse> items = docs.stream().map(this::toResponse).toList();
+            return new Paged<>(items, items.size());
         }
-        return docs.stream().map(this::toResponse).toList();
+
+        Pageable pageable = PageRequest.of(Math.max(0, page), size,
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
+        Page<Document> result = hasCategory
+                ? documentRepository.findBySpaceIdAndCategoryIdAndStatusNot(
+                        spaceId, categoryId, DocumentStatus.DELETED, pageable)
+                : documentRepository.findLiveExcludingEmail(spaceId, DocumentStatus.DELETED, pageable);
+        return new Paged<>(result.getContent().stream().map(this::toResponse).toList(), result.getTotalElements());
+    }
+
+    /** A page of results with the total number of matches (for building a pager). */
+    public record Paged<T>(List<T> items, long total) {
     }
 
     /**

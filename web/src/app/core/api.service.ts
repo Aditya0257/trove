@@ -54,6 +54,19 @@ export class ApiService {
   listDocuments(spaceId?: string, category?: string) {
     return this.http.get<DocumentResponse[]>(`${API_BASE}/api/documents${this.qs({ spaceId, category })}`);
   }
+  /**
+   * One page of documents plus the total match count (from the X-Total-Count header), so the
+   * list pages server-side instead of pulling every row. size = 0 means "all" (browser-find).
+   */
+  listDocumentsPage(spaceId: string | undefined, category: string | undefined, page: number, size: number) {
+    return this.http
+      .get<DocumentResponse[]>(`${API_BASE}/api/documents${this.qs({ spaceId, category, page, size })}`,
+        { observe: 'response' })
+      .pipe(map((resp) => ({
+        items: resp.body ?? [],
+        total: Number(resp.headers.get('X-Total-Count') ?? (resp.body?.length ?? 0)),
+      })));
+  }
   getDocument(id: string) {
     return this.http.get<DocumentResponse>(`${API_BASE}/api/documents/${id}`);
   }

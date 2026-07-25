@@ -12,6 +12,8 @@
  */
 package com.trove.document;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -37,6 +39,35 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>,
     /** Live documents in a space under a category (excludes trashed), newest first. */
     List<Document> findBySpaceIdAndCategoryIdAndStatusNotOrderByCreatedAtDesc(
             UUID spaceId, UUID categoryId, String status);
+
+    /** One page of live documents in a space (excludes trashed). The Pageable carries the
+     *  sort (newest first, id as a stable tiebreaker) so offset paging is deterministic. */
+    Page<Document> findBySpaceIdAndStatusNot(UUID spaceId, String status, Pageable pageable);
+
+    /** One page of live documents in a space under a category (excludes trashed). */
+    Page<Document> findBySpaceIdAndCategoryIdAndStatusNot(
+            UUID spaceId, UUID categoryId, String status, Pageable pageable);
+
+    /** One page of live documents in a space, excluding the "email" category (those belong to
+     *  Mail, not Documents). Null-safe so an uncategorised document is still included. */
+    @Query("""
+            select d from Document d
+            where d.spaceId = :spaceId and d.status <> :status
+              and (d.categoryId is null or d.categoryId not in
+                   (select c.id from com.trove.category.Category c where c.code = 'email'))
+            """)
+    Page<Document> findLiveExcludingEmail(@Param("spaceId") UUID spaceId, @Param("status") String status, Pageable pageable);
+
+    /** Every live document in a space excluding the "email" category, newest first (the
+     *  unpaged "show all" path for browser-find / export). */
+    @Query("""
+            select d from Document d
+            where d.spaceId = :spaceId and d.status <> :status
+              and (d.categoryId is null or d.categoryId not in
+                   (select c.id from com.trove.category.Category c where c.code = 'email'))
+            order by d.createdAt desc
+            """)
+    List<Document> findLiveExcludingEmail(@Param("spaceId") UUID spaceId, @Param("status") String status);
 
     /** Trashed documents in a space, most recently deleted first (the Trash view). */
     List<Document> findBySpaceIdAndStatusOrderByDeletedAtDesc(UUID spaceId, String status);
