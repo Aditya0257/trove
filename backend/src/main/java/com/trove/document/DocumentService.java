@@ -248,6 +248,13 @@ public class DocumentService {
         return documentRepository.findEmailBundle(spaceId, bundleId).stream().map(this::toResponse).toList();
     }
 
+    /** Maps document entities to responses (presigned URLs, line items, etc.). Public so the
+     *  mail feature can reuse the exact same mapping for a thread's documents. */
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> toResponses(List<Document> docs) {
+        return docs.stream().map(this::toResponse).toList();
+    }
+
     /**
      * Returns the document's file bytes for viewing/download, decrypting if the file
      * is stored encrypted (vital). Enforces space membership.

@@ -144,6 +144,27 @@ export interface ReminderResponse {
   documentFilename: string | null;  // linked file name, so the list needs no doc fetch
 }
 
+/** One filed email thread (bundle): latest metadata plus its screenshots. */
+export interface MailBundleView {
+  bundleId: string;
+  account: string;
+  address: string;
+  topic: string;
+  subject: string;
+  date: string;
+  count: number;
+  docs: DocumentResponse[];
+}
+
+/** A page of email threads plus the add-form autocomplete facets and the total thread count. */
+export interface MailPage {
+  bundles: MailBundleView[];
+  total: number;
+  accounts: string[];
+  topics: string[];
+  addresses: string[];
+}
+
 export interface CategorySpend {
   category: string;
   label: string;

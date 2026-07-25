@@ -5,18 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { SpaceContext } from '../../core/space.context';
 import { NoticeService } from '../../core/notice/notice.service';
-import { ConfirmRequest, DocumentResponse } from '../../core/models';
-
-/** One email = one or more screenshots sharing a bundle id, plus its metadata. */
-interface MailEntry {
-  bundleId: string;
-  topic: string;
-  subject: string;
-  account: string;
-  address: string;
-  date: string;
-  docs: DocumentResponse[];
-}
+import { ConfirmRequest, DocumentResponse, MailBundleView } from '../../core/models';
 
 /**
  * Mail - file the important emails you screenshot (tax paid, subscription renewed) so
@@ -143,6 +132,14 @@ interface MailEntry {
             </a>
           }
         </div>
+        @if (totalPages() > 1) {
+          <div class="pager">
+            <button type="button" [disabled]="page() === 0" (click)="goToPage(page() - 1)">‹ Prev</button>
+            <span>Page {{ page() + 1 }} of {{ totalPages() }}</span>
+            <button type="button" [disabled]="page() >= totalPages() - 1" (click)="goToPage(page() + 1)">Next ›</button>
+            <span class="muted total">{{ totalBundles() }} thread(s)</span>
+          </div>
+        }
       }
     </div>
   `,
@@ -195,6 +192,14 @@ interface MailEntry {
         display: block; width: 100%; box-sizing: border-box; resize: vertical;
         font-family: inherit; padding: 8px; margin-top: 2px;
       }
+      .pager { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+      .pager button {
+        margin: 0; border: 1px solid var(--line); background: var(--card); color: var(--accent);
+        border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
+      }
+      .pager button:hover:not(:disabled) { background: var(--accent-soft); }
+      .pager button:disabled { opacity: 0.4; cursor: default; }
+      .pager .total { margin-left: auto; font-size: 13px; }
     `,
   ],
 })
@@ -220,41 +225,28 @@ export class Mail {
   done = signal(0);
   total = signal(0);
 
-  docs = signal<DocumentResponse[]>([]);
   loading = signal(false);
 
-  /** Group the space's email documents into one entry per shared bundle id. */
-  entries = computed<MailEntry[]>(() => {
-    const groups = new Map<string, MailEntry>();
-    for (const d of this.docs()) {
-      const extra = d.extra ?? {};
-      const bundleId = (extra['mailBundleId'] as string) || d.id;
-      const entry = groups.get(bundleId) ?? {
-        bundleId,
-        topic: (extra['mailTopic'] as string) ?? '',
-        subject: (extra['mailSubject'] as string) ?? '',
-        account: (extra['mailAccount'] as string) ?? '',
-        address: (extra['mailAddress'] as string) ?? '',
-        date: (extra['mailDate'] as string) ?? d.docDate ?? '',
-        docs: [],
-      };
-      entry.docs.push(d);
-      groups.set(bundleId, entry);
-    }
-    return [...groups.values()].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-  });
+  // The Mail list is paged server-side: `entries` holds one page of threads (already grouped
+  // by the backend), `totalBundles` is the full thread count, and the known* facets come from
+  // the server so the add-form autocomplete stays complete even though we only load a page.
+  entries = signal<MailBundleView[]>([]);
+  totalBundles = signal(0);
+  page = signal(0);
+  pageSize = signal(25);
+  knownAccounts = signal<string[]>([]);
+  knownTopics = signal<string[]>([]);
+  knownAddresses = signal<string[]>([]);
 
-  knownAccounts = computed<string[]>(() =>
-    [...new Set(this.entries().map((e) => e.account).filter((a) => !!a))],
+  protected totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.totalBundles() / this.pageSize())),
   );
 
-  knownTopics = computed<string[]>(() =>
-    [...new Set(this.entries().map((e) => e.topic).filter((t) => !!t))],
-  );
-
-  knownAddresses = computed<string[]>(() =>
-    [...new Set(this.entries().map((e) => e.address).filter((a) => !!a))],
-  );
+  /** Move to a page (clamped) and fetch it. */
+  goToPage(p: number): void {
+    this.page.set(Math.min(Math.max(0, p), this.totalPages() - 1));
+    this.load();
+  }
 
   /** Field help - shown on hover/focus of the info icon (Salesforce-style). */
   readonly tips = {
@@ -269,6 +261,7 @@ export class Mail {
   constructor() {
     effect(() => {
       this.spaceCtx.currentSpaceId(); // re-run on space change
+      this.page.set(0);               // a new space starts at the first page
       this.load();
     });
   }
@@ -374,6 +367,7 @@ export class Mail {
     this.saving.set(false);
     this.showAdd.set(false);
     this.notices.show({ level: 'success', code: 'MAIL_SAVED', userMessage: 'Email filed to your vault.' });
+    this.page.set(0); // the new thread sorts to the top
     this.load();
   }
 
@@ -390,9 +384,13 @@ export class Mail {
 
   private load(): void {
     this.loading.set(true);
-    this.api.listDocuments(this.spaceCtx.currentSpaceId(), 'email').subscribe({
-      next: (d) => {
-        this.docs.set(d);
+    this.api.mailBundles(this.spaceCtx.currentSpaceId(), this.page(), this.pageSize()).subscribe({
+      next: (p) => {
+        this.entries.set(p.bundles);
+        this.totalBundles.set(p.total);
+        this.knownAccounts.set(p.accounts);
+        this.knownTopics.set(p.topics);
+        this.knownAddresses.set(p.addresses);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),

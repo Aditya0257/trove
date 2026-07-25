@@ -19,6 +19,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -82,6 +83,60 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>,
 
     /** Documents whose extraction never completed (crash-recovery sweep). */
     List<Document> findByExtractionConfidenceIsNull();
+
+    // ── Mail: bundle (thread) aggregation, paginated server-side ──────────────────
+    // Emails are documents of category 'email'; a shared extra->>'mailBundleId' groups them
+    // into a thread (a singleton thread falls back to the document's own id).
+
+    /** One page of mail bundle ids in a space, newest thread first (drives the Mail list pager). */
+    @Query(value = """
+            select coalesce(extra->>'mailBundleId', id::text) as bundle_id
+            from document
+            where space_id = :spaceId and status <> 'deleted'
+              and category_id in (select id from category where code = 'email')
+            group by bundle_id
+            order by max(coalesce(extra->>'mailDate', to_char(doc_date, 'YYYY-MM-DD'))) desc nulls last
+            limit :limit offset :offset
+            """, nativeQuery = true)
+    List<String> findMailBundleIds(@Param("spaceId") UUID spaceId,
+                                   @Param("limit") int limit, @Param("offset") int offset);
+
+    /** Total number of distinct mail bundles (threads) in a space, for the pager total. */
+    @Query(value = """
+            select count(distinct coalesce(extra->>'mailBundleId', id::text))
+            from document
+            where space_id = :spaceId and status <> 'deleted'
+              and category_id in (select id from category where code = 'email')
+            """, nativeQuery = true)
+    long countMailBundles(@Param("spaceId") UUID spaceId);
+
+    /** Every email document in the given bundles, oldest first (for thumbnails + the summary). */
+    @Query(value = """
+            select * from document
+            where space_id = :spaceId and status <> 'deleted'
+              and coalesce(extra->>'mailBundleId', id::text) in (:bundleIds)
+            order by coalesce(extra->>'mailDate', doc_date::text) asc
+            """, nativeQuery = true)
+    List<Document> findEmailDocsInBundles(@Param("spaceId") UUID spaceId,
+                                          @Param("bundleIds") Collection<String> bundleIds);
+
+    /** Distinct non-blank mail account labels in a space (add-form autocomplete). */
+    @Query(value = "select distinct extra->>'mailAccount' from document where space_id = :spaceId "
+            + "and status <> 'deleted' and category_id in (select id from category where code = 'email') "
+            + "and nullif(extra->>'mailAccount', '') is not null order by 1", nativeQuery = true)
+    List<String> findMailAccounts(@Param("spaceId") UUID spaceId);
+
+    /** Distinct non-blank mail topics in a space. */
+    @Query(value = "select distinct extra->>'mailTopic' from document where space_id = :spaceId "
+            + "and status <> 'deleted' and category_id in (select id from category where code = 'email') "
+            + "and nullif(extra->>'mailTopic', '') is not null order by 1", nativeQuery = true)
+    List<String> findMailTopics(@Param("spaceId") UUID spaceId);
+
+    /** Distinct non-blank mail addresses (inboxes) in a space. */
+    @Query(value = "select distinct extra->>'mailAddress' from document where space_id = :spaceId "
+            + "and status <> 'deleted' and category_id in (select id from category where code = 'email') "
+            + "and nullif(extra->>'mailAddress', '') is not null order by 1", nativeQuery = true)
+    List<String> findMailAddresses(@Param("spaceId") UUID spaceId);
 
     /** The email documents in one mail bundle (thread), oldest first - so the Mail detail view
      *  can load just that thread instead of every email in the space. */

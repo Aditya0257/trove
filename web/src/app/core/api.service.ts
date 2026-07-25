@@ -27,6 +27,7 @@ import {
   IngestAddress,
   IntegrityReport,
   Invitation,
+  MailPage,
   Member,
   MonthlySpend,
   ReminderResponse,
@@ -73,6 +74,10 @@ export class ApiService {
   /** Just the emails in one mail bundle (thread), so the Mail detail view needn't load them all. */
   mailBundle(spaceId: string | undefined, bundleId: string) {
     return this.http.get<DocumentResponse[]>(`${API_BASE}/api/documents/mail-bundle${this.qs({ spaceId, bundleId })}`);
+  }
+  /** One page of email threads (grouped server-side) + facets + total, for the Mail list. */
+  mailBundles(spaceId: string | undefined, page: number, size: number) {
+    return this.http.get<MailPage>(`${API_BASE}/api/mail${this.qs({ spaceId, page, size })}`);
   }
   uploadDocument(file: File, vital: boolean, spaceId?: string, extract = true) {
     const form = new FormData();
