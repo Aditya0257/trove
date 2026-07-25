@@ -19,13 +19,19 @@
 /// ============================================================================
 library;
 
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdfx/pdfx.dart';
 
 import '../../core/models/document.dart';
+import '../../core/notice/notice.dart';
+import '../../core/notice/notice_center.dart';
 import '../../core/providers.dart';
 import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
@@ -77,10 +83,19 @@ class DocumentDetailScreen extends ConsumerWidget {
             aspectRatio: 3 / 4,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: _DocImage(doc: doc),
+              child: doc.isPdf ? _PdfPreview(doc: doc) : _DocImage(doc: doc),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _openOriginal(ref, doc),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: Text(doc.isPdf ? 'Download / open PDF' : 'Download / open file'),
+            ),
+          ),
+          const SizedBox(height: 8),
           if (doc.extractionNotice != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -165,31 +180,30 @@ class _RawTextSection extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Card(
       margin: EdgeInsets.zero,
-      child: Theme(
-        // Drop ExpansionTile's default dividers for a cleaner card.
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          title: const Text(
-            'What the AI read (raw text)',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SelectableText(
-                text,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.5),
-              ),
-            ),
-          ],
+      child: ExpansionTile(
+        // Borderless shapes drop the default dividers without a Theme wrapper.
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: const Text(
+          'What the AI read (raw text)',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SelectableText(
+              text,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.5),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -251,8 +265,75 @@ class _DocImage extends ConsumerWidget {
       );
 }
 
-/// Shown when there is nothing we can render inline: a PDF, a protected/encrypted
-/// file behind a relative content URL, or a load failure.
+/// Inline PDF preview (pinch-zoom, page through) rendered from the file bytes via
+/// the authed content endpoint, so it works for normal and vital documents alike.
+class _PdfPreview extends ConsumerStatefulWidget {
+  const _PdfPreview({required this.doc});
+  final TroveDocument doc;
+
+  @override
+  ConsumerState<_PdfPreview> createState() => _PdfPreviewState();
+}
+
+class _PdfPreviewState extends ConsumerState<_PdfPreview> {
+  PdfControllerPinch? _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PdfControllerPinch(
+      document: PdfDocument.openData(
+        ref
+            .read(documentsApiProvider)
+            .contentBytes(widget.doc.id)
+            .then((b) => Uint8List.fromList(b)),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed || _controller == null) return const _PreviewUnavailable();
+    return PdfViewPinch(
+      controller: _controller!,
+      onDocumentError: (_) {
+        if (mounted) setState(() => _failed = true);
+      },
+    );
+  }
+}
+
+/// Downloads the original file to a temp path and opens it in the phone's system
+/// viewer (also the "download" path: the file lands in the app's cache directory).
+Future<void> _openOriginal(WidgetRef ref, TroveDocument doc) async {
+  try {
+    final bytes = await ref.read(documentsApiProvider).contentBytes(doc.id);
+    final dir = await getTemporaryDirectory();
+    final ext = doc.isPdf ? 'pdf' : 'jpg';
+    final file = File('${dir.path}/trove-${doc.id}.$ext');
+    await file.writeAsBytes(bytes, flush: true);
+    final result = await OpenFilex.open(file.path, type: doc.mimeType);
+    if (result.type != ResultType.done) {
+      NoticeCenter.instance.show(Notice.local(
+        level: NoticeLevel.warning,
+        code: 'OPEN_FAIL',
+        userMessage: 'Saved the file, but no app could open it: ${result.message}',
+      ),);
+    }
+  } catch (_) {
+    // Fetch failures are already surfaced by the API client.
+  }
+}
+
+/// Shown when there is nothing we can render inline: a protected/encrypted file
+/// behind a relative content URL, or a load failure.
 class _PreviewUnavailable extends StatelessWidget {
   const _PreviewUnavailable();
 

@@ -32,6 +32,7 @@ class TroveDocument {
     this.vital = false,
     this.encrypted = false,
     this.fileUrl,
+    this.mimeType,
     this.extractionConfidence,
     this.extra,
   });
@@ -49,8 +50,11 @@ class TroveDocument {
   final bool vital;
   final bool encrypted;
   final String? fileUrl;
+  final String? mimeType;
   final double? extractionConfidence;
   final Map<String, dynamic>? extra;
+
+  bool get isPdf => (mimeType ?? '').toLowerCase() == 'application/pdf';
 
   bool get needsReview => status == 'needs_review';
 
@@ -88,6 +92,7 @@ class TroveDocument {
         vital: json['vital'] == true,
         encrypted: json['encrypted'] == true,
         fileUrl: json['fileUrl'] as String?,
+        mimeType: json['mimeType'] as String?,
         extractionConfidence: _num(json['extractionConfidence']),
         extra: (json['extra'] as Map?)?.cast<String, dynamic>(),
     );

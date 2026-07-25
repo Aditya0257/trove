@@ -29,6 +29,9 @@ dependencies:
   flutter_local_notifications: ^18.0.1  # on-device 7/1/0-day reminder popups (free, no server)
   timezone: ^0.9.4            # zoned scheduling for exact reminder times
   flutter_timezone: ^3.0.1    # resolves the device's local timezone for scheduling
+  pdfx: ^2.6.0                # in-app PDF rendering (pdfium)
+  path_provider: ^2.1.4       # temp dir for downloading a file to open
+  open_filex: ^4.5.0          # open a downloaded file in the system viewer
 
 dev_dependencies:
   flutter_test:

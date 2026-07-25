@@ -49,6 +49,11 @@ class DocumentsApi {
     return TroveDocument.fromJson(data);
   }
 
+  /// The raw file bytes (decrypted for vital documents) - used to preview or open a PDF.
+  Future<List<int>> contentBytes(String id) {
+    return _api.getBytes('/api/documents/$id/content');
+  }
+
   /// One page of live documents. size 0 = all (back-compatible); pass a size to page
   /// through a large vault. The server returns the page as the array body.
   Future<List<TroveDocument>> list({
