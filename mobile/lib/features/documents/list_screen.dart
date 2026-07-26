@@ -32,7 +32,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   static const List<int> _pageSizes = [10, 25, 50, 100];
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _pageSize = 25; // rows fetched per batch; user-selectable (matches web)
+  int _pageSize = 10; // rows fetched per batch by default; user-selectable (matches web)
   String? _category; // null = all
   bool _filtersOpen = false; // category filter collapsed by default (it can be long)
   final List<TroveDocument> _docs = [];

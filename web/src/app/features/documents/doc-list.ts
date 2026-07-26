@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { forkJoin, of, catchError } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -45,14 +46,28 @@ import { AuthService } from '../../core/auth.service';
               <trove-info-tip text="Erases the file now from the live store (R2) and from Google Drive, and removes the database row - permanently, no undo. The independent B2 mirror keeps an archival copy by design."></trove-info-tip>
             </span>
           </div>
+          <div class="bulk-bar">
+            <button type="button" class="btn-ghost sm" (click)="restoreSelected()"
+              [disabled]="selected().size === 0 || bulkBusy()">Restore selected ({{ selected().size }})</button>
+            <button type="button" class="del sm" (click)="purgeSelected()"
+              [disabled]="selected().size === 0 || bulkBusy()">Delete selected ({{ selected().size }})</button>
+            <span class="spacer"></span>
+            <button type="button" class="del sm" (click)="purgeAll()" [disabled]="bulkBusy()">Delete all</button>
+          </div>
           <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Deleted</th><th></th></tr>
+              <tr>
+                <th class="chk"><input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll()"
+                  [attr.aria-label]="allSelected() ? 'Deselect all' : 'Select all'" /></th>
+                <th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Deleted</th><th></th>
+              </tr>
             </thead>
             <tbody>
               @for (d of trash(); track d.id) {
-                <tr>
+                <tr [class.sel]="selected().has(d.id)">
+                  <td class="chk"><input type="checkbox" [checked]="selected().has(d.id)"
+                    (change)="toggleSelect(d.id)" [attr.aria-label]="'Select ' + (d.originalFilename || d.id)" /></td>
                   <td>{{ d.originalFilename || d.id }}</td>
                   <td>{{ d.category || '-' }}</td>
                   <td>{{ d.merchant || '-' }}</td>
@@ -207,6 +222,14 @@ import { AuthService } from '../../core/auth.service';
         border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
       }
       .del:hover { background: var(--danger-soft); }
+      .del.sm { padding: 4px 12px; }
+      /* Trash bulk-action bar + selection column. */
+      .bulk-bar { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap; }
+      .bulk-bar .spacer { flex: 1 1 auto; }
+      .bulk-bar button:disabled { opacity: 0.5; cursor: default; }
+      th.chk, td.chk { width: 1%; text-align: center; padding-right: 4px; }
+      th.chk input, td.chk input { cursor: pointer; }
+      tr.sel td { background: var(--accent-soft); }
       /* Trash + Upload are a matched pair on one line - neutralise the global button's
          top margin and give the ghost the same box so they align and read as siblings. */
       .head-actions { display: flex; align-items: center; gap: 10px; }
@@ -316,7 +339,7 @@ export class DocList {
 
   /** Page size (0 = show All, so browser find works on the full list). Paging is server-side:
    *  the list holds one page and `total` is the full match count from the response header. */
-  pageSize = signal(50);
+  pageSize = signal(10); // fetch a small page by default; the user can raise it
   page = signal(0);
   protected pageSizeStr = computed(() => String(this.pageSize()));
   protected pageSizeOptions: SelectOption[] = [
@@ -386,8 +409,65 @@ export class DocList {
     this.router.navigate([], { queryParams: { view: goingToTrash ? 'trash' : null }, queryParamsHandling: 'merge' });
   }
 
+  // ── Trash multi-select ─────────────────────────────────────────────────────
+  selected = signal<Set<string>>(new Set());
+  bulkBusy = signal(false);
+  allSelected = computed(() => this.trash().length > 0 && this.selected().size === this.trash().length);
+
+  toggleSelect(id: string): void {
+    this.selected.update((s) => {
+      const next = new Set(s);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  toggleSelectAll(): void {
+    this.selected.set(this.allSelected() ? new Set() : new Set(this.trash().map((d) => d.id)));
+  }
+
+  restoreSelected(): void {
+    const ids = [...this.selected()];
+    if (!ids.length || this.bulkBusy()) return;
+    this.bulkBusy.set(true);
+    forkJoin(ids.map((id) => this.api.restoreDocument(id).pipe(catchError(() => of(null))))).subscribe(() => {
+      this.bulkBusy.set(false);
+      this.selected.set(new Set());
+      this.loadTrash();
+      this.notices.show({ level: 'success', code: 'RESTORED_MANY', userMessage: `Restored ${ids.length} document${ids.length > 1 ? 's' : ''}.` });
+    });
+  }
+  purgeSelected(): void {
+    const ids = [...this.selected()];
+    if (!ids.length || this.bulkBusy()) return;
+    this.confirm.ask({
+      title: `Delete ${ids.length} forever?`,
+      message: `${ids.length} document${ids.length > 1 ? 's' : ''} will be cleared from live storage. This can't be undone.`,
+      confirmLabel: 'Delete forever', busyLabel: 'Deleting...', danger: true,
+    }).then((ok) => { if (ok) this.bulkPurge(ids); });
+  }
+  purgeAll(): void {
+    const ids = this.trash().map((d) => d.id);
+    if (!ids.length || this.bulkBusy()) return;
+    this.confirm.ask({
+      title: 'Empty Trash?',
+      message: `All ${ids.length} document${ids.length > 1 ? 's' : ''} in Trash will be permanently deleted. This can't be undone.`,
+      confirmLabel: 'Delete all', busyLabel: 'Deleting...', danger: true,
+    }).then((ok) => { if (ok) this.bulkPurge(ids); });
+  }
+  private bulkPurge(ids: string[]): void {
+    this.bulkBusy.set(true);
+    forkJoin(ids.map((id) => this.api.purgeDocument(id).pipe(catchError(() => of(null))))).subscribe(() => {
+      this.confirm.close();
+      this.bulkBusy.set(false);
+      this.selected.set(new Set());
+      this.loadTrash();
+      this.notices.show({ level: 'success', code: 'PURGED_MANY', userMessage: `Deleted ${ids.length} document${ids.length > 1 ? 's' : ''}.` });
+    });
+  }
+
   loadTrash(): void {
     this.trashLoading.set(true);
+    this.selected.set(new Set());
     this.api.listTrash(this.spaceCtx.currentSpaceId()).subscribe({
       next: (d) => { this.trash.set(d); this.trashLoading.set(false); },
       error: () => this.trashLoading.set(false),

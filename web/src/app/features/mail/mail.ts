@@ -233,7 +233,7 @@ export class Mail {
   entries = signal<MailBundleView[]>([]);
   totalBundles = signal(0);
   page = signal(0);
-  pageSize = signal(25);
+  pageSize = signal(10);
   knownAccounts = signal<string[]>([]);
   knownTopics = signal<string[]>([]);
   knownAddresses = signal<string[]>([]);

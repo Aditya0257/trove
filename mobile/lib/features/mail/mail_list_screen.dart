@@ -27,8 +27,8 @@ class MailListScreen extends ConsumerStatefulWidget {
 
 class _MailListScreenState extends ConsumerState<MailListScreen> {
   // One page per fetch; more load as you scroll (matches the Documents list so both
-  // screens behave the same way - no odd "Page 1 of 1" pager).
-  static const int _size = 25;
+  // screens behave the same way - no odd "Page 1 of 1" pager). Small by default.
+  static const int _size = 10;
 
   final ScrollController _scroll = ScrollController();
   final List<MailBundle> _bundles = [];
