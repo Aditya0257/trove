@@ -15,6 +15,7 @@
 /// ============================================================================
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
@@ -163,13 +164,38 @@ class AuthController extends AsyncNotifier<void> {
         },
       ),);
       return AuthOutcome.pending;
-    } on ApiException catch (e) {
-      state = AsyncError(e, StackTrace.current);
-      NoticeCenter.instance.show(e.notice); // tailored, e.g. "invalid authenticator code"
-      return AuthOutcome.failed;
     } catch (e) {
+      // The auth calls are `silent`, so the interceptor does NOT toast; we must surface
+      // the reason here. The client rejects with a DioException whose `error` is our
+      // ApiException, so an `on ApiException` clause would never match - hence a failed
+      // sign-in used to do nothing at all. Show a clear message instead.
       state = AsyncError(e, StackTrace.current);
+      NoticeCenter.instance.show(_authErrorNotice(e));
       return AuthOutcome.failed;
     }
+  }
+
+  /// A friendly notice for a failed sign-in / sign-up: bad credentials read as exactly
+  /// that (not the generic "please sign in again"), other server errors keep their own
+  /// message, and a network failure says so.
+  Notice _authErrorNotice(Object e) {
+    final api = e is DioException && e.error is ApiException
+        ? e.error! as ApiException
+        : (e is ApiException ? e : null);
+    if (api != null) {
+      if (api.statusCode == 401 || api.statusCode == 403) {
+        return Notice.local(
+          level: NoticeLevel.warning,
+          code: 'SIGN_IN_FAILED',
+          userMessage: 'Incorrect email or password. Please try again.',
+        );
+      }
+      return api.notice;
+    }
+    return Notice.local(
+      level: NoticeLevel.error,
+      code: 'SIGN_IN_FAILED',
+      userMessage: "Couldn't sign in. Check your connection and try again.",
+    );
   }
 }
