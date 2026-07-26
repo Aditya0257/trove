@@ -133,6 +133,11 @@ class DocumentsApi {
 final documentsApiProvider =
     Provider<DocumentsApi>((ref) => DocumentsApi(ref.watch(apiClientProvider)));
 
+/// A counter bumped whenever a document is confirmed (or otherwise changed). An open
+/// document list listens to it and reloads, so returning from the confirm screen shows
+/// the newly added document without a manual pull-to-refresh.
+final documentsChangedProvider = StateProvider<int>((_) => 0);
+
 /// Global + space categories for the confirm dropdown.
 final categoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) async {
   final api = ref.watch(apiClientProvider);

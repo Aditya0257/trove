@@ -35,19 +35,31 @@ class AppTheme {
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+      // A filled field with a *visible* rounded outline. The visible border is the
+      // fix for the "label floats outside the box" bug: a floating label notches the
+      // outline, so with an invisible (BorderSide.none) border it appeared to hang in
+      // empty space above the field. A real 1px outline gives the notch something to
+      // sit on, and the fill keeps the calm look. Applies to every field in the app.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        // Generous vertical padding so a floating label sits INSIDE the box (it was
-        // riding the top edge before), and smaller hint/label fonts so long placeholders
-        // and labels fit rather than clipping. Applies to every field in the app.
-        contentPadding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         hintStyle: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
-        labelStyle: TextStyle(fontSize: 14.5, color: scheme.onSurfaceVariant),
-        floatingLabelStyle: TextStyle(fontSize: 12.5, color: scheme.primary),
+        labelStyle: TextStyle(fontSize: 15, color: scheme.onSurfaceVariant),
+        floatingLabelStyle: TextStyle(fontSize: 13, color: scheme.primary),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(

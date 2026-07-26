@@ -20,6 +20,9 @@ import { SpaceSummary } from './models';
 export class SpaceContext {
   private api = inject(ApiService);
 
+  /** Remembers the last-selected space across reloads and sign-ins (per browser). */
+  private static readonly LAST_KEY = 'trove-space-id';
+
   readonly spaces = signal<SpaceSummary[]>([]);
   readonly currentSpaceId = signal<string | undefined>(undefined);
   readonly loaded = signal(false);
@@ -40,8 +43,13 @@ export class SpaceContext {
         next: (spaces) => {
           this.spaces.set(spaces);
           if (!this.currentSpaceId()) {
+            // Reopen the space the user last had selected (if they still belong to it),
+            // otherwise fall back to their personal space. This is the web equivalent of
+            // "remember my default space" - so a reload or new sign-in lands where they left.
+            const saved = localStorage.getItem(SpaceContext.LAST_KEY);
+            const remembered = saved ? spaces.find((s) => s.id === saved) : undefined;
             const personal = spaces.find((s) => s.kind === 'personal') ?? spaces[0];
-            this.currentSpaceId.set(personal?.id);
+            this.currentSpaceId.set((remembered ?? personal)?.id);
           }
           this.loaded.set(true);
           this.loading.set(false);
@@ -54,6 +62,12 @@ export class SpaceContext {
 
   setCurrent(id: string): void {
     this.currentSpaceId.set(id);
+    // Persist so the choice sticks across reloads / sign-ins on this browser.
+    try {
+      localStorage.setItem(SpaceContext.LAST_KEY, id);
+    } catch {
+      // localStorage can be unavailable (private mode); remembering is best-effort.
+    }
   }
 
   reset(): void {

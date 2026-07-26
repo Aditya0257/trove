@@ -446,7 +446,9 @@ class _WaveChart extends StatelessWidget {
     const plotHeight = 140.0;
 
     return SizedBox(
-      height: plotHeight + 30,
+      // plot + gap + TWO label lines (compact value and period) beneath it. The old
+      // +30 clipped that second line and threw a few-pixel overflow; +52 fits both.
+      height: plotHeight + 52,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

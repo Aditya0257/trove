@@ -382,7 +382,8 @@ class _AccountBodyState extends ConsumerState<_AccountBody> {
               controller: _newPw,
               obscureText: !_showNewPw,
               decoration: InputDecoration(
-                labelText: 'New password (at least 8 characters)',
+                labelText: 'New password',
+                helperText: 'At least 8 characters',
                 suffixIcon: _revealButton(
                   shown: _showNewPw,
                   onToggle: () => setState(() => _showNewPw = !_showNewPw),

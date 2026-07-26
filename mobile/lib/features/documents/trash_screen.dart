@@ -122,7 +122,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
         const HelpCard(
           title: 'How Trash works',
           user:
-              'Deleted documents stay here for 30 days, then they are permanently removed. Restore anything before then, or delete it forever now. Your other backup copies mean an accidental delete is never the end of the world.',
+              'Deleted documents stay here for 30 days, then they are permanently removed. '
+              'Restore anything before then, or delete it forever now. Your other backup '
+              'copies mean an accidental delete is never the end of the world.\n\n'
+              'The two buttons on each row: the circular arrow restores the document back '
+              'to your vault; the red bin deletes it forever (with a confirm first).',
           dev: null,
         ),
         if (_error && _docs == null)

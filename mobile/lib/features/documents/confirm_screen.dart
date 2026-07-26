@@ -192,7 +192,16 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
         code: 'CONFIRMED',
         userMessage: 'Saved to your vault.',
       ),);
-      if (mounted) context.go('/home');
+      // Tell any open document list to reload, then go back to it (not all the way
+      // home) so the user lands on the list with their new document showing.
+      ref.read(documentsChangedProvider.notifier).state++;
+      if (mounted) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      }
     } catch (_) {
       // toast already shown by the client
     } finally {

@@ -237,7 +237,14 @@ class _NoticeHostState extends State<NoticeHost> {
             right: 12,
             child: SafeArea(
               top: false,
-              child: NoticeToast(notice: _current!, onDismiss: _dismiss),
+              // Centered and width-capped so the toast is a tidy card, not a full-width
+              // bar, on wide phones and tablets.
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: NoticeToast(notice: _current!, onDismiss: _dismiss),
+                ),
+              ),
             ),
           ),
       ],

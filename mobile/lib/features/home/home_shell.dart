@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/default_space_controller.dart';
 import '../../core/models/space.dart';
 import '../../core/providers.dart';
 import '../../ui/widgets/app_drawer.dart';
@@ -42,13 +43,19 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStoreProvider).user;
     final spaces = ref.watch(spacesProvider);
+    final defaultId = ref.watch(defaultSpaceProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    // Capture targets the chosen space, defaulting to the personal one.
+    // The active space (drawer + quick-add target) is the user's chosen default if it
+    // still exists, otherwise their personal space. Never null once spaces have loaded.
     final spaceList = spaces.asData?.value ?? const <Space>[];
     final captureSpace = spaceList.isEmpty
         ? null
-        : spaceList.firstWhere((s) => s.isPersonal, orElse: () => spaceList.first);
+        : spaceList.firstWhere(
+            (s) => s.id == defaultId,
+            orElse: () =>
+                spaceList.firstWhere((s) => s.isPersonal, orElse: () => spaceList.first),
+          );
 
     return Scaffold(
       drawer: AppDrawer(space: captureSpace),
@@ -90,7 +97,13 @@ class HomeShell extends ConsumerWidget {
             const SizedBox(height: 12),
             _invitations(context, ref, scheme),
             Text('Your spaces', style: TextStyle(color: scheme.onSurfaceVariant)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
+            Text(
+              'Tap a space to open it. Tap the star to make it your default - the app '
+              'opens there and the menu acts on it.',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
             spaces.when(
               loading: () => const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
@@ -110,8 +123,25 @@ class HomeShell extends ConsumerWidget {
                       child: ListTile(
                         leading: Icon(s.isPersonal ? Icons.lock_outline : Icons.group_outlined),
                         title: Text(s.name),
-                        subtitle: Text(s.kind),
-                        trailing: const Icon(Icons.chevron_right),
+                        subtitle: Text(s.id == captureSpace?.id ? '${s.kind} - default' : s.kind),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: s.id == defaultId
+                                  ? 'Default space - tap to clear'
+                                  : 'Make default',
+                              icon: Icon(
+                                s.id == defaultId ? Icons.star : Icons.star_border,
+                                color: s.id == defaultId ? scheme.primary : scheme.onSurfaceVariant,
+                              ),
+                              onPressed: () => ref
+                                  .read(defaultSpaceProvider.notifier)
+                                  .set(s.id == defaultId ? null : s.id),
+                            ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
                         onTap: () => context.push('/documents', extra: s),
                       ),
                     ),
@@ -185,27 +215,55 @@ class HomeShell extends ConsumerWidget {
     ref.invalidate(spacesProvider);
   }
 
-  /// Prompt for a name and create a shared space.
+  /// Prompt for a name and create a shared space. The dialog owns its own text
+  /// controller (see [_NewSpaceDialog]) so cancelling or backing out never disposes
+  /// a controller a still-animating field is reading (that was the crash-screen bug).
   Future<void> _createSpace(BuildContext context, WidgetRef ref) async {
-    final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New shared space'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Name', hintText: 'e.g. Household'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Create')),
-        ],
-      ),
+      builder: (_) => const _NewSpaceDialog(),
     );
-    ctrl.dispose();
     if (name == null || name.isEmpty) return;
     await ref.read(spacesApiProvider).create(name);
     ref.invalidate(spacesProvider);
+  }
+}
+
+/// The "new shared space" dialog. A StatefulWidget so its TextEditingController is
+/// tied to the dialog's own lifecycle and disposed only after the route is gone.
+class _NewSpaceDialog extends StatefulWidget {
+  const _NewSpaceDialog();
+
+  @override
+  State<_NewSpaceDialog> createState() => _NewSpaceDialogState();
+}
+
+class _NewSpaceDialogState extends State<_NewSpaceDialog> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New shared space'),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(labelText: 'Name', hintText: 'e.g. Household'),
+        onSubmitted: (v) => Navigator.pop(context, v.trim()),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child: const Text('Create'),
+        ),
+      ],
+    );
   }
 }

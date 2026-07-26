@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,11 +31,22 @@ public class CategoryController {
         this.repository = repository;
     }
 
-    /** Returns global categories plus (if given) the space's custom categories. */
+    /**
+     * Returns global categories plus (if given) the space's custom categories.
+     *
+     * <p>Ordering is explicit and stable: alphabetical by label, but with the catch-all
+     * "Other" pinned last so it always reads as the fallback bucket. Without this the
+     * rows come back in raw insertion order, which is why "Bank" (seeded in a later
+     * migration) surfaced after "Other".
+     */
     @GetMapping
     public List<CategoryView> list(@RequestParam(value = "spaceId", required = false) UUID spaceId) {
         return repository.findAll().stream()
                 .filter(c -> c.getSpaceId() == null || c.getSpaceId().equals(spaceId))
+                .sorted(Comparator
+                        .comparingInt((Category c) -> "other".equalsIgnoreCase(c.getCode()) ? 1 : 0)
+                        .thenComparing(c -> c.getLabel() == null ? "" : c.getLabel(),
+                                String.CASE_INSENSITIVE_ORDER))
                 .map(c -> new CategoryView(c.getCode(), c.getLabel(), c.getSpaceId() == null))
                 .toList();
     }

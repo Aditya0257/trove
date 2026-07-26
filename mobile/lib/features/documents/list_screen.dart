@@ -136,6 +136,29 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     }
   }
 
+  /// Confirm a swipe-to-delete. Returns true only if the user taps Move to Trash.
+  Future<bool> _confirmDelete(TroveDocument doc) async {
+    final name = doc.merchant ?? doc.category ?? 'this document';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Move to Trash?'),
+        content: Text('"$name" will move to Trash. You can restore it for 30 days.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Move to Trash'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
   Future<void> _delete(TroveDocument doc) async {
     try {
       await ref.read(documentsApiProvider).delete(doc.id);
@@ -154,6 +177,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final categories = ref.watch(categoriesProvider);
+
+    // Reload when a document is confirmed elsewhere (e.g. returning from the confirm
+    // screen), so a newly added document appears without a manual pull-to-refresh.
+    ref.listen(documentsChangedProvider, (_, __) {
+      if (mounted) _reset();
+    });
 
     return Scaffold(
       key: _scaffoldKey,
@@ -298,6 +327,14 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                               ),
                             ),
                           ),
+                          const InfoTip(
+                            title: 'Rows per page',
+                            text:
+                                'Documents load a page at a time instead of all at once, '
+                                'which keeps a large vault fast. This sets how many load per '
+                                'batch (10, 25, 50 or 100); the next batch loads automatically '
+                                'as you scroll to the bottom.',
+                          ),
                           const SizedBox(width: 4),
                           Icon(_filtersOpen ? Icons.expand_less : Icons.expand_more,
                               color: scheme.onSurfaceVariant,),
@@ -378,6 +415,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
             padding: const EdgeInsets.only(right: 20),
             child: Icon(Icons.delete_outline, color: scheme.onErrorContainer),
           ),
+          // Ask before removing the row, so an accidental swipe never deletes silently.
+          confirmDismiss: (_) => _confirmDelete(doc),
           onDismissed: (_) => _delete(doc),
           child: _DocTile(doc: doc),
         );

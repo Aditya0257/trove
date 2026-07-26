@@ -25,11 +25,20 @@ import 'package:intl/intl.dart';
 import '../../core/notice/ai_usage.dart';
 import '../../core/notice/dev_log.dart';
 
-class DeveloperDrawer extends ConsumerWidget {
+class DeveloperDrawer extends ConsumerStatefulWidget {
   const DeveloperDrawer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DeveloperDrawer> createState() => _DeveloperDrawerState();
+}
+
+class _DeveloperDrawerState extends ConsumerState<DeveloperDrawer> {
+  // When on, only failed calls (non-2xx or never-reached) are shown - a quick way to
+  // spot what went wrong without scanning the whole trail.
+  bool _errorsOnly = false;
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.92,
@@ -38,18 +47,40 @@ class DeveloperDrawer extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
               child: Row(
                 children: [
                   const Text('Developer',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),),
                   const SizedBox(width: 8),
-                  Text('request trail',
-                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),),
+                  Expanded(
+                    child: Text('request trail',
+                        style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),),
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ],
+              ),
+            ),
+            // Filter + clear on their own labelled row, so the controls are obvious.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
+              child: Row(
+                children: [
+                  FilterChip(
+                    label: const Text('Errors only'),
+                    selected: _errorsOnly,
+                    visualDensity: VisualDensity.compact,
+                    onSelected: (v) => setState(() => _errorsOnly = v),
+                  ),
                   const Spacer(),
-                  TextButton(
+                  TextButton.icon(
                     onPressed: () => DeveloperLog.instance.clear(),
-                    child: const Text('Clear'),
+                    icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                    label: const Text('Clear'),
                   ),
                 ],
               ),
@@ -61,11 +92,18 @@ class DeveloperDrawer extends ConsumerWidget {
               child: ListenableBuilder(
                 listenable: DeveloperLog.instance,
                 builder: (context, _) {
-                  final entries = DeveloperLog.instance.entries;
+                  final all = DeveloperLog.instance.entries;
+                  final entries = _errorsOnly
+                      ? all.where((e) => !e.ok || !e.reachedServer).toList()
+                      : all;
                   if (entries.isEmpty) {
                     return Center(
-                      child: Text('No requests yet.',
-                          style: TextStyle(color: scheme.onSurfaceVariant),),
+                      child: Text(
+                        _errorsOnly
+                            ? (all.isEmpty ? 'No requests yet.' : 'No errors - all calls succeeded.')
+                            : 'No requests yet.',
+                        style: TextStyle(color: scheme.onSurfaceVariant),
+                      ),
                     );
                   }
                   return ListView.separated(

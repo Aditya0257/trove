@@ -116,10 +116,15 @@ class ApiClient {
       {Notice? notice, Map<String, dynamic>? extractionMeta, Object? body,}) {
     final sw = o.extra['sw'];
     final ms = sw is Stopwatch ? sw.elapsedMilliseconds : 0;
+    // Include the query string (e.g. ?spaceId=...&page=0&size=25) so the Developer
+    // drawer shows that reads really are paged, not just the bare path. The meaning
+    // registry splits on '?', so appending the query does not affect labelling.
+    final query = o.uri.query;
+    final displayPath = query.isEmpty ? o.path : '${o.path}?$query';
     return DevLogEntry(
       at: DateTime.now(),
       method: o.method,
-      path: o.path,
+      path: displayPath,
       statusCode: status,
       durationMs: ms,
       requestId: requestId,

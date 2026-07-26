@@ -55,7 +55,12 @@ class DocumentDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(doc.merchant ?? doc.category ?? 'Document'),
+        title: Text(
+          doc.merchant ?? doc.category ?? 'Document',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 18),
+        ),
         actions: [
           if (doc.needsReview)
             TextButton(

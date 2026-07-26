@@ -55,6 +55,9 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
   bool _busy = false;
   // Human-readable filing progress while the bundle uploads ("Filing 2 of 3...").
   String? _progress;
+  // Generated once and reused across retries, so screenshots filed on a second
+  // attempt (after a partial failure) still join the same thread.
+  String? _bundleId;
 
   @override
   void dispose() {
@@ -94,7 +97,8 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _addScreenshots() async {
+  /// Pick one or more screenshots from the gallery.
+  Future<void> _addFromGallery() async {
     if (_busy) return;
     try {
       final picked = await _picker.pickMultiImage(imageQuality: 85, maxWidth: 2200);
@@ -104,6 +108,14 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
       final one = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 2200);
       if (one != null) setState(() => _shots.add(one));
     }
+  }
+
+  /// Take a photo with the camera (e.g. a printed letter, or a screen you cannot
+  /// screenshot). Added to the same queue as gallery picks.
+  Future<void> _takePhoto() async {
+    if (_busy) return;
+    final shot = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 2200);
+    if (shot != null) setState(() => _shots.add(shot));
   }
 
   void _remove(int index) {
@@ -118,20 +130,27 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
     final address = _address.text.trim();
     final topic = _topic.text.trim();
     final subject = _subject.text.trim();
-    final bundleId = _newBundleId();
+    final bundleId = _bundleId ??= _newBundleId();
     final api = ref.read(documentsApiProvider);
+
+    // Work over a snapshot and record which shots actually filed. If one fails
+    // partway, the already-filed shots are dropped from the queue so a retry only
+    // re-sends the rest - the backend rejects a re-upload of the same file as a
+    // duplicate, which is exactly the "doc already exists" error we are avoiding.
+    final pending = List<XFile>.from(_shots);
+    final filed = <XFile>[];
 
     setState(() {
       _busy = true;
       _progress = null;
     });
     try {
-      for (var i = 0; i < _shots.length; i++) {
-        if (mounted) setState(() => _progress = 'Filing ${i + 1} of ${_shots.length}...');
+      for (var i = 0; i < pending.length; i++) {
+        if (mounted) setState(() => _progress = 'Filing ${i + 1} of ${pending.length}...');
         // extract:false so the async AI reader never overwrites the email category/bundle.
         final doc = await api.upload(
           spaceId: widget.spaceId,
-          filePath: _shots[i].path,
+          filePath: pending[i].path,
           extract: false,
         );
         await api.confirm(
@@ -148,11 +167,14 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
             if (notes.isNotEmpty) 'notes': notes,
           },
         );
+        filed.add(pending[i]);
       }
       _toast(NoticeLevel.success, 'MAIL_FILED', 'Email filed.');
       if (mounted) context.pop();
     } catch (_) {
-      // The API client already surfaces failures through the Notice System.
+      // The API client already surfaced the failure as a toast. Drop the shots that
+      // did file so a retry sends only the ones that still need filing.
+      if (mounted) setState(() => _shots.removeWhere(filed.contains));
     } finally {
       if (mounted) {
         setState(() {
@@ -241,15 +263,29 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _addScreenshots,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: const Text('Add screenshots'),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _takePhoto,
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: const Text('Take photo'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _addFromGallery,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Gallery'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (_shots.isEmpty)
             Text(
-              'Add at least one screenshot of the email to file it.',
+              'Take a photo or add screenshots of the email to file it.',
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
             )
           else

@@ -39,16 +39,25 @@ class _NoticeToastState extends State<NoticeToast> {
     final accent = AppTheme.noticeColor(scheme, widget.notice.level);
     final hasDev = (widget.notice.devNote ?? '').isNotEmpty;
 
+    // surfaceContainerHigh sits a step above the scaffold's `surface`, so the toast
+    // reads as a distinct raised card in dark mode instead of blending into the
+    // background. A thin outline all around (plus the thicker accent bar on the left)
+    // keeps the edge crisp against both light and dark grounds.
     return Material(
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
-          color: scheme.surface,
+          color: scheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(14),
-          border: Border(left: BorderSide(color: accent, width: 4)),
+          border: Border(
+            left: BorderSide(color: accent, width: 4),
+            top: BorderSide(color: scheme.outlineVariant),
+            right: BorderSide(color: scheme.outlineVariant),
+            bottom: BorderSide(color: scheme.outlineVariant),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
+              color: Colors.black.withValues(alpha: 0.28),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),

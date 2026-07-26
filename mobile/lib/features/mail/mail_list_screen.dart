@@ -26,66 +26,89 @@ class MailListScreen extends ConsumerStatefulWidget {
 }
 
 class _MailListScreenState extends ConsumerState<MailListScreen> {
+  // One page per fetch; more load as you scroll (matches the Documents list so both
+  // screens behave the same way - no odd "Page 1 of 1" pager).
   static const int _size = 25;
 
+  final ScrollController _scroll = ScrollController();
+  final List<MailBundle> _bundles = [];
   int _page = 0;
-  bool _busy = false;
-  MailPage? _data;
-  bool _failed = false;
+  bool _loading = false;
+  bool _end = false;
+  bool _error = false;
+  bool _initial = true;
 
   MailApi get _api => ref.read(mailApiProvider);
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _scroll.addListener(_onScroll);
+    _loadNext();
   }
 
-  Future<void> _load() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _failed = false;
-    });
-    try {
-      final page = await _api.bundles(widget.spaceId, page: _page, size: _size);
-      if (mounted) setState(() => _data = page);
-    } catch (_) {
-      // The API client already surfaces failures through the Notice System.
-      if (mounted) setState(() => _failed = true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 320) {
+      _loadNext();
     }
   }
 
-  int get _pageCount {
-    final total = _data?.total ?? 0;
-    if (total <= 0) return 1;
-    return ((total + _size - 1) ~/ _size);
+  Future<void> _loadNext() async {
+    if (_loading || _end) return;
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    try {
+      final page = await _api.bundles(widget.spaceId, page: _page, size: _size);
+      if (!mounted) return;
+      setState(() {
+        _bundles.addAll(page.bundles);
+        _page++;
+        if (page.bundles.length < _size) _end = true;
+      });
+    } catch (_) {
+      // The API client already surfaces failures through the Notice System.
+      if (mounted) setState(() => _error = true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _initial = false;
+        });
+      }
+    }
   }
 
-  Future<void> _goto(int page) async {
-    if (page < 0 || page >= _pageCount || _busy) return;
-    setState(() => _page = page);
-    await _load();
+  Future<void> _reset() async {
+    setState(() {
+      _bundles.clear();
+      _page = 0;
+      _end = false;
+      _error = false;
+      _initial = true;
+    });
+    await _loadNext();
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mail'),
-        actions: [
-          IconButton(
-            tooltip: 'File email',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              await context.push('/mail-compose', extra: widget.spaceId);
-              if (mounted) _goto(0); // refresh to show a newly filed thread
-            },
-          ),
-        ],
+      appBar: AppBar(title: const Text('Mail')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await context.push('/mail-compose', extra: widget.spaceId);
+          if (mounted) _reset(); // show a newly filed thread on return
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('File email'),
       ),
       body: Column(
         children: [
@@ -94,27 +117,26 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
             child: HelpCard(
               title: 'Mail',
               user:
-                  "Emails you have filed, grouped into threads. Each thread can hold several screenshots of the same email. Tap a thread to view its screenshots and details.",
+                  "Emails you have filed, grouped into threads. Each thread can hold several screenshots of the same email. Tap a thread to view its screenshots and details. More threads load as you scroll down.",
               dev: null,
             ),
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: _reset,
               child: _body(scheme),
             ),
           ),
-          _pager(scheme),
         ],
       ),
     );
   }
 
   Widget _body(ColorScheme scheme) {
-    if (_busy && _data == null) {
+    if (_initial && _loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_failed && _data == null) {
+    if (_error && _bundles.isEmpty) {
       return ListView(
         children: [
           const SizedBox(height: 80),
@@ -127,8 +149,7 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
         ],
       );
     }
-    final bundles = _data?.bundles ?? const <MailBundle>[];
-    if (bundles.isEmpty) {
+    if (_bundles.isEmpty) {
       return ListView(
         children: [
           const SizedBox(height: 80),
@@ -142,45 +163,24 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
       );
     }
     return ListView.builder(
+      controller: _scroll,
       padding: const EdgeInsets.all(12),
-      itemCount: bundles.length,
-      itemBuilder: (_, i) => _ThreadCard(
-        bundle: bundles[i],
-        onTap: () => context.push('/mail-thread', extra: {
-          'spaceId': widget.spaceId,
-          'bundleId': bundles[i].bundleId,
-        },),
-      ),
-    );
-  }
-
-  Widget _pager(ColorScheme scheme) {
-    final atFirst = _page <= 0;
-    final atLast = _page >= _pageCount - 1;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton.icon(
-              onPressed: (atFirst || _busy) ? null : () => _goto(_page - 1),
-              icon: const Icon(Icons.chevron_left),
-              label: const Text('Prev'),
-            ),
-            Text(
-              'Page ${_page + 1} of $_pageCount',
-              style: TextStyle(color: scheme.onSurfaceVariant),
-            ),
-            TextButton.icon(
-              onPressed: (atLast || _busy) ? null : () => _goto(_page + 1),
-              icon: const Icon(Icons.chevron_right),
-              label: const Text('Next'),
-            ),
-          ],
-        ),
-      ),
+      itemCount: _bundles.length + (_end ? 0 : 1),
+      itemBuilder: (_, i) {
+        if (i >= _bundles.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return _ThreadCard(
+          bundle: _bundles[i],
+          onTap: () => context.push('/mail-thread', extra: {
+            'spaceId': widget.spaceId,
+            'bundleId': _bundles[i].bundleId,
+          },),
+        );
+      },
     );
   }
 }
