@@ -25,7 +25,16 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
         </div>
 
         @if (reading()) {
-          <p class="muted">Reading the document. The fields below will fill in automatically…</p>
+          <div class="ai-note reading">
+            <span class="spinner" aria-hidden="true"></span>
+            <div>
+              <b>Reading your document with AI.</b> This usually takes a few seconds (up to about
+              30 seconds for a dense page). You can wait and the fields below fill in on their own,
+              or start typing now if you prefer: anything you enter is kept, and the AI only fills
+              the blanks it reads, so it will not overwrite what you have typed. Either way, give
+              the values a quick check before you Confirm.
+            </div>
+          </div>
         } @else if (needsReview()) {
           @if (extractionSkipped()) {
             <div class="ai-note skipped">
@@ -190,6 +199,17 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
       .warn { color: var(--warn); }
       .ai-note.failed { background: var(--danger-soft); border-left-color: var(--danger); }
       .ai-note.skipped { background: var(--accent-soft); border-left-color: var(--accent); }
+      .ai-note.reading {
+        background: var(--accent-soft); border-left-color: var(--accent);
+        display: flex; align-items: flex-start; gap: 10px;
+      }
+      .ai-note.reading .spinner {
+        flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%;
+        border: 2px solid var(--accent-line); border-top-color: var(--accent);
+        animation: trove-spin 0.8s linear infinite;
+      }
+      @keyframes trove-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .ai-note.reading .spinner { animation: none; } }
       .extracted { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
       .extracted summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--accent); }
       .ex-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin: 12px 0 4px; }
@@ -411,6 +431,7 @@ export class Review {
   /** Re-run AI reading (after a read that timed out and left the fields blank). */
   readAgain(): void {
     if (this.reading()) return;
+    this.preFill = { ...this.form }; // preserve anything typed while the re-read runs
     this.reading.set(true);
     this.api.reextractDocument(this.id).subscribe({
       next: () => this.loadAndPoll(0),
@@ -432,11 +453,16 @@ export class Review {
       // Don't wait for a read that will never come: skip polling when AI reading was off.
       const skipped = doc.extra?.['extractionSkipped'] === true;
       if (!skipped && doc.extractionConfidence == null && doc.status === 'needs_review' && attempt < 12) {
+        // Snapshot the form the moment we start reading, so we can preserve anything the
+        // user types while they wait.
+        if (!this.reading()) this.preFill = { ...this.form };
         this.reading.set(true);
         setTimeout(() => this.loadAndPoll(attempt + 1), 2000);
       } else {
+        const wasReading = this.reading();
         this.reading.set(false);
-        this.fillForm(doc);
+        this.fillForm(doc, wasReading);
+        this.preFill = null;
       }
     });
   }
@@ -447,17 +473,32 @@ export class Review {
     return at ? new Date(at).toLocaleString('en-GB', { hour12: false }) : '';
   }
 
-  private fillForm(doc: DocumentResponse): void {
+  // The form as it was when the AI read STARTED. Used to tell apart fields the user has
+  // since typed (which we must not overwrite) from untouched ones (which the read fills).
+  private preFill: typeof this.form | null = null;
+
+  /**
+   * Fill the form from a document. When [preserve] is set (the AI read landed while the
+   * user may have been typing), any field the user changed since the read started is kept
+   * and only the blanks are filled from the read - so a late extraction never clobbers what
+   * they entered. Otherwise every field is set from the document (initial load / re-edit).
+   */
+  private fillForm(doc: DocumentResponse, preserve = false): void {
+    const cur = this.form;
+    const base = this.preFill;
+    // A field counts as "user-edited" when it differs from its value at read-start.
+    const kept = <K extends keyof typeof cur>(k: K, incoming: (typeof cur)[K]): (typeof cur)[K] =>
+      preserve && base != null && cur[k] !== base[k] ? cur[k] : incoming;
     this.form = {
-      category: doc.category ?? '',
-      merchant: doc.merchant ?? '',
-      amount: doc.amount,
-      currency: doc.currency ?? 'INR',
-      docDate: doc.docDate ?? '',
-      dueDate: doc.dueDate ?? '',
-      warrantyUntil: (doc.extra?.['warrantyUntil'] as string) ?? '',
-      notes: (doc.extra?.['notes'] as string) ?? '',
-      vital: doc.vital,
+      category: kept('category', doc.category ?? ''),
+      merchant: kept('merchant', doc.merchant ?? ''),
+      amount: kept('amount', doc.amount),
+      currency: kept('currency', doc.currency ?? 'INR'),
+      docDate: kept('docDate', doc.docDate ?? ''),
+      dueDate: kept('dueDate', doc.dueDate ?? ''),
+      warrantyUntil: kept('warrantyUntil', (doc.extra?.['warrantyUntil'] as string) ?? ''),
+      notes: kept('notes', (doc.extra?.['notes'] as string) ?? ''),
+      vital: kept('vital', doc.vital),
     };
   }
 
