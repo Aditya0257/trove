@@ -28,23 +28,23 @@ class AdminScreen extends ConsumerWidget {
         .show(Notice.local(level: level, code: code, userMessage: message));
   }
 
-  Future<void> _approve(WidgetRef ref, PendingUser u) async {
+  Future<void> _approve(WidgetRef ref, String id, String email) async {
     try {
-      await ref.read(adminApiProvider).approve(u.id);
+      await ref.read(adminApiProvider).approve(id);
       ref.invalidate(adminPendingProvider);
       ref.invalidate(adminUsersProvider);
-      _toast(NoticeLevel.success, 'USER_APPROVED', '${u.email} has been approved.');
+      _toast(NoticeLevel.success, 'USER_APPROVED', '$email has been approved.');
     } catch (_) {
       // The API client already surfaces failures through the Notice System.
     }
   }
 
-  Future<void> _reject(WidgetRef ref, PendingUser u) async {
+  Future<void> _reject(WidgetRef ref, String id, String email) async {
     try {
-      await ref.read(adminApiProvider).reject(u.id);
+      await ref.read(adminApiProvider).reject(id);
       ref.invalidate(adminPendingProvider);
       ref.invalidate(adminUsersProvider);
-      _toast(NoticeLevel.info, 'USER_REJECTED', "${u.email}'s request was rejected.");
+      _toast(NoticeLevel.info, 'USER_REJECTED', "$email's request was rejected.");
     } catch (_) {
       // The API client already surfaces failures through the Notice System.
     }
@@ -176,12 +176,12 @@ class AdminScreen extends ConsumerWidget {
             Row(
               children: [
                 FilledButton(
-                  onPressed: () => _approve(ref, u),
+                  onPressed: () => _approve(ref, u.id, u.email),
                   child: const Text('Approve'),
                 ),
                 const SizedBox(width: 8),
                 TextButton(
-                  onPressed: () => _reject(ref, u),
+                  onPressed: () => _reject(ref, u.id, u.email),
                   child: const Text('Reject'),
                 ),
               ],
@@ -195,6 +195,11 @@ class AdminScreen extends ConsumerWidget {
   Widget _userCard(
       BuildContext context, WidgetRef ref, ColorScheme scheme, AdminUser u,) {
     final name = u.displayName.isNotEmpty ? u.displayName : u.email;
+    // A verified-but-not-yet-active account is awaiting the admin's approval. Offer the
+    // approve/reject controls right here too, so an admin can always act on it even if
+    // the "Awaiting approval" list above is momentarily stale.
+    final awaitingApproval =
+        !u.admin && (u.status == 'pending' || u.status == 'awaiting_approval');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -234,6 +239,22 @@ class AdminScreen extends ConsumerWidget {
                       scheme.onPrimaryContainer,),
               ],
             ),
+            if (awaitingApproval) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  FilledButton(
+                    onPressed: () => _approve(ref, u.id, u.email),
+                    child: const Text('Approve'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => _reject(ref, u.id, u.email),
+                    child: const Text('Reject'),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

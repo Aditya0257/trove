@@ -211,9 +211,12 @@ class _NoticeHostState extends State<NoticeHost> {
     final center = NoticeCenter.instance;
     if (center.token == _seen) return;
     _seen = center.token;
-    setState(() => _current = center.latest);
+    final next = center.latest;
+    // Never surface an empty notice - a blank toast is just visual noise.
+    if (next == null || next.userMessage.trim().isEmpty) return;
+    setState(() => _current = next);
     _timer?.cancel();
-    final ms = switch (_current!.level) {
+    final ms = switch (next.level) {
       NoticeLevel.error => 8000,
       NoticeLevel.warning => 7000,
       _ => 4000,
@@ -237,11 +240,11 @@ class _NoticeHostState extends State<NoticeHost> {
             right: 12,
             child: SafeArea(
               top: false,
-              // Centered and width-capped so the toast is a tidy card, not a full-width
-              // bar, on wide phones and tablets.
+              // Centered and width-capped so the toast reads as a compact card with
+              // clear side margins, not a full-width bar.
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
+                  constraints: const BoxConstraints(maxWidth: 340),
                   child: NoticeToast(notice: _current!, onDismiss: _dismiss),
                 ),
               ),
