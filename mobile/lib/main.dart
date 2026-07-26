@@ -230,12 +230,16 @@ class _NoticeHostState extends State<NoticeHost> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    // Width scales with the screen (about 85% of it) rather than a fixed number, and
+    // is clamped so it stays a tidy card on both a small phone and a wide tablet.
+    final toastMaxWidth = (media.size.width * 0.85).clamp(260.0, 460.0);
     return Stack(
       children: [
         widget.child,
         if (_current != null)
           Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 72,
+            bottom: media.padding.bottom + 72,
             left: 12,
             right: 12,
             child: SafeArea(
@@ -244,7 +248,7 @@ class _NoticeHostState extends State<NoticeHost> {
               // clear side margins, not a full-width bar.
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 340),
+                  constraints: BoxConstraints(maxWidth: toastMaxWidth),
                   child: NoticeToast(notice: _current!, onDismiss: _dismiss),
                 ),
               ),

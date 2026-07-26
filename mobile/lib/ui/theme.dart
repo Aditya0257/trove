@@ -64,7 +64,13 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          // A comfortable height and a sane minimum width. Deliberately NOT
+          // Size.fromHeight (which is Size(infinity, h)): an infinite minimum width
+          // makes a FilledButton crash inside a Row/Wrap (unbounded main axis) and
+          // stops action buttons from sizing to their label. Full-width buttons get
+          // their width from a stretch Column or a ListView (tight constraints), so
+          // they are unaffected by this.
+          minimumSize: const Size(64, 52),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
