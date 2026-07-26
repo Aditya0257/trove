@@ -329,6 +329,41 @@ public class DocumentService {
         return toResponse(doc);
     }
 
+    /** Max related documents returned for one document. */
+    private static final int RELATED_LIMIT = 12;
+
+    /**
+     * Documents related to this one - the "auto-linking" view. Prefers others from the same
+     * merchant (a bill/policy series); falls back to the same category when there is no
+     * merchant. Computed live from the index, so nothing is stored or can drift. Newest first,
+     * excluding the document itself and the trash. Requires read access.
+     */
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> related(UUID documentId, UUID userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanRead(doc.getSpaceId(), userId);
+
+        List<Document> candidates;
+        if (doc.getMerchantId() != null) {
+            candidates = new java.util.ArrayList<>(documentRepository
+                    .findBySpaceIdAndMerchantIdAndStatusOrderByDocDateAsc(
+                            doc.getSpaceId(), doc.getMerchantId(), DocumentStatus.CONFIRMED));
+            java.util.Collections.reverse(candidates); // most recent first
+        } else if (doc.getCategoryId() != null) {
+            candidates = documentRepository.findBySpaceIdAndCategoryIdAndStatusNotOrderByCreatedAtDesc(
+                    doc.getSpaceId(), doc.getCategoryId(), DocumentStatus.DELETED);
+        } else {
+            return List.of();
+        }
+
+        List<Document> related = candidates.stream()
+                .filter(c -> !c.getId().equals(documentId))
+                .limit(RELATED_LIMIT)
+                .toList();
+        return present(related);
+    }
+
     /**
      * Soft-deletes a document: moves its file + sidecar from the live path to a trash
      * prefix in object storage (NOT erased), and marks the row status=deleted with who/

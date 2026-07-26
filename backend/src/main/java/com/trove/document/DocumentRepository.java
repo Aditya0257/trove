@@ -78,6 +78,10 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>,
     List<Document> findBySpaceIdAndMerchantIdAndStatusOrderByDocDateAsc(
             UUID spaceId, UUID merchantId, String status);
 
+    /** All documents in a space with a given status - used by the intelligence feature to scan
+     *  confirmed documents for upcoming expiries and recurring/subscription cadences. */
+    List<Document> findBySpaceIdAndStatus(UUID spaceId, String status);
+
     /** Trashed documents past their retention window (the purge sweep). */
     List<Document> findByStatusAndDeletedAtBefore(String status, java.time.Instant cutoff);
 

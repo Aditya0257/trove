@@ -132,6 +132,12 @@ public class DocumentController {
         return documentService.get(id, currentUser.requireUserId());
     }
 
+    /** Documents related to this one (same merchant, else same category) - the auto-link view. */
+    @GetMapping("/{id}/related")
+    public List<DocumentResponse> related(@PathVariable UUID id) {
+        return documentService.related(id, currentUser.requireUserId());
+    }
+
     /** Return a fresh short-lived URL to view/download the original file. */
     @GetMapping("/{id}/file")
     public Map<String, String> fileUrl(@PathVariable UUID id) {
