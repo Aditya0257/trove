@@ -45,6 +45,7 @@ contrast, is private to the author's account and is only a convenient preview.)
 The whole backend from `DESIGN.md` §5 is built, tested live, and committed:
 upload → durable store + sidecar; a **multi-provider extraction chain**; **JWT auth**
 + **shared spaces/roles**; **spend tracking**; **reminders**; **anomaly detection**;
+**document intelligence** (expiring-soon, recurring/subscription detection, related docs);
 **natural-language search**; a full **backup story** (export/import ZIP, DR
 rebuild-from-sidecars, pg_dump, Google Drive per-owner sync, Backblaze B2 mirror);
 **forward-to-file ingestion** (email/WhatsApp + per-space addresses); and
@@ -79,6 +80,12 @@ date is confirmed (see Reminders below).
 
 **Anomaly detection** is implemented (Slice 6): a confirmed bill is flagged when
 it's well above the trailing average for its category (see Anomalies below).
+
+**Document intelligence** (Insights) reads confirmed documents to surface an
+**expiring-soon** dashboard (bills due, renewals, warranty ends - excluding what you have
+already handled in Reminders), **recurring/subscription** detection with a predicted next
+date, and **related documents** (same merchant/category). Read-only, no extra storage and no
+AI cost. See `docs/lld/insights.md` and the Insights endpoints in `docs/API.md`.
 
 **Search** is implemented (Slice 7): natural-language and structured search over
 your documents (see Search below).

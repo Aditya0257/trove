@@ -61,6 +61,8 @@ Store the `token`; send it as `Authorization: Bearer <token>` on every other cal
 | GET | `/api/documents/{id}/content` | raw file bytes (decrypted if vital) - use this to render/download |
 | GET | `/api/documents/{id}/file` | `{ "url" }` - presigned URL (non-vital) or the `/content` path (vital) |
 | POST | `/api/documents/{id}/confirm` | body optional: `{category?, merchant?, docDate?, amount?, currency?, dueDate?, vital?, extra?}` → `confirmed` |
+| POST | `/api/documents/{id}/reextract` | re-run AI reading (after a read that timed out and left it blank); resets confidence + re-dispatches extraction. Vital/encrypted docs are rejected. |
+| GET | `/api/documents/{id}/related` | other confirmed docs from the same merchant (else same category), newest first - the auto-link view. `[DocumentResponse]` |
 
 **DocumentResponse**:
 ```json
@@ -118,6 +120,15 @@ Dates are ISO `yyyy-MM-dd`, optional. Only **confirmed** documents are counted.
 | POST | `/api/reminders/{id}/dismiss` | - | mark dismissed |
 
 A `due` reminder is auto-created when a document with a due date is confirmed.
+
+## Document intelligence (Insights)
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/insights/expiring?spaceId=&withinDays=90` | `[{documentId, title, category, kind, date, daysLeft, amount, currency}]` - bills due, renewals and warranty ends within the window (plus anything lapsed in the last 30 days), soonest first. `kind` ∈ due\|renewal\|warranty; `daysLeft` is signed (negative = overdue). Items already marked Done or Dismissed in Reminders are excluded. |
+| GET | `/api/insights/recurring?spaceId=` | `[{merchant, category, categoryLabel, occurrences, cadence, averageAmount, currency, lastSeen, nextExpected}]` - merchant+category groups that repeat on a regular cadence (`weekly\|monthly\|quarterly\|yearly`), with the predicted next date. |
+
+Read-only, computed live from **confirmed** documents (no extra storage, no AI cost). Reminders stays the action inbox that notifies you; Insights is the read-only overview of what is still outstanding, plus recurring/subscription detection. Related documents are served by `GET /api/documents/{id}/related` (see Documents).
 
 ## Anomalies
 
@@ -186,6 +197,8 @@ Each flagged doc carries `extra.anomaly = { anomaly, amount, average, deltaPct, 
 4. **Browse** - list by category; document detail renders via `/content`.
 5. **Spend dashboard** - `/api/spend/*` charts.
 6. **Reminders** - list + dismiss.
-7. **Search** - one box → `/api/search?q=…`, show `interpreted`.
-8. **Spaces** - create/join, manage members, show the space's ingest address.
+7. **Insights** - `/api/insights/expiring` (with a day-window) + `/api/insights/recurring`; a
+   "related documents" panel on Review via `/api/documents/{id}/related`.
+8. **Search** - one box → `/api/search?q=…`, show `interpreted`.
+9. **Spaces** - create/join, manage members, show the space's ingest address.
 9. **Settings/backup** - connect Google Drive (owner), export ZIP, connection status.

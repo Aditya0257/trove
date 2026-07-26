@@ -18,6 +18,7 @@ configuration, notable flows, and edge cases.
 | [spaces-and-access.md](spaces-and-access.md) | `space`, `auth`, `common/security` - spaces, membership, roles, joining |
 | [search-and-chat.md](search-and-chat.md) | `search`, `chat` - NL search, embeddings, retrieval-augmented answering |
 | [spend-and-anomaly.md](spend-and-anomaly.md) | `analytics`, `anomaly` - spend aggregation and higher-than-usual detection |
+| [insights.md](insights.md) | `insights` - expiring-soon, recurring/subscription detection, related documents |
 | [drive-and-mirror.md](drive-and-mirror.md) | `drive`, `backup`, `integrity` - the three-tier copies, export/import, DR, verification |
 | [ingestion.md](ingestion.md) | `ingestion` - forward-to-file email and WhatsApp webhooks |
 | [notice-system.md](notice-system.md) | `common/notice`, `common` exception handling - the cross-cutting feedback envelope |

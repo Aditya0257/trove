@@ -149,7 +149,9 @@ export class Insights {
     'Reads GET /api/insights/expiring (due dates + extra.warrantyUntil within the window, kind = due/renewal/' +
     'warranty) and GET /api/insights/recurring (confirmed docs grouped by merchant+category, cadence inferred from ' +
     'the gaps between doc dates using the same tolerance bands as the reminder detector, next date via ' +
-    'ReminderRecurrence.next). Confirmed documents only; no extra storage and no AI cost.';
+    'ReminderRecurrence.next). Expiring excludes any document whose reminder is Done or Dismissed, so it stays ' +
+    'the read-only overview of what is outstanding while Reminders remains the action inbox. Confirmed documents ' +
+    'only; no extra storage and no AI cost.';
 
   constructor() {
     // Recurring depends only on the space; refetch on space switch.

@@ -481,6 +481,12 @@ _Meaning _meaningFor(String method, String path) {
   if (RegExp(r'^/api/documents/[^/]+/content$').hasMatch(p)) {
     return mk('Open a vital file', 'Opening your file', 'decrypt-stream the encrypted bytes', 'sensitive PII stays encrypted at rest', '$a -> DocumentController.content()');
   }
+  if (RegExp(r'^/api/documents/[^/]+/reextract$').hasMatch(p)) {
+    return mk('Read again with AI', 'Re-reading this document', 'reset confidence + re-dispatch extraction', 'retry a read that timed out', '$a -> DocumentController.reextract() -> DocumentService');
+  }
+  if (RegExp(r'^/api/documents/[^/]+/related$').hasMatch(p)) {
+    return mk('Related documents', 'Loading related documents', 'same merchant, else same category, newest first', 'auto-linking related docs', '$a -> DocumentController.related() -> DocumentService.related()');
+  }
   if (p == '/api/documents' && m == 'POST') {
     return mk('Upload a document', 'Saving your document', 'store in R2 + sidecar; async extraction queued', 'an item enters the vault', '$a -> DocumentController.upload() -> DocumentService + ExtractionProvider');
   }
@@ -504,6 +510,12 @@ _Meaning _meaningFor(String method, String path) {
   }
   if (p.startsWith('/api/spend')) {
     return mk('Spend', 'Loading your spend', 'aggregate confirmed documents by category', 'understand where money goes', '$a -> SpendController.summary()');
+  }
+  if (p == '/api/insights/expiring') {
+    return mk('Expiring soon', 'Loading what is coming up', 'due dates + warranties in the window, minus ones handled in Reminders', 'act before something lapses', '$a -> InsightsController.expiring() -> InsightsService');
+  }
+  if (p == '/api/insights/recurring') {
+    return mk('Recurring', 'Finding your subscriptions', 'group confirmed docs by merchant+category; infer cadence + predict next', 'spot what recurs', '$a -> InsightsController.recurring() -> InsightsService');
   }
   if (p.startsWith('/api/integrations/google-drive')) {
     return mk('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-navigable third copy', '$a -> DriveController');
