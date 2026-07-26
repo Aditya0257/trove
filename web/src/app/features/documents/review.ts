@@ -327,8 +327,10 @@ export class Review {
   ngOnInit(): void {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
     this.api.listCategories().subscribe((c) => this.categories.set(c));
+    // Related is loaded once the read settles (see loadAndPoll), not here: on a fresh
+    // upload the merchant/category are not known yet, so an eager fetch would return
+    // pre-read "uncategorized" siblings.
     this.loadAndPoll(0);
-    this.loadRelated();
   }
 
   /** Other documents from the same merchant/category (the auto-link view). */
@@ -463,6 +465,9 @@ export class Review {
         this.reading.set(false);
         this.fillForm(doc, wasReading);
         this.preFill = null;
+        // Now that the read has settled (merchant/category are known), load related docs
+        // off the FINAL values - not the pre-read "uncategorized" state.
+        this.loadRelated();
       }
     });
   }
