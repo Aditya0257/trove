@@ -92,6 +92,13 @@ class DocumentsApi {
     return TroveDocument.fromJson(data);
   }
 
+  /// Re-run AI reading on a document (e.g. after a first read timed out and left the
+  /// fields blank). Returns the document; the read itself runs async on the server.
+  Future<TroveDocument> reextract(String id) async {
+    final data = await _api.post('/api/documents/$id/reextract') as Map<String, dynamic>;
+    return TroveDocument.fromJson(data);
+  }
+
   /// The raw file bytes (decrypted for vital documents) - used to preview or open a PDF.
   Future<List<int>> contentBytes(String id) {
     return _api.getBytes('/api/documents/$id/content');

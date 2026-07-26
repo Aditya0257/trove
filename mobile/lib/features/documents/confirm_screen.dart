@@ -165,6 +165,20 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
     if (picked != null) setState(() => _warrantyUntil = picked);
   }
 
+  /// Ask the server to read this document again (after a read that timed out and left
+  /// the fields blank). Shows the "reading" banner and polls until the new read lands.
+  Future<void> _readAgain() async {
+    if (_reading) return;
+    try {
+      await ref.read(documentsApiProvider).reextract(_doc.id);
+      if (!mounted) return;
+      setState(() => _reading = true);
+      _pollForExtraction();
+    } catch (_) {
+      // The API client already surfaces failures through the Notice System.
+    }
+  }
+
   Future<void> _confirm() async {
     setState(() => _busy = true);
     try {
@@ -351,6 +365,22 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                       style: const TextStyle(fontFamily: 'monospace', fontSize: 12),),
                 ),
               ],
+            ),
+          ],
+          if (!_doc.encrypted) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _reading ? null : _readAgain,
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: Text(_reading ? 'Reading...' : 'Read again with AI'),
+              ),
+            ),
+            Text(
+              "If the fields above came back empty, the read may have timed out. "
+              'Try reading it again.',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
             ),
           ],
           const SizedBox(height: 8),

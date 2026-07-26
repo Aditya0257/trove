@@ -123,6 +123,17 @@ public class ExtractionWorker {
         // Bill the AI usage to the uploader + the app-wide total (shared Workers AI account).
         aiUsage.record(doc.getUploadedBy(), outcome.totalNeurons(), outcome.totalTokens());
 
+        // A transient failure (e.g. the vision model timed out under load) that fell back
+        // to the empty stub is NOT finalised: leaving extraction_confidence NULL lets the
+        // reconciler re-dispatch this document on its next sweep, so a one-off blip
+        // self-heals instead of permanently leaving the document blank. (Budget/quota
+        // stubs are finalised normally - retrying them before the daily reset is pointless.)
+        if (outcome.isRetryableStub()) {
+            log.warn("Extraction for document {} failed transiently; leaving it un-finalised for the reconciler to retry",
+                    documentId);
+            return;
+        }
+
         // Resolve category (always non-null) and merchant (optional).
         Category category = categoryService.resolve(doc.getSpaceId(), result.categoryCode());
         doc.setCategoryId(category.getId());

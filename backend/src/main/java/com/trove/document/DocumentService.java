@@ -364,6 +364,29 @@ public class DocumentService {
         log.info("Trashed document {} in space {} (recoverable until purge)", documentId, doc.getSpaceId());
     }
 
+    /**
+     * Re-run AI reading on a document. Used when a first read failed transiently (the
+     * vision model timed out or was overloaded) and left the fields blank, or when the
+     * user simply wants another attempt. Clearing extraction_confidence resets the
+     * worker's idempotency guard, and publishing the upload event re-dispatches the read
+     * after this transaction commits. Encrypted (vital) documents are never sent to the
+     * model (that would read ciphertext), so they are rejected. Requires write access.
+     */
+    @Transactional
+    public DocumentResponse reextract(UUID documentId, UUID userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new NotFoundException("Document not found: " + documentId));
+        spaceAuthorization.requireCanWrite(doc.getSpaceId(), userId);
+        if (doc.isEncrypted()) {
+            throw new IllegalArgumentException("Vital documents are not read by AI; enter their details by hand.");
+        }
+        doc.setExtractionConfidence(null);
+        documentRepository.save(doc);
+        events.publishEvent(new DocumentUploadedEvent(doc.getId()));
+        log.info("Re-dispatching extraction for document {} on request", documentId);
+        return toResponse(doc);
+    }
+
     /** The trash view: soft-deleted documents in a space, most recently deleted first. */
     @Transactional(readOnly = true)
     public List<DocumentResponse> listTrash(UUID spaceId, UUID userId) {

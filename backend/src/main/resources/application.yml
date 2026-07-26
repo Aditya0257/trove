@@ -154,7 +154,10 @@ trove:
         # (which hallucinates on receipts/bills). Both are free within the daily
         # Workers AI Neuron allowance; over-limit calls fall back to the stub.
         default-model: ${CF_MODEL:@cf/meta/llama-3.2-11b-vision-instruct}
-        timeout-seconds: ${CF_TIMEOUT:60}
+        # The 11B vision model can take a while on a dense receipt when Workers AI is
+        # under load; 90s leaves headroom so a slow-but-good read completes instead of
+        # timing out and falling back to the stub.
+        timeout-seconds: ${CF_TIMEOUT:90}
       # Google Gemini — free tier is 0 on some accounts; verify before relying on it.
       gemini:
         api-key: ${GEMINI_API_KEY:}

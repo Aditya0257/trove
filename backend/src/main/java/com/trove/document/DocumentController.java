@@ -147,6 +147,12 @@ public class DocumentController {
         return documentService.confirm(id, currentUser.requireUserId(), body);
     }
 
+    /** Re-run AI reading on a document (e.g. after a first read timed out and left it blank). */
+    @PostMapping("/{id}/reextract")
+    public DocumentResponse reextract(@PathVariable UUID id) {
+        return documentService.reextract(id, currentUser.requireUserId());
+    }
+
     /** Soft-deletes a document: moves it to the trash (recoverable), status=deleted. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

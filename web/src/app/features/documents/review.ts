@@ -34,10 +34,14 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
             </div>
           } @else if (failedRead()) {
             <div class="ai-note failed">
-              <b>We couldn't read this one automatically.</b> No worries: just fill in the
-              details below (it takes a few seconds). The fields are blank on purpose, so
-              there's nothing wrong to delete.
+              <b>We couldn't read this one automatically.</b> The read may have timed out.
+              You can try reading it again, or just fill in the details below.
               @if (readReason()) { <span class="muted"> · {{ readReason() }}</span> }
+              <div style="margin-top: 10px;">
+                <button type="button" class="view-file" (click)="readAgain()" [disabled]="reading()">
+                  {{ reading() ? 'Reading…' : 'Read again with AI' }}
+                </button>
+              </div>
             </div>
           } @else {
             <div class="ai-note">
@@ -367,6 +371,16 @@ export class Review {
       const url = this.api.fileUrl(d);
       if (url) window.open(url, '_blank');
     }
+  }
+
+  /** Re-run AI reading (after a read that timed out and left the fields blank). */
+  readAgain(): void {
+    if (this.reading()) return;
+    this.reading.set(true);
+    this.api.reextractDocument(this.id).subscribe({
+      next: () => this.loadAndPoll(0),
+      error: () => this.reading.set(false),
+    });
   }
 
   private loadAndPoll(attempt: number): void {

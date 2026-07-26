@@ -61,6 +61,22 @@ public record ExtractionOutcome(
                 .anyMatch(a -> ExtractionAttempt.QUOTA.equals(a.status()));
     }
 
+    /** True if a real provider failed transiently (e.g. a timeout or a network blip). */
+    public boolean anyTransient() {
+        return attempts != null && attempts.stream()
+                .anyMatch(a -> ExtractionAttempt.TRANSIENT.equals(a.status()));
+    }
+
+    /**
+     * True when we only got the stub because a real provider failed TRANSIENTLY (not
+     * because the daily budget was spent). Such a read is worth retrying later - the
+     * worker leaves the document un-finalised so the reconciler picks it up again,
+     * rather than poisoning it with an empty stub result it would never revisit.
+     */
+    public boolean isRetryableStub() {
+        return fellBackToStub() && anyTransient() && !anyQuota();
+    }
+
     private Integer confidencePct() {
         if (result == null || result.confidence() == null) return null;
         return (int) Math.round(result.confidence().doubleValue() * 100);

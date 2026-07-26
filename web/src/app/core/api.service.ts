@@ -90,6 +90,10 @@ export class ApiService {
   confirmDocument(id: string, body: ConfirmRequest) {
     return this.http.post<DocumentResponse>(`${API_BASE}/api/documents/${id}/confirm`, body);
   }
+  /** Re-run AI reading on a document (after a read that timed out and left it blank). */
+  reextractDocument(id: string) {
+    return this.http.post<DocumentResponse>(`${API_BASE}/api/documents/${id}/reextract`, {});
+  }
   deleteDocument(id: string) {
     return this.http.delete<void>(`${API_BASE}/api/documents/${id}`);
   }
