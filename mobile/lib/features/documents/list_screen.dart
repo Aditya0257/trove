@@ -301,9 +301,14 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                         children: [
                           Icon(Icons.filter_list, size: 18, color: scheme.onSurfaceVariant),
                           const SizedBox(width: 8),
-                          Text('Category: $selected',
-                              style: const TextStyle(fontWeight: FontWeight.w600),),
-                          const Spacer(),
+                          // Expanded (not a plain Text + Spacer) so a long category label
+                          // ellipsizes instead of overflowing the row on a narrow phone.
+                          Expanded(
+                            child: Text('Category: $selected',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w600),),
+                          ),
+                          const SizedBox(width: 8),
                           PopupMenuButton<int>(
                             tooltip: 'Rows per page',
                             onSelected: _setPageSize,

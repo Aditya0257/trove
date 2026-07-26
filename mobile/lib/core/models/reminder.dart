@@ -46,7 +46,9 @@ class Reminder {
         spaceId: json['spaceId'] as String,
         type: (json['type'] as String?) ?? 'due',
         title: json['title'] as String?,
-        remindOn: DateTime.parse(json['remindOn'] as String),
+        // Tolerant parse: a malformed/absent remindOn must not throw and break the whole
+        // reminders list (mirrors how completedAt below is guarded).
+        remindOn: DateTime.tryParse(json['remindOn']?.toString() ?? '') ?? DateTime.now(),
         recurrence: (json['recurrence'] as String?) ?? 'none',
         status: (json['status'] as String?) ?? 'pending',
         documentId: json['documentId'] as String?,

@@ -222,10 +222,12 @@ class _ThreadCard extends StatelessWidget {
                   ),
                   if (bundle.account.isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    Chip(
-                      label: Text(bundle.account),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    Flexible(
+                      child: Chip(
+                        label: Text(bundle.account, overflow: TextOverflow.ellipsis),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                     ),
                   ],
                 ],

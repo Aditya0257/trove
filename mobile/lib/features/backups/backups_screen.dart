@@ -201,8 +201,15 @@ class _BackupsScreenState extends ConsumerState<BackupsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label),
-          Text(value,
-              style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),),
+          const SizedBox(width: 12),
+          // Flexible + ellipsis so a long server-provided value (e.g. the backup mode)
+          // never overflows the row on a narrow screen.
+          Flexible(
+            child: Text(value,
+                textAlign: TextAlign.right,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),),
+          ),
         ],
       ),
     );
