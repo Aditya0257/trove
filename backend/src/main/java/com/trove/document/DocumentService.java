@@ -144,8 +144,23 @@ public class DocumentService {
      * (the doc is stored and left in needs_review for manual entry) — used when a user
      * turns AI reading off to avoid the wait and the credit cost.
      */
+    /** Back-compat overload: uploads never reuse an existing duplicate (they 409). */
     @Transactional
     public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file, boolean vital, boolean extract) {
+        return upload(spaceId, uploadedBy, file, vital, extract, false);
+    }
+
+    /**
+     * Uploads a document. When {@code reuseExisting} is true, a content-hash match with a
+     * live document in the space returns THAT document instead of throwing a duplicate
+     * error - so a flow that re-sends the same image (e.g. filing an email whose
+     * screenshots were already uploaded by an earlier, interrupted attempt) is idempotent
+     * and never gets stuck on a 409. Capture leaves it false, so re-adding a receipt still
+     * tells the user it is already filed.
+     */
+    @Transactional
+    public DocumentResponse upload(UUID spaceId, UUID uploadedBy, MultipartFile file, boolean vital,
+                                   boolean extract, boolean reuseExisting) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Uploaded file is empty");
         }
@@ -160,14 +175,24 @@ public class DocumentService {
         // 0) Authorize: the uploader must be an owner/member of the target space.
         spaceAuthorization.requireCanWrite(spaceId, uploadedBy);
 
-        // 1) Hash the PLAINTEXT bytes and reject a duplicate already in this space
+        // 1) Hash the PLAINTEXT bytes and look for a duplicate already in this space
         //    (dedupe is on content, independent of whether we encrypt at rest).
         byte[] bytes = readBytes(file);
         String hash = HashUtil.sha256Hex(bytes);
-        documentRepository.findBySpaceIdAndFileHashAndStatusNot(spaceId, hash, DocumentStatus.DELETED)
-                .ifPresent(existing -> {
-                    throw new DuplicateDocumentException(existing.getId());
-                });
+        var duplicate = documentRepository.findBySpaceIdAndFileHashAndStatusNot(
+                spaceId, hash, DocumentStatus.DELETED);
+        if (duplicate.isPresent()) {
+            // Mail filing (reuseExisting) is idempotent: hand back the document that is
+            // already here so the caller can file it, rather than getting stuck on a 409.
+            // Document capture leaves reuseExisting false, so re-adding a receipt still
+            // reports it as a duplicate.
+            if (reuseExisting) {
+                log.info("Reusing existing document {} for duplicate upload into space {}",
+                        duplicate.get().getId(), spaceId);
+                return toResponse(duplicate.get());
+            }
+            throw new DuplicateDocumentException(duplicate.get().getId());
+        }
 
         // 2) Store under the provisional category path. Vital docs are encrypted first.
         Category provisional = categoryService.resolve(spaceId, PROVISIONAL_CATEGORY);

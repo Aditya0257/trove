@@ -157,10 +157,13 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
       for (var i = 0; i < pending.length; i++) {
         if (mounted) setState(() => _progress = 'Filing ${i + 1} of ${pending.length}...');
         // extract:false so the async AI reader never overwrites the email category/bundle.
+        // reuseExisting:true so a screenshot already in the space (e.g. from a prior
+        // interrupted filing) is reused, not rejected as a duplicate - filing is idempotent.
         final doc = await api.upload(
           spaceId: widget.spaceId,
           filePath: pending[i].path,
           extract: false,
+          reuseExisting: true,
         );
         await api.confirm(
           doc.id,

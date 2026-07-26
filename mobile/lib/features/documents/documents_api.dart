@@ -30,11 +30,16 @@ class DocumentsApi {
   /// Uploads an image file to a space; returns the created (needs_review) document.
   /// `extract` false skips AI reading (used by Mail, whose fields are user-set) so
   /// the async extractor never overwrites the document's category/extra after a confirm.
+  /// `reuseExisting` true makes a duplicate (same image already in the space) return the
+  /// existing document instead of a 409 - used by Mail so re-filing the same screenshots
+  /// (or retrying after a partial failure) is idempotent. Capture leaves it false so a
+  /// re-added receipt is still reported as a duplicate.
   Future<TroveDocument> upload({
     required String spaceId,
     required String filePath,
     bool vital = false,
     bool extract = true,
+    bool reuseExisting = false,
   }) async {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
@@ -42,7 +47,12 @@ class DocumentsApi {
     final data = await _api.postMultipart(
       '/api/documents',
       form,
-      query: {'spaceId': spaceId, 'vital': vital, 'extract': extract},
+      query: {
+        'spaceId': spaceId,
+        'vital': vital,
+        'extract': extract,
+        'reuseExisting': reuseExisting,
+      },
     ) as Map<String, dynamic>;
     return TroveDocument.fromJson(data);
   }
