@@ -142,6 +142,8 @@ export class Insights {
     'every upcoming date in one place: a bill due, an insurance or subscription renewing, a warranty about to ' +
     'run out (and anything that lapsed in the last month, so a just-expired ID is not hidden). "Recurring" spots ' +
     'merchants that bill you on a steady rhythm and predicts the next date, so a subscription never surprises you. ' +
+    'Anything you have already handled in Reminders (marked Done or Dismissed) drops off "Expiring soon" - ' +
+    'Reminders stays your action list; this is the read-only overview of what is still outstanding. ' +
     'Nothing here is stored separately - it is computed live from what you have confirmed, so it is always current.';
   protected helpDev =
     'Reads GET /api/insights/expiring (due dates + extra.warrantyUntil within the window, kind = due/renewal/' +

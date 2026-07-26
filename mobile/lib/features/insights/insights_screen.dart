@@ -56,7 +56,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   'Everything coming up in one place - bills due, insurance or subscription renewals, and '
                   'warranties about to run out (plus anything that lapsed in the last month, so a just-expired '
                   'ID is not hidden). Below that, the merchants that bill you on a regular rhythm, with the next '
-                  'expected date. It is all worked out from documents you have confirmed, so it stays current.',
+                  'expected date. Anything you have already handled in Reminders (Done or Dismissed) drops off here - '
+                  'Reminders stays your action list, this is the read-only overview of what is still outstanding. '
+                  'It is all worked out from documents you have confirmed, so it stays current.',
               dev: null,
             ),
             _sectionHeader(scheme, 'Expiring soon'),

@@ -35,7 +35,11 @@ import com.trove.document.DocumentRepository;
 import com.trove.document.DocumentStatus;
 import com.trove.merchant.Merchant;
 import com.trove.merchant.MerchantRepository;
+import com.trove.reminder.Reminder;
 import com.trove.reminder.ReminderRecurrence;
+import com.trove.reminder.ReminderRepository;
+import com.trove.reminder.ReminderStatus;
+import com.trove.reminder.ReminderType;
 import com.trove.space.SpaceAuthorization;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +50,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,13 +71,16 @@ public class InsightsService {
     private final DocumentRepository documentRepository;
     private final CategoryRepository categoryRepository;
     private final MerchantRepository merchantRepository;
+    private final ReminderRepository reminderRepository;
     private final SpaceAuthorization authorization;
 
     public InsightsService(DocumentRepository documentRepository, CategoryRepository categoryRepository,
-                           MerchantRepository merchantRepository, SpaceAuthorization authorization) {
+                           MerchantRepository merchantRepository, ReminderRepository reminderRepository,
+                           SpaceAuthorization authorization) {
         this.documentRepository = documentRepository;
         this.categoryRepository = categoryRepository;
         this.merchantRepository = merchantRepository;
+        this.reminderRepository = reminderRepository;
         this.authorization = authorization;
     }
 
@@ -91,6 +99,11 @@ public class InsightsService {
         final Map<UUID, Category> catCache = new HashMap<>();
         final Map<UUID, String> merchantCache = new HashMap<>();
         final List<ExpiringItem> items = new ArrayList<>();
+        // Anything the user has already dealt with in Reminders (marked Done or Dismissed)
+        // is no longer "coming up", so it drops off this overview. Reminders remains the
+        // action inbox; Insights shows only what is still outstanding. Keyed as
+        // "documentId|group" where group folds due/renewal together (both ride the due date).
+        final Set<String> handled = handledKeys(spaceId);
 
         for (Document d : documentRepository.findBySpaceIdAndStatus(spaceId, DocumentStatus.CONFIRMED)) {
             Category cat = category(d.getCategoryId(), catCache);
@@ -99,23 +112,47 @@ public class InsightsService {
                 continue;
             }
             String title = titleOf(d, cat, merchantCache);
+            String docId = d.getId().toString();
 
             // Bill due / policy renewal / ID expiry — all ride the document's due date.
             LocalDate due = d.getDueDate();
-            if (inWindow(due, earliest, horizon)) {
+            if (inWindow(due, earliest, horizon) && !handled.contains(docId + "|date")) {
                 String kind = RENEWAL_CATEGORIES.contains(code) ? "renewal" : "due";
                 items.add(item(d, title, code, kind, due, today));
             }
 
             // Warranty end lives in extra.warrantyUntil (ISO date), set at review time.
             LocalDate warranty = parseDate(d.getExtra() == null ? null : d.getExtra().get("warrantyUntil"));
-            if (inWindow(warranty, earliest, horizon)) {
+            if (inWindow(warranty, earliest, horizon) && !handled.contains(docId + "|warranty")) {
                 items.add(item(d, title, code, "warranty", warranty, today));
             }
         }
 
         items.sort((a, b) -> a.date().compareTo(b.date()));
         return items;
+    }
+
+    /**
+     * The set of "documentId|group" keys the user has already resolved via Reminders, so
+     * Insights can hide them. A reminder marked Done or Dismissed counts as handled; the
+     * group folds a warranty-expiry reminder to "warranty" and due/renewal to "date" (they
+     * both derive from the document's due date).
+     */
+    private Set<String> handledKeys(UUID spaceId) {
+        Set<String> keys = new HashSet<>();
+        for (Reminder r : reminderRepository.findBySpaceIdOrderByRemindOnAsc(spaceId)) {
+            if (r.getDocumentId() == null) {
+                continue;
+            }
+            boolean resolved = ReminderStatus.DONE.equals(r.getStatus())
+                    || ReminderStatus.DISMISSED.equals(r.getStatus());
+            if (!resolved) {
+                continue;
+            }
+            String group = ReminderType.WARRANTY_EXPIRY.equals(r.getType()) ? "warranty" : "date";
+            keys.add(r.getDocumentId() + "|" + group);
+        }
+        return keys;
     }
 
     /**
