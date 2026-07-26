@@ -241,7 +241,10 @@ import { AuthService } from '../../core/auth.service';
       }
       .btn-ghost:hover { background: var(--hover); color: var(--accent); }
       .btn-ghost.sm { padding: 4px 12px; font-size: 12px; line-height: 1.4; }
-      .row-actions { display: flex; gap: 8px; white-space: nowrap; }
+      /* Keep this a normal table cell (NOT display:flex, which drops the cell out of the
+         row and leaves a detached white block on selection). Buttons lay out inline. */
+      .row-actions { white-space: nowrap; text-align: right; }
+      .row-actions button + button { margin-left: 8px; }
       .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
       .page-size { display: inline-block; width: 200px; }
       .pages { display: flex; align-items: center; gap: 10px; }
