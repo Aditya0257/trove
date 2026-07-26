@@ -61,6 +61,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/reminders/reminders').then((m) => m.Reminders),
   },
   {
+    path: 'insights',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/insights/insights').then((m) => m.Insights),
+  },
+  {
     path: 'backups',
     canActivate: [authGuard],
     loadComponent: () => import('./features/backups/backups').then((m) => m.Backups),

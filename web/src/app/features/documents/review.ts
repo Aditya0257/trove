@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
 import { NoticeService } from '../../core/notice/notice.service';
@@ -12,7 +12,7 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
 
 @Component({
   selector: 'app-review',
-  imports: [FormsModule, TroveSelect, MoneyPipe],
+  imports: [FormsModule, RouterLink, TroveSelect, MoneyPipe],
   template: `
     @if (!doc()) {
       <div class="card"><p class="muted">Loading…</p></div>
@@ -150,10 +150,34 @@ import { CURRENCY_OPTIONS } from '../../core/currencies';
           </details>
         }
       </div>
+
+      @if (related().length) {
+        <div class="card related">
+          <h3>Related documents</h3>
+          <p class="muted">Others from the same merchant (or category). Newest first.</p>
+          <ul class="rel-list">
+            @for (r of related(); track r.id) {
+              <li>
+                <a [routerLink]="['/documents', r.id, 'review']">{{ r.merchant || r.originalFilename || 'Document' }}</a>
+                <span class="rel-meta">
+                  {{ r.category || '-' }}@if (r.docDate) { · {{ r.docDate }} }@if (r.amount !== null) { · {{ r.amount | money: r.currency }} }
+                </span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
     }
   `,
   styles: [
     `
+      .related h3 { margin: 0 0 2px; }
+      .rel-list { list-style: none; margin: 8px 0 0; padding: 0; }
+      .rel-list li { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+      .rel-list li:first-child { border-top: 0; }
+      .rel-list a { color: var(--accent); text-decoration: none; font-weight: 600; }
+      .rel-list a:hover { text-decoration: underline; }
+      .rel-meta { color: var(--muted); font-size: 13px; }
       .ai-note {
         background: rgba(184, 134, 11, 0.1);
         border-left: 3px solid #b8860b;
@@ -246,6 +270,7 @@ export class Review {
 
   private id = '';
   doc = signal<DocumentResponse | null>(null);
+  related = signal<DocumentResponse[]>([]);
   categories = signal<Category[]>([]);
   protected categoryOptions = computed<SelectOption[]>(() =>
     this.categories().map((c) => ({ value: c.code, label: c.label })),
@@ -283,6 +308,16 @@ export class Review {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
     this.api.listCategories().subscribe((c) => this.categories.set(c));
     this.loadAndPoll(0);
+    this.loadRelated();
+  }
+
+  /** Other documents from the same merchant/category (the auto-link view). */
+  private loadRelated(): void {
+    if (!this.id) return;
+    this.api.relatedDocuments(this.id).subscribe({
+      next: (r) => this.related.set(r),
+      error: () => {}, // a missing related list is non-fatal; just show nothing
+    });
   }
 
   /** "Confirm" the first time; "Save changes" when re-editing an already-confirmed doc. */

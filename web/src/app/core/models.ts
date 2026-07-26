@@ -188,6 +188,31 @@ export interface SpendSummary {
   byCategory: CategorySpend[];
 }
 
+/** One upcoming (or just-passed) thing to act on - a bill due, a renewal, a warranty end. */
+export interface ExpiringItem {
+  documentId: string;
+  title: string;
+  category: string | null;
+  kind: 'due' | 'renewal' | 'warranty';
+  date: string;
+  daysLeft: number; // negative = already overdue
+  amount: number | null;
+  currency: string | null;
+}
+
+/** A merchant+category that recurs on a regular cadence (a subscription/recurring bill). */
+export interface RecurringGroup {
+  merchant: string | null;
+  category: string | null;
+  categoryLabel: string | null;
+  occurrences: number;
+  cadence: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  averageAmount: number | null;
+  currency: string | null;
+  lastSeen: string;
+  nextExpected: string | null;
+}
+
 /** One Google Drive linked to a space (a space may pool several). */
 export interface DriveConnectionView {
   id: string;

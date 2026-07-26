@@ -24,12 +24,14 @@ import {
   ConfirmRequest,
   DocumentResponse,
   DriveStatus,
+  ExpiringItem,
   IngestAddress,
   IntegrityReport,
   Invitation,
   MailPage,
   Member,
   MonthlySpend,
+  RecurringGroup,
   ReminderResponse,
   SearchResult,
   SpaceSummary,
@@ -145,6 +147,18 @@ export class ApiService {
   // --- anomalies ---
   listAnomalies(spaceId?: string) {
     return this.http.get<DocumentResponse[]>(`${API_BASE}/api/anomalies${this.qs({ spaceId })}`);
+  }
+
+  // --- document intelligence (insights) ---
+  insightsExpiring(spaceId?: string, withinDays?: number) {
+    return this.http.get<ExpiringItem[]>(`${API_BASE}/api/insights/expiring${this.qs({ spaceId, withinDays })}`);
+  }
+  insightsRecurring(spaceId?: string) {
+    return this.http.get<RecurringGroup[]>(`${API_BASE}/api/insights/recurring${this.qs({ spaceId })}`);
+  }
+  /** Other documents related to this one (same merchant, else same category). */
+  relatedDocuments(id: string) {
+    return this.http.get<DocumentResponse[]>(`${API_BASE}/api/documents/${id}/related`);
   }
 
   // --- reminders ---
