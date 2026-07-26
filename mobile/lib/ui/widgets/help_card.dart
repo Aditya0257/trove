@@ -119,7 +119,7 @@ class InfoTip extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(2),
-        child: Icon(Icons.info_outline, size: 16, color: scheme.onSurfaceVariant),
+        child: Icon(Icons.help_outline, size: 18, color: scheme.onSurfaceVariant),
       ),
     );
   }

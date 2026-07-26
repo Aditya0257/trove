@@ -243,6 +243,11 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
             decoration: const InputDecoration(
               labelText: 'Merchant',
               hintText: 'e.g. Reliance Energy',
+              suffixIcon: InfoTip(
+                title: 'Merchant',
+                text:
+                    'Who the document is from - the biller, shop, or company name. Trove groups spend and search by this.',
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -259,6 +264,11 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Amount',
                     hintText: 'e.g. 1299.00',
+                    suffixIcon: InfoTip(
+                      title: 'Amount',
+                      text:
+                          'The total on the document. The AI often misreads this - check it against the image before you confirm.',
+                    ),
                   ),
                 ),
               ),
@@ -275,13 +285,34 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _dateField('Document date', _docDate, () => _pickDate(false))),
+              Expanded(
+                child: _dateField(
+                  'Document date',
+                  _docDate,
+                  () => _pickDate(false),
+                  tip: 'The date printed on the document (the bill or receipt date). '
+                      'Spend history and sorting use this.',
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _dateField('Due date', _dueDate, () => _pickDate(true))),
+              Expanded(
+                child: _dateField(
+                  'Due date',
+                  _dueDate,
+                  () => _pickDate(true),
+                  tip: 'When a payment is due. Trove reminds you a few days before this date.',
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          _dateField('Warranty until (optional)', _warrantyUntil, _pickWarranty),
+          _dateField(
+            'Warranty until (optional)',
+            _warrantyUntil,
+            _pickWarranty,
+            tip: 'For a purchase with a warranty (earbuds, a phone). '
+                'Trove reminds you before it expires. Use +1/+2 years for a quick set.',
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
@@ -401,6 +432,12 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
         child: Row(
           children: [
             Expanded(child: Text(label)),
+            const InfoTip(
+              title: 'Category',
+              text:
+                  'How Trove files this document (electricity, groceries, insurance, and so on). '
+                  'It drives auto-filing, spend grouping, and reminders.',
+            ),
             const Icon(Icons.arrow_drop_down),
           ],
         ),
@@ -453,10 +490,14 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
         onChanged: (v) => _category = v.trim().isEmpty ? null : v.trim(),
       );
 
-  Widget _dateField(String label, DateTime? value, VoidCallback onTap) => InkWell(
+  Widget _dateField(String label, DateTime? value, VoidCallback onTap, {String? tip}) =>
+      InkWell(
         onTap: onTap,
         child: InputDecorator(
-          decoration: InputDecoration(labelText: label),
+          decoration: InputDecoration(
+            labelText: label,
+            suffixIcon: tip == null ? null : InfoTip(title: label, text: tip),
+          ),
           child: Text(value != null ? _iso(value)! : '-'),
         ),
       );

@@ -74,14 +74,18 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Mail')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await context.push('/mail-compose', extra: widget.spaceId);
-          if (mounted) _goto(0); // refresh to show a newly filed thread
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('File email'),
+      appBar: AppBar(
+        title: const Text('Mail'),
+        actions: [
+          IconButton(
+            tooltip: 'File email',
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              await context.push('/mail-compose', extra: widget.spaceId);
+              if (mounted) _goto(0); // refresh to show a newly filed thread
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -156,10 +160,7 @@ class _MailListScreenState extends ConsumerState<MailListScreen> {
     return SafeArea(
       top: false,
       child: Padding(
-        // The extended FAB (bottom-right) sits over the trailing edge, so keep
-        // roughly its width clear on the right and add a little bottom room so
-        // "Page X of Y" and the Prev/Next controls are never hidden under it.
-        padding: const EdgeInsets.fromLTRB(12, 8, 150, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

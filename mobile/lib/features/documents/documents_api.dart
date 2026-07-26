@@ -28,10 +28,13 @@ class DocumentsApi {
   final ApiClient _api;
 
   /// Uploads an image file to a space; returns the created (needs_review) document.
+  /// `extract` false skips AI reading (used by Mail, whose fields are user-set) so
+  /// the async extractor never overwrites the document's category/extra after a confirm.
   Future<TroveDocument> upload({
     required String spaceId,
     required String filePath,
     bool vital = false,
+    bool extract = true,
   }) async {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
@@ -39,7 +42,7 @@ class DocumentsApi {
     final data = await _api.postMultipart(
       '/api/documents',
       form,
-      query: {'spaceId': spaceId, 'vital': vital},
+      query: {'spaceId': spaceId, 'vital': vital, 'extract': extract},
     ) as Map<String, dynamic>;
     return TroveDocument.fromJson(data);
   }

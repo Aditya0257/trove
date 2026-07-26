@@ -52,6 +52,19 @@ import 'ui/widgets/notice_toast.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // A calm placeholder instead of the raw red error screen if any widget fails to build.
+  // (Release builds strip framework asserts, so most of these never reach the user.)
+  ErrorWidget.builder = (FlutterErrorDetails details) => Container(
+        alignment: Alignment.center,
+        color: const Color(0xFF12151C),
+        padding: const EdgeInsets.all(28),
+        child: const Text(
+          'Something went wrong on this screen.\nGo back and try again.',
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+          style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
+        ),
+      );
   final container = ProviderContainer();
   await container.read(authStoreProvider).restore();
   await NotificationService.instance.init();

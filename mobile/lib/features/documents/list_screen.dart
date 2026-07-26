@@ -29,9 +29,10 @@ class DocumentListScreen extends ConsumerStatefulWidget {
 }
 
 class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
-  static const int _pageSize = 30;
+  static const List<int> _pageSizes = [10, 25, 50, 100];
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _pageSize = 25; // rows fetched per batch; user-selectable (matches web)
   String? _category; // null = all
   bool _filtersOpen = false; // category filter collapsed by default (it can be long)
   final List<TroveDocument> _docs = [];
@@ -109,6 +110,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
     _reset();
   }
 
+  void _setPageSize(int size) {
+    if (_pageSize == size) return;
+    setState(() => _pageSize = size);
+    _reset();
+  }
+
   /// Pick a category from the filter, then collapse the filter to give the list room.
   void _pickCategory(String? code) {
     setState(() => _filtersOpen = false);
@@ -122,6 +129,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
         _scaffoldKey.currentState?.openEndDrawer();
       case 'account':
         context.push('/account');
+      case 'manage':
+        context.push('/space-manage', extra: widget.space);
       default:
         context.push('/$v', extra: widget.space.id);
     }
@@ -152,22 +161,6 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
       appBar: AppBar(
         title: Text(widget.space.name),
         actions: [
-          if (!widget.space.isPersonal)
-            IconButton(
-              tooltip: 'Manage space',
-              icon: const Icon(Icons.manage_accounts_outlined),
-              onPressed: () => context.push('/space-manage', extra: widget.space),
-            ),
-          IconButton(
-            tooltip: 'Spend',
-            icon: const Icon(Icons.bar_chart_outlined),
-            onPressed: () => context.push('/spend', extra: widget.space.id),
-          ),
-          IconButton(
-            tooltip: 'Reminders',
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => context.push('/reminders', extra: widget.space.id),
-          ),
           IconButton(
             tooltip: 'Search',
             icon: const Icon(Icons.search),
@@ -176,43 +169,65 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
           PopupMenuButton<String>(
             tooltip: 'More',
             onSelected: _onMenu,
-            itemBuilder: (context) => const [
-              PopupMenuItem(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'reminders',
+                child: ListTile(
+                  leading: Icon(Icons.notifications_none),
+                  title: Text('Reminders'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'spend',
+                child: ListTile(
+                  leading: Icon(Icons.bar_chart_outlined),
+                  title: Text('Spend'),
+                ),
+              ),
+              if (!widget.space.isPersonal)
+                const PopupMenuItem(
+                  value: 'manage',
+                  child: ListTile(
+                    leading: Icon(Icons.manage_accounts_outlined),
+                    title: Text('Manage space'),
+                  ),
+                ),
+              const PopupMenuItem(
                 value: 'chat',
                 child: ListTile(
                   leading: Icon(Icons.auto_awesome_outlined),
                   title: Text('Ask your vault'),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'mail',
                 child: ListTile(
                   leading: Icon(Icons.mail_outline),
                   title: Text('Mail'),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'backups',
                 child: ListTile(
                   leading: Icon(Icons.cloud_done_outlined),
                   title: Text('Backups & data health'),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'trash',
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
                   title: Text('Trash'),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'account',
                 child: ListTile(
                   leading: Icon(Icons.account_circle_outlined),
                   title: Text('Your profile'),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'developer',
                 child: ListTile(
                   leading: Icon(Icons.terminal),
@@ -260,6 +275,30 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen> {
                           Text('Category: $selected',
                               style: const TextStyle(fontWeight: FontWeight.w600),),
                           const Spacer(),
+                          PopupMenuButton<int>(
+                            tooltip: 'Rows per page',
+                            onSelected: _setPageSize,
+                            itemBuilder: (_) => [
+                              for (final s in _pageSizes)
+                                PopupMenuItem(value: s, child: Text('$s per page')),
+                            ],
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('$_pageSize / page',
+                                      style: TextStyle(
+                                        color: scheme.onSurfaceVariant,
+                                        fontSize: 13,
+                                      ),),
+                                  Icon(Icons.arrow_drop_down,
+                                      size: 18, color: scheme.onSurfaceVariant,),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
                           Icon(_filtersOpen ? Icons.expand_less : Icons.expand_more,
                               color: scheme.onSurfaceVariant,),
                         ],

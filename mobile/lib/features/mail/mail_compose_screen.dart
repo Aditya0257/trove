@@ -128,7 +128,12 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
     try {
       for (var i = 0; i < _shots.length; i++) {
         if (mounted) setState(() => _progress = 'Filing ${i + 1} of ${_shots.length}...');
-        final doc = await api.upload(spaceId: widget.spaceId, filePath: _shots[i].path);
+        // extract:false so the async AI reader never overwrites the email category/bundle.
+        final doc = await api.upload(
+          spaceId: widget.spaceId,
+          filePath: _shots[i].path,
+          extract: false,
+        );
         await api.confirm(
           doc.id,
           category: 'email',

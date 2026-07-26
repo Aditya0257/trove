@@ -38,6 +38,13 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        // Generous vertical padding so a floating label sits INSIDE the box (it was
+        // riding the top edge before), and smaller hint/label fonts so long placeholders
+        // and labels fit rather than clipping. Applies to every field in the app.
+        contentPadding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+        hintStyle: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+        labelStyle: TextStyle(fontSize: 14.5, color: scheme.onSurfaceVariant),
+        floatingLabelStyle: TextStyle(fontSize: 12.5, color: scheme.primary),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

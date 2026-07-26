@@ -68,29 +68,12 @@ class HomeShell extends ConsumerWidget {
             icon: const Icon(Icons.create_new_folder_outlined),
             onPressed: () => _createSpace(context, ref),
           ),
-          if (captureSpace != null)
-            IconButton(
-              tooltip: 'Reminders',
-              icon: const Icon(Icons.notifications_none),
-              onPressed: () => context.push('/reminders', extra: captureSpace.id),
-            ),
           Builder(
             builder: (context) => IconButton(
               tooltip: 'Developer',
               icon: const Icon(Icons.terminal),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
-          ),
-          if (user?.admin ?? false)
-            IconButton(
-              tooltip: 'Admin',
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              onPressed: () => context.push('/admin'),
-            ),
-          IconButton(
-            tooltip: 'Your profile',
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () => context.push('/account'),
           ),
         ],
       ),
