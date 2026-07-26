@@ -185,6 +185,17 @@ final documentsApiProvider =
 /// the newly added document without a manual pull-to-refresh.
 final documentsChangedProvider = StateProvider<int>((_) => 0);
 
+/// Documents related to a given one (same merchant, else same category) - the auto-link
+/// view shown on the document detail screen. Reads GET /api/documents/{id}/related.
+final relatedDocumentsProvider =
+    FutureProvider.autoDispose.family<List<TroveDocument>, String>((ref, id) async {
+  final data = await ref.watch(apiClientProvider).get('/api/documents/$id/related')
+      as List<dynamic>;
+  return data
+      .map((e) => TroveDocument.fromJson((e as Map).cast<String, dynamic>()))
+      .toList();
+});
+
 /// Global + space categories for the confirm dropdown.
 final categoriesProvider = FutureProvider.autoDispose<List<Category>>((ref) async {
   final api = ref.watch(apiClientProvider);

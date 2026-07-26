@@ -65,6 +65,7 @@ class AppDrawer extends ConsumerWidget {
             _item(context, Icons.mail_outline, 'Mail', () => go('/mail')),
             _item(context, Icons.search, 'Search', () => go('/search')),
             _item(context, Icons.bar_chart_outlined, 'Spend', () => go('/spend')),
+            _item(context, Icons.insights_outlined, 'Insights', () => go('/insights')),
             _item(context, Icons.notifications_none, 'Reminders', () => go('/reminders')),
             _item(context, Icons.cloud_done_outlined, 'Backups & data health', () => go('/backups')),
             _item(context, Icons.delete_outline, 'Trash', () => go('/trash')),

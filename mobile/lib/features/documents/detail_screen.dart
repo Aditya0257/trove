@@ -112,8 +112,58 @@ class DocumentDetailScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             _RawTextSection(text: doc.rawText!),
           ],
+          const SizedBox(height: 12),
+          _RelatedSection(docId: doc.id),
         ],
       ),
+    );
+  }
+}
+
+/// Documents related to this one (same merchant, else same category) - the auto-link
+/// view. Hidden entirely when there are none. Tapping one opens its detail.
+class _RelatedSection extends ConsumerWidget {
+  const _RelatedSection({required this.docId});
+  final String docId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final related = ref.watch(relatedDocumentsProvider(docId));
+    return related.maybeWhen(
+      data: (docs) {
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Related documents',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600),),
+            const SizedBox(height: 4),
+            Text('Others from the same merchant (or category).',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),),
+            const SizedBox(height: 8),
+            for (final d in docs)
+              Card(
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(d.vital ? Icons.lock_outline : Icons.receipt_long_outlined,
+                      color: scheme.onSurfaceVariant,),
+                  title: Text(d.merchant ?? d.category ?? 'Document',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,),
+                  subtitle: Text(
+                    [
+                      if (d.category != null) d.category!,
+                      if (d.docDate != null) d.docDate!.toIso8601String().substring(0, 10),
+                    ].join(' - '),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/document', extra: d),
+                ),
+              ),
+          ],
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }
