@@ -99,8 +99,9 @@ class HomeShell extends ConsumerWidget {
             Text('Your spaces', style: TextStyle(color: scheme.onSurfaceVariant)),
             const SizedBox(height: 4),
             Text(
-              'Tap a space to open it. Tap the star to make it your default - the app '
-              'opens there and the menu acts on it.',
+              'Tap a space to open it. The pinned space is your default - the app opens '
+              'there and the menu (Mail, Spend, Reminders...) acts on it. Tap the pin on '
+              'another space to make that one your default instead.',
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -123,17 +124,26 @@ class HomeShell extends ConsumerWidget {
                       child: ListTile(
                         leading: Icon(s.isPersonal ? Icons.lock_outline : Icons.group_outlined),
                         title: Text(s.name),
-                        subtitle: Text(s.id == captureSpace?.id ? '${s.kind} - default' : s.kind),
+                        subtitle: Text(
+                          s.id == captureSpace?.id ? '${s.kind} - opens by default' : s.kind,
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: s.id == defaultId
-                                  ? 'Default space - tap to clear'
-                                  : 'Make default',
+                              // A pin (not a star - a star reads as "favourite"): the pinned
+                              // space is where the app opens. The active space shows filled,
+                              // so a first-time user sees their personal space already pinned.
+                              tooltip: s.id == captureSpace?.id
+                                  ? 'Your default space - the app opens here'
+                                  : 'Make this your default space',
                               icon: Icon(
-                                s.id == defaultId ? Icons.star : Icons.star_border,
-                                color: s.id == defaultId ? scheme.primary : scheme.onSurfaceVariant,
+                                s.id == captureSpace?.id
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                                color: s.id == captureSpace?.id
+                                    ? scheme.primary
+                                    : scheme.onSurfaceVariant,
                               ),
                               onPressed: () => ref
                                   .read(defaultSpaceProvider.notifier)

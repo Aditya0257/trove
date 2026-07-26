@@ -44,17 +44,47 @@ class DocumentsApi {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    final data = await _api.postMultipart(
-      '/api/documents',
-      form,
-      query: {
-        'spaceId': spaceId,
-        'vital': vital,
-        'extract': extract,
-        'reuseExisting': reuseExisting,
-      },
-    ) as Map<String, dynamic>;
-    return TroveDocument.fromJson(data);
+    try {
+      final data = await _api.postMultipart(
+        '/api/documents',
+        form,
+        query: {
+          'spaceId': spaceId,
+          'vital': vital,
+          'extract': extract,
+          'reuseExisting': reuseExisting,
+        },
+        // When reusing, a duplicate is expected and handled below, so don't auto-toast.
+        silent: reuseExisting,
+      ) as Map<String, dynamic>;
+      return TroveDocument.fromJson(data);
+    } on DioException catch (e) {
+      // Client-side fallback for a backend that predates the server `reuseExisting`
+      // handling: a 409 duplicate still carries the existing document's id, so fetch
+      // and return that document instead of failing. Keeps mail filing working without
+      // needing the backend redeployed.
+      if (reuseExisting && e.response?.statusCode == 409) {
+        final id = _existingDuplicateId(e.response?.data);
+        if (id != null) return get(id);
+      }
+      rethrow;
+    }
+  }
+
+  /// Pulls the existing document id out of a 409 DUPLICATE_DOCUMENT error body, which
+  /// carries it in both `details` and the notice `meta`.
+  static String? _existingDuplicateId(dynamic data) {
+    if (data is! Map) return null;
+    final details = data['details'];
+    if (details is Map && details['existingDocumentId'] is String) {
+      return details['existingDocumentId'] as String;
+    }
+    final notice = data['notice'];
+    if (notice is Map && notice['meta'] is Map) {
+      final meta = notice['meta'] as Map;
+      if (meta['existingDocumentId'] is String) return meta['existingDocumentId'] as String;
+    }
+    return null;
   }
 
   Future<TroveDocument> get(String id) async {

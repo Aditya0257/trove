@@ -11,7 +11,10 @@
 ///  Design
 ///  ------
 ///  Self-dismisses after a level-dependent delay unless the user is expanding it.
-///  Presented as an overlay entry by the root (see main.dart / NoticeHost).
+///  Presented as an overlay entry by the root (see main.dart / NoticeHost). The card
+///  uses a UNIFORM outline (a non-uniform border with a borderRadius is an invalid
+///  BoxDecoration and paints as a blank box); the level accent is a separate clipped
+///  strip down the left edge.
 /// ============================================================================
 library;
 
@@ -41,20 +44,15 @@ class _NoticeToastState extends State<NoticeToast> {
 
     // surfaceContainerHigh sits a step above the scaffold's `surface`, so the toast
     // reads as a distinct raised card in dark mode instead of blending into the
-    // background. A thin outline all around (plus the thicker accent bar on the left)
-    // keeps the edge crisp against both light and dark grounds.
+    // background. The outline is uniform (required when a borderRadius is set); the
+    // level accent is a 4px strip on the left, clipped to the rounded corners.
     return Material(
       color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(14),
-          border: Border(
-            left: BorderSide(color: accent, width: 4),
-            top: BorderSide(color: scheme.outlineVariant),
-            right: BorderSide(color: scheme.outlineVariant),
-            bottom: BorderSide(color: scheme.outlineVariant),
-          ),
+          border: Border.all(color: scheme.outlineVariant),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.28),
@@ -63,67 +61,80 @@ class _NoticeToastState extends State<NoticeToast> {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.notice.userMessage,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: widget.onDismiss,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-              if (hasDev)
-                InkWell(
-                  onTap: () => setState(() => _expanded = !_expanded),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 4, color: accent),
+                Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(_expanded ? Icons.expand_less : Icons.expand_more,
-                            size: 16, color: accent,),
-                        const SizedBox(width: 4),
-                        Text('Developer note',
-                            style: TextStyle(
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.notice.userMessage,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: widget.onDismiss,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                        if (hasDev)
+                          InkWell(
+                            onTap: () => setState(() => _expanded = !_expanded),
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                children: [
+                                  Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                                      size: 16, color: accent,),
+                                  const SizedBox(width: 4),
+                                  Text('Developer note',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: accent,
+                                          fontWeight: FontWeight.w600,),),
+                                  const SizedBox(width: 8),
+                                  Text(widget.notice.code,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontFamily: 'monospace',
+                                          color: scheme.onSurfaceVariant,),),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (hasDev && _expanded)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              widget.notice.devNote!,
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: accent,
-                                fontWeight: FontWeight.w600,),),
-                        const SizedBox(width: 8),
-                        Text(widget.notice.code,
-                            style: TextStyle(
-                                fontSize: 11,
                                 fontFamily: 'monospace',
-                                color: scheme.onSurfaceVariant,),),
+                                color: scheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
-              if (hasDev && _expanded)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    widget.notice.devNote!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      color: scheme.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
