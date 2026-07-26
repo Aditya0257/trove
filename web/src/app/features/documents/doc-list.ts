@@ -317,8 +317,9 @@ export class DocList {
   protected trashHelpUser =
     'Deleting never erases anything straight away. A deleted document moves to Trash and is hidden from your ' +
     'lists, spend and search - but it stays fully recoverable for 30 days: press Restore and it comes right ' +
-    'back. After 30 days it is removed for good. "Delete forever" skips the wait and removes it now. Your other ' +
-    'backup copies mean an accidental delete is never the end of the world.';
+    'back. After 30 days it is removed for good. "Delete forever" skips the wait and removes it now. To act on ' +
+    'several at once, tick the rows and use Restore selected or Delete selected, or Delete all to empty the ' +
+    'Trash. Your other backup copies mean an accidental delete is never the end of the world.';
   protected trashHelpDev =
     'Soft delete: the document row is tombstoned and its file MOVED (not erased) to a _trash/ prefix in R2, with ' +
     'the Drive copy moved to Trove/_Deleted/ via a lifecycle event. The row then drops out of every query (lists, ' +

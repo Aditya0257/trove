@@ -250,7 +250,7 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
           const HelpCard(
             title: 'How filing an email works',
             user:
-                "File the important emails you screenshot: an order confirmation, a policy note, a booking. Take one or more screenshots of the same email and they are kept together as one thread. Fill in the account, inbox address, topic, subject and date so you can find it later. AI reading is off for mail - you supply the details, so nothing is read automatically.",
+                "File the important emails you screenshot: an order confirmation, a policy note, a booking. Add one or more shots of the same email (screenshots from your gallery, or Take photo for a printed letter or a screen you cannot capture) and they are kept together as one thread. Fill in the account, inbox address, topic, subject and date so you can find it later. AI reading is off for mail - you supply the details, so nothing is read automatically.",
             dev:
                 "Each screenshot uploads as its own document, then is confirmed into the 'email' category carrying a shared mailBundleId plus the typed fields in `extra`. No vision model runs for these; the human-entered fields are the source of truth.",
           ),
