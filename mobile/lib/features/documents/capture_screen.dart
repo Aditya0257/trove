@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/image_edit.dart';
 import '../../core/notice/notice_center.dart';
 import '../../ui/widgets/help_card.dart';
 import 'documents_api.dart';
@@ -43,7 +44,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
   Future<void> _pick(ImageSource source) async {
     final x = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 2200);
-    if (x != null) setState(() => _picked = x);
+    if (x == null) return;
+    // Let the user straighten / crop the photo before it is uploaded and read.
+    final edited = await cropImage(x.path);
+    if (mounted) setState(() => _picked = XFile(edited));
   }
 
   Future<void> _upload() async {

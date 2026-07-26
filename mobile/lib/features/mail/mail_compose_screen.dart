@@ -23,11 +23,14 @@ library;
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/image_edit.dart';
 import '../../core/notice/notice.dart';
 import '../../core/notice/notice_center.dart';
 import '../../ui/widgets/help_card.dart';
@@ -55,6 +58,9 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
   bool _busy = false;
   // Human-readable filing progress while the bundle uploads ("Filing 2 of 3...").
   String? _progress;
+  // The last filing error, shown in a persistent panel so it can be read (and
+  // screenshotted) instead of vanishing with the toast.
+  String? _error;
   // Generated once and reused across retries, so screenshots filed on a second
   // attempt (after a partial failure) still join the same thread.
   String? _bundleId;
@@ -111,11 +117,13 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
   }
 
   /// Take a photo with the camera (e.g. a printed letter, or a screen you cannot
-  /// screenshot). Added to the same queue as gallery picks.
+  /// screenshot), straighten / crop it, then add it to the queue.
   Future<void> _takePhoto() async {
     if (_busy) return;
     final shot = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 2200);
-    if (shot != null) setState(() => _shots.add(shot));
+    if (shot == null) return;
+    final edited = await cropImage(shot.path);
+    if (mounted) setState(() => _shots.add(XFile(edited)));
   }
 
   void _remove(int index) {
@@ -143,6 +151,7 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
     setState(() {
       _busy = true;
       _progress = null;
+      _error = null;
     });
     try {
       for (var i = 0; i < pending.length; i++) {
@@ -171,10 +180,17 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
       }
       _toast(NoticeLevel.success, 'MAIL_FILED', 'Email filed.');
       if (mounted) context.pop();
-    } catch (_) {
-      // The API client already surfaced the failure as a toast. Drop the shots that
-      // did file so a retry sends only the ones that still need filing.
-      if (mounted) setState(() => _shots.removeWhere(filed.contains));
+    } catch (e, st) {
+      // Surface the real cause: it stays on-screen (not just a toast that vanishes) so
+      // it can actually be read, and it prints to the `flutter run` console too. Drop
+      // the shots that did file so a retry sends only the ones that still need filing.
+      debugPrint('Mail filing failed after ${filed.length}/${pending.length}: $e\n$st');
+      if (mounted) {
+        setState(() {
+          _shots.removeWhere(filed.contains);
+          _error = _describeError(e, filed.length, pending.length);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -183,6 +199,24 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
         });
       }
     }
+  }
+
+  /// Turns a caught error into a readable one-panel explanation. Server failures show
+  /// the notice (message + code + request id + developer note); network failures show
+  /// the transport reason; anything else falls back to its string form.
+  String _describeError(Object e, int filed, int total) {
+    final prefix = filed > 0 ? 'Filed $filed of $total, then failed.\n' : '';
+    if (e is DioException) {
+      final inner = e.error;
+      if (inner is ApiException) {
+        final n = inner.notice;
+        final req = inner.requestId != null ? ' - req ${inner.requestId}' : '';
+        final dev = (n.devNote ?? '').isNotEmpty ? '\n${n.devNote}' : '';
+        return '$prefix${n.userMessage}\n[${n.code} - HTTP ${inner.statusCode}$req]$dev';
+      }
+      return '$prefix${e.type.name}: ${e.message ?? e}';
+    }
+    return '$prefix$e';
   }
 
   /// A tap-to-open date field: shows the picked date as YYYY-MM-DD, or a
@@ -300,6 +334,32 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
                   ),
               ],
             ),
+          if (_error != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border(left: BorderSide(color: scheme.error, width: 3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Couldn't file this email",
+                    style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onErrorContainer),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    _error!,
+                    style: TextStyle(fontSize: 12.5, height: 1.4, color: scheme.onErrorContainer),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           FilledButton(
             onPressed: (_busy || _shots.isEmpty) ? null : _save,
