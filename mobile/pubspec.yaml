@@ -25,7 +25,8 @@ dependencies:
   flutter_secure_storage: ^9.2.2  # JWT stored in the OS keychain/keystore
   go_router: ^14.2.7          # declarative routing + auth redirects
   image_picker: ^1.1.2        # camera capture + gallery pick for uploads
-  image_cropper: ^8.1.0       # rotate + crop a captured/picked image before upload
+  crop_your_image: ^2.0.0     # in-app (pure Flutter) crop, so the editor respects app insets
+  image: ^4.3.0               # rotate the picked image bytes before/while cropping
   intl: ^0.19.0               # date/currency formatting
   flutter_local_notifications: ^18.0.1  # on-device 7/1/0-day reminder popups (free, no server)
   timezone: ^0.9.4            # zoned scheduling for exact reminder times

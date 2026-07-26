@@ -44,9 +44,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
   Future<void> _pick(ImageSource source) async {
     final x = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 2200);
-    if (x == null) return;
+    if (x == null || !mounted) return;
     // Let the user straighten / crop the photo before it is uploaded and read.
-    final edited = await cropImage(x.path);
+    final edited = await cropImage(context, x.path);
     if (mounted) setState(() => _picked = XFile(edited));
   }
 

@@ -121,8 +121,8 @@ class _MailComposeScreenState extends ConsumerState<MailComposeScreen> {
   Future<void> _takePhoto() async {
     if (_busy) return;
     final shot = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 2200);
-    if (shot == null) return;
-    final edited = await cropImage(shot.path);
+    if (shot == null || !mounted) return;
+    final edited = await cropImage(context, shot.path);
     if (mounted) setState(() => _shots.add(XFile(edited)));
   }
 
