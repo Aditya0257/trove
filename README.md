@@ -4,6 +4,8 @@ A private vault for the documents that matter: bills, receipts, policies,
 warranties, IDs. You upload a document; Trove stores it durably, reads it, files
 it by category, and lets you review and confirm the extracted fields.
 
+> 📸 See [**SHOWCASE.md**](SHOWCASE.md) for a screen-by-screen visual tour of the app.
+
 ## Documentation
 
 **Live architecture guide:** https://aditya0257.github.io/trove/site/ (browsable, with diagrams).
