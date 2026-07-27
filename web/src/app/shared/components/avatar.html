@@ -1,0 +1,8 @@
+    <span class="av" [style.width.px]="size" [style.height.px]="size"
+          [style.background]="src() ? 'transparent' : bg()" [style.font-size.px]="size * 0.4">
+      @if (src(); as u) {
+        <img [src]="u" [width]="size" [height]="size" alt="" (error)="src.set(null)" />
+      } @else {
+        {{ initials() }}
+      }
+    </span>

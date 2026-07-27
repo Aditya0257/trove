@@ -1,0 +1,122 @@
+    <div class="card">
+      <h1>Reminders</h1>
+      <trove-help-card title="How reminders work" [open]="false" [user]="helpUser" [dev]="helpDev"></trove-help-card>
+
+      @if (dueCount() > 0) {
+        <p class="warn">🔔 {{ dueCount() }} reminder{{ dueCount() > 1 ? 's' : '' }} {{ dueCount() > 1 ? 'need' : 'needs' }} your attention (due on or before today).</p>
+      }
+
+      <!-- Create a new reminder. Editing an existing one happens in the dialog below. -->
+      <form (ngSubmit)="add()" class="reminder-form">
+        <div class="form-grid">
+          <label class="wide">Title (optional)
+            <input name="title" [(ngModel)]="form.title" placeholder="e.g. Rent - pay landlord" />
+          </label>
+          <label>Type
+            <trove-select name="type" [(ngModel)]="form.type" [options]="typeOptions" ariaLabel="Reminder type"></trove-select>
+          </label>
+          <label>Repeat
+            <trove-select name="recurrence" [(ngModel)]="form.recurrence" [options]="recurrenceOptions" ariaLabel="Repeat"></trove-select>
+          </label>
+          <label (click)="ensureDocsLoaded()">For document (optional)
+            <trove-select name="documentId" [(ngModel)]="form.documentId" [options]="docOptions()" ariaLabel="For document"></trove-select>
+          </label>
+          <label>Remind on <input type="date" name="remindOn" [(ngModel)]="form.remindOn" required /></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" [disabled]="!form.remindOn || saving()">{{ saving() ? 'Saving…' : 'Add reminder' }}</button>
+        </div>
+      </form>
+      @if (error()) { <p class="error">{{ error() }}</p> }
+
+      <!-- Lifecycle tabs. -->
+      <div class="tabs">
+        @for (t of tabs; track t.key) {
+          <button type="button" class="tab" [class.on]="tab() === t.key" (click)="tab.set(t.key)">
+            {{ t.label }} <span class="count">{{ countFor(t.key) }}</span>
+          </button>
+        }
+      </div>
+
+      @if (loading()) {
+        <p class="muted">Loading…</p>
+      } @else if (shownReminders().length === 0) {
+        <p class="muted">{{ emptyMsg() }}</p>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Reminder</th><th>When</th><th>Repeat</th><th>Status</th><th class="act-col"></th></tr></thead>
+            <tbody>
+              @for (r of shownReminders(); track r.id) {
+                <tr [class.due]="isDue(r)">
+                  <td>
+                    <div class="r-title">{{ r.title || rType(r.type) }}</div>
+                    @if (r.documentId) {
+                      <a class="r-doc" [routerLink]="['/documents', r.documentId, 'review']">{{ r.documentFilename || 'linked document' }}</a>
+                    } @else if (r.title) {
+                      <div class="r-sub">{{ rType(r.type) }}</div>
+                    }
+                  </td>
+                  <td>{{ r.remindOn }}</td>
+                  <td>{{ r.recurrence === 'none' ? '-' : rRecur(r.recurrence) }}</td>
+                  <td>
+                    @if (isDue(r)) { <span class="badge due">due now</span> }
+                    @else { <span class="badge" [class.ok]="r.status === 'done'">{{ statusLabel(r) }}</span> }
+                  </td>
+                  <td class="r-actions">
+                    @if (isActive(r)) {
+                      @if (snoozeOpen() === r.id) {
+                        <!-- Inline snooze options: in normal flow, so nothing gets clipped. -->
+                        <span class="snooze-inline">
+                          <span class="snooze-label">Snooze:</span>
+                          <button type="button" class="mini ghost" (click)="snooze(r, 1)">1 day</button>
+                          <button type="button" class="mini ghost" (click)="snooze(r, 3)">3 days</button>
+                          <button type="button" class="mini ghost" (click)="snooze(r, 7)">1 week</button>
+                          <button type="button" class="mini ghost" (click)="toggleSnooze(r.id)" aria-label="Cancel snooze">✕</button>
+                        </span>
+                      } @else {
+                        <button type="button" class="mini" (click)="markDone(r)">Done</button>
+                        <button type="button" class="mini ghost" (click)="toggleSnooze(r.id)">Snooze</button>
+                        <button type="button" class="mini ghost" (click)="edit(r)">Edit</button>
+                        <button type="button" class="mini ghost danger" (click)="dismiss(r)">Dismiss</button>
+                      }
+                    } @else {
+                      <button type="button" class="mini ghost" (click)="snooze(r, 0)">Reopen</button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- Edit dialog: a focused overlay so it is clear you are editing THIS reminder. -->
+    @if (editing()) {
+      <div class="scrim" (click)="cancelEdit()"></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Edit reminder">
+        <h3>Edit reminder</h3>
+        <label>Title (optional)
+          <input name="etitle" [(ngModel)]="editForm.title" placeholder="e.g. Rent - pay landlord" />
+        </label>
+        <div class="modal-grid">
+          <label>Type
+            <trove-select name="etype" [(ngModel)]="editForm.type" [options]="typeOptions" ariaLabel="Reminder type"></trove-select>
+          </label>
+          <label>Repeat
+            <trove-select name="erecurrence" [(ngModel)]="editForm.recurrence" [options]="recurrenceOptions" ariaLabel="Repeat"></trove-select>
+          </label>
+          <label (click)="ensureDocsLoaded()">For document (optional)
+            <trove-select name="edocumentId" [(ngModel)]="editForm.documentId" [options]="docOptions()" ariaLabel="For document"></trove-select>
+          </label>
+          <label>Remind on <input type="date" name="eremindOn" [(ngModel)]="editForm.remindOn" required /></label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" (click)="cancelEdit()">Cancel</button>
+          <button type="button" (click)="saveEdit()" [disabled]="!editForm.remindOn || saving()">
+            {{ saving() ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    }

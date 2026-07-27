@@ -8,29 +8,7 @@ import { PasswordInput } from '../../shared/components/password-input';
 @Component({
   selector: 'app-reset',
   imports: [FormsModule, RouterLink, PasswordInput],
-  template: `
-    <div class="card auth-card">
-      <h1>Choose a new password</h1>
-      @if (!token) {
-        <p class="error">This reset link is missing its token. Request a new one.</p>
-        <p class="muted"><a routerLink="/forgot">Reset password</a></p>
-      } @else if (done()) {
-        <p>✅ Your password has been reset. You can sign in with it now.</p>
-        <p class="muted"><a routerLink="/login">Go to sign in</a></p>
-      } @else {
-        <form (ngSubmit)="submit()">
-          <label>New password (min 8 chars)
-            <trove-password name="newPassword" autocomplete="new-password" [minlength]="8" [(ngModel)]="password"></trove-password>
-          </label>
-          <label>Confirm new password
-            <trove-password name="confirm" autocomplete="new-password" [(ngModel)]="confirm"></trove-password>
-          </label>
-          @if (error()) { <p class="error">{{ error() }}</p> }
-          <button type="submit" [disabled]="loading()">{{ loading() ? 'Saving…' : 'Set new password' }}</button>
-        </form>
-      }
-    </div>
-  `,
+  templateUrl: './reset.html',
 })
 export class Reset {
   private auth = inject(AuthService);

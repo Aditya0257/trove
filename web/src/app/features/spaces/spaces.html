@@ -1,0 +1,252 @@
+    @if (invitations().length) {
+      <div class="card invites">
+        <h3>Invitations</h3>
+        <p class="muted">You've been invited to these spaces. Accept to join, or decline.</p>
+        @for (inv of invitations(); track inv.spaceId) {
+          <div class="invite">
+            <div class="invite-info">
+              <b>{{ inv.spaceName }}</b> <span class="tag">{{ inv.role }}</span>
+              <span class="muted">invited by {{ inv.invitedByName || inv.invitedByEmail || 'someone' }}</span>
+            </div>
+            <div class="invite-actions">
+              <button type="button" (click)="accept(inv)" [disabled]="busy()">Accept</button>
+              <button type="button" class="btn-ghost" (click)="decline(inv)" [disabled]="busy()">Decline</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="card">
+      <h1>Spaces</h1>
+      <form (ngSubmit)="createSpace()" class="inline-form">
+        <label>New shared space <input name="newName" [(ngModel)]="newName" placeholder="e.g. Household" /></label>
+        <button type="submit" [disabled]="!newName.trim()">Create</button>
+      </form>
+      @if (!spaceCtx.loaded()) {
+        <p class="muted">Loading your spaces…</p>
+      } @else {
+        <p class="muted">Current space: <b>{{ spaceCtx.current()?.name || '-' }}</b>
+          ({{ spaceCtx.current()?.kind }}). Switch spaces from the top-right selector.</p>
+        @if (spaceCtx.current()?.description) {
+          <p class="space-bio">{{ spaceCtx.current()?.description }}</p>
+        }
+      }
+    </div>
+
+    @if (isOwner()) {
+      <div class="card">
+        <h3>Space settings</h3>
+        <label>Space name <input name="spaceName" [(ngModel)]="editName" placeholder="e.g. Household" /></label>
+        <label>Description / bio (optional)
+          <textarea name="spaceDesc" [(ngModel)]="editDescription" rows="2"
+            placeholder="What this space is for, or who it's shared with"></textarea>
+        </label>
+        <button (click)="saveSpace()" [disabled]="savingSpace() || !editName.trim()">
+          {{ savingSpace() ? 'Saving…' : 'Save changes' }}
+        </button>
+
+        @if (spaceCtx.current()?.kind === 'shared') {
+          <div class="danger">
+            <h4>Danger zone</h4>
+            <p class="muted">Deleting removes this space and <b>all its documents, for everyone</b>. It can't be undone from the app.</p>
+            <button type="button" class="btn-danger" (click)="askDelete()">Delete this space</button>
+          </div>
+        }
+      </div>
+    }
+
+    @if (deleting()) {
+      <div class="scrim" (click)="cancelDelete()"></div>
+      <div class="modal" role="dialog" aria-modal="true">
+        <h3>Delete "{{ spaceCtx.current()?.name }}"?</h3>
+        <p class="muted">This permanently removes the space and every document in it for all members.
+          To confirm, type the space name below.</p>
+        <input name="delConfirm" [(ngModel)]="deleteConfirm" [placeholder]="spaceCtx.current()?.name || ''" autocomplete="off" />
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="btn-danger"
+            [disabled]="deleteConfirm !== spaceCtx.current()?.name || deleteBusy()" (click)="confirmDelete()">
+            {{ deleteBusy() ? 'Deleting…' : 'Delete space' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <div class="card">
+      <h3>Members</h3>
+      <trove-help-card
+        title="About members"
+        [open]="false"
+        user="The people who can see and use this space. Roles: owner (full control, backup and billing), member (add and edit documents), viewer (read-only)."
+        dev="Membership lives in the space_member table; every request checks the caller's role against the space before returning anything. A personal space always has exactly one owner: you.">
+      </trove-help-card>
+      @if (!spaceCtx.loaded()) { <p class="muted">Loading…</p> }
+      @else if (membersError()) { <p class="muted">{{ membersError() }}</p> }
+      @else {
+        <table>
+          <thead><tr><th>User</th><th>Role</th></tr></thead>
+          <tbody>
+            @for (m of members(); track m.userId) {
+              <tr>
+                <td>
+                  <div class="member-name">{{ m.displayName || 'Unknown user' }}</div>
+                  <div class="member-sub">{{ m.email || m.userId }}</div>
+                </td>
+                <td>
+                  @if (m.status === 'active') {
+                    {{ m.role }}
+                  } @else if (m.status === 'pending' && m.selfRequested) {
+                    <span class="badge">wants to join</span>
+                    <button type="button" class="approve" (click)="approveMember(m)">Approve</button>
+                    <button type="button" class="dismiss" title="Decline" (click)="dismiss(m)">✕</button>
+                  } @else if (m.status === 'pending') {
+                    <span class="badge">invite sent · {{ m.role }}</span>
+                  } @else {
+                    <span class="badge due">declined</span>
+                    <button type="button" class="dismiss" title="Dismiss this row" (click)="dismiss(m)">✕</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <form (ngSubmit)="addMember()" class="inline-form invite-form">
+          <label>Invite by email <input name="email" [(ngModel)]="memberEmail" /></label>
+          <label>Role
+            <trove-select name="role" [(ngModel)]="memberRole" [options]="roleOptions" ariaLabel="Role"></trove-select>
+          </label>
+          <button type="submit" [disabled]="!memberEmail.trim()">Add</button>
+        </form>
+        @if (memberMsg()) { <p class="muted">{{ memberMsg() }}</p> }
+
+        <div class="join-link">
+          <div class="join-head">
+            <span>Or share a join link</span>
+            <trove-info-tip text="Send this link to someone; opening it lets them REQUEST to join, and you approve them above. It never auto-adds anyone. Rotate to invalidate the old link, or Revoke to turn it off."></trove-info-tip>
+          </div>
+          @if (joinUrl()) {
+            <div class="join-row">
+              <input readonly [value]="joinUrl()" (focus)="selectAll($event)" />
+              <button type="button" class="btn-ghost sm" (click)="copyJoinLink()">Copy</button>
+              <button type="button" class="btn-ghost sm" (click)="rotateJoinLink()">Rotate</button>
+              <button type="button" class="btn-ghost sm" (click)="revokeJoinLink()">Revoke</button>
+            </div>
+          } @else {
+            <button type="button" class="btn-ghost" (click)="getJoinLink()">Get join link</button>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="card">
+      <h3>Forward-to-file address</h3>
+      <trove-help-card
+        title="What is this address?"
+        [open]="false"
+        user="This space has its own private email address (shown below). Put it in the To, CC or BCC line when you send or forward any document to it (say a bill sitting in your inbox), and Trove saves the attachment straight into this space and reads it just like a normal upload: it pulls out the merchant, amount, date and category, then leaves it in needs-review for you to confirm. It is for filing without opening the app: forward and forget. Treat the address like a password; if it ever leaks, press Rotate to swap it for a fresh one."
+        dev="The address carries a per-space secret token. Your mail provider delivers the message to the ingest webhook, which matches the token to this space and runs each attachment through the same pipeline as an upload (stored, read by the AI, left in needs-review). It reads the attachment, not the email body; the sender is kept only for provenance. Real delivery needs the ingest domain's inbound mail routed to the app (a deployment step); until then the address is reserved but will not receive mail.">
+      </trove-help-card>
+      @if (ingest(); as a) {
+        <p>Forward documents to: <code>{{ a.address }}</code></p>
+        <button (click)="rotate()">Rotate</button>
+      } @else { <p class="muted">{{ ingestError() || 'Loading…' }}</p> }
+    </div>
+
+    <div class="card">
+      <h3>{{ terms.driveBackup }} backup</h3>
+      <trove-help-card
+        [title]="'About ' + terms.driveBackup + ' backup'"
+        [open]="false"
+        [user]="driveHelpUser"
+        [dev]="driveHelpDev">
+      </trove-help-card>
+      <trove-help-card
+        title="Pooling several Drives & deleted files"
+        [open]="false"
+        [user]="drivePoolHelpUser"
+        [dev]="drivePoolHelpDev">
+      </trove-help-card>
+      @if (drive(); as d) {
+        @if (d.connected) {
+          <!-- How several Drives are used together. -->
+          <div class="drive-mode">
+            <span class="drive-mode-label">With several Drives</span>
+            <div class="ccy">
+              <button type="button" class="chip sm" [class.on]="d.mode === 'rotate'" (click)="setMode('rotate')">Rotate</button>
+              <button type="button" class="chip sm" [class.on]="d.mode === 'mirror'" (click)="setMode('mirror')">Mirror</button>
+            </div>
+          </div>
+          <p class="muted small mode-hint">
+            @if (d.mode === 'mirror') {
+              Every document is copied into <b>all</b> linked Drives - a redundant, independent backup.
+            } @else {
+              Documents fill the <b>active</b> Drive, then roll to the next when it is full - pooled capacity.
+            }
+          </p>
+
+          @for (c of d.connections; track c.id) {
+            <div class="drive-conn" [class.is-active]="c.active && d.mode === 'rotate'">
+              <div class="drive-conn-head">
+                <span class="drive-account-email">{{ c.googleEmail || 'Google Drive' }}</span>
+                @if (c.googleAccountName) { <span class="muted">({{ c.googleAccountName }})</span> }
+                @if (d.mode === 'rotate' && c.active) { <span class="badge badge-active">Active</span> }
+                @if (c.status === 'full') { <span class="badge badge-full">Full</span> }
+              </div>
+              <div class="drive-conn-sub muted">
+                @if (c.connectedByName) { linked by {{ c.connectedByName }} · }
+                last sync {{ c.lastSyncAt ? (c.lastSyncAt | prettyDate) : 'never' }}
+              </div>
+              @if (c.storageLimitBytes) {
+                <div class="storage">
+                  <div class="storage-bar" [title]="connTitle(c)">
+                    <span class="seg seg-trove" [style.width.%]="pctOf(c.troveBytes, c.storageLimitBytes)"></span>
+                    <span class="seg seg-other" [style.width.%]="pctOtherC(c)"></span>
+                  </div>
+                  <p class="storage-text muted">
+                    <span class="dot dot-trove"></span> Trove {{ fmtBytes(c.troveBytes) }}
+                    <span class="dot dot-other"></span> other {{ fmtBytes((c.storageUsageBytes ?? 0) - (c.troveBytes ?? 0)) }}
+                    · {{ fmtBytes(c.storageUsageBytes) }} of {{ fmtBytes(c.storageLimitBytes) }} used
+                  </p>
+                </div>
+              } @else if (c.troveBytes) {
+                <p class="storage-text muted">Trove {{ fmtBytes(c.troveBytes) }} stored · account storage is unlimited</p>
+              }
+              <div class="drive-conn-actions">
+                @if (d.mode === 'rotate' && !c.active) {
+                  <button type="button" class="btn-ghost sm" (click)="activate(c.id)">Make active</button>
+                  <trove-info-tip text="Make this the Drive new documents sync to (rotate mode). The others stay as-is."></trove-info-tip>
+                }
+                <button type="button" class="btn-ghost sm" (click)="disconnect(c.id)">Disconnect</button>
+                <trove-info-tip text="Unlink this Drive from the space. Files already backed up STAY in the Drive; Trove just stops syncing to it. You can reconnect later."></trove-info-tip>
+              </div>
+            </div>
+          }
+
+          <div class="drive-foot">
+            <button (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing…' : 'Sync now' }}</button>
+            <trove-info-tip text="Copies any documents not yet backed up into the space's Drive(s) right now, instead of waiting for the hourly auto-sync. Safe to run anytime."></trove-info-tip>
+            <button type="button" class="btn-ghost" (click)="connect()">+ Connect another Drive</button>
+            <trove-info-tip text="Link one more Google Drive to pool its free space. Opens Google's consent screen; you choose the account."></trove-info-tip>
+            @if (syncMsg()) { <span class="muted"> {{ syncMsg() }}</span> }
+          </div>
+        } @else {
+          <p class="muted">Not connected. Back this space up into a member's {{ terms.driveBackup }} - anyone in the space can link their own.</p>
+          <div class="drive-foot">
+            <button (click)="connect()">Connect {{ terms.driveBackup }}</button>
+            <trove-info-tip text="Opens Google's consent screen to link a Drive. Trove only touches files it creates (drive.file scope) and backs this space's documents into it."></trove-info-tip>
+          </div>
+        }
+      } @else { <p class="muted">{{ driveError() || 'Loading…' }}</p> }
+    </div>
+
+    <div class="card">
+      <h3>Export</h3>
+      <trove-help-card
+        title="About export"
+        [open]="false"
+        user="Downloads this whole space as one ZIP containing manifest.json (every record, machine-readable), data.csv (open in Excel or Sheets), and files/ (your original images and PDFs). A large vault takes a little while to prepare, so give it a moment."
+        dev="Streamed and zipped server-side. The manifest is the complete record set for a lossless re-import, the CSV is a flattened human view, and files/ are the originals pulled from object storage. Uploading this ZIP back fully restores the system: the ultimate 'no provider outage can wipe me' guarantee.">
+      </trove-help-card>
+      <button (click)="exportZip()" [disabled]="exporting()">{{ exporting() ? 'Preparing…' : 'Download export' }}</button>
+    </div>

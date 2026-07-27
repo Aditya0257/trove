@@ -1,0 +1,78 @@
+    <div class="card">
+      <h1>Add documents</h1>
+      <p class="muted">
+        Paste a screenshot ({{ pasteHint }}), drop files, or choose files: a bill,
+        receipt, policy or ID. <b>Images are read automatically</b> and you just confirm the
+        details next; PDFs are stored safely but aren't auto-read yet, so you'll fill in
+        their details yourself.
+      </p>
+      <p class="formats">Accepted: images (JPG, PNG, HEIC, WebP) and PDF · up to 25 MB each.</p>
+
+      <trove-help-card
+        title="How reading works"
+        [open]="false"
+        user="Trove reads each image with a vision AI model and pre-fills the details for you to confirm. Big photos and scans are automatically shrunk to a sensible size first, so they read reliably and use less of the daily AI budget. If the AI can't read something, or the daily budget is used up, the file is still saved and you simply fill in the details yourself."
+        dev="Images larger than 1600px on the longest edge are downscaled and re-encoded as JPEG before being sent to the vision model (this also cuts credit cost), and the model is asked for strict JSON. Extraction runs asynchronously after upload and always lands in needs-review for a human to confirm. If the model errors or the daily budget is spent, the provider chain falls back to a free stub, so an upload never fails.">
+      </trove-help-card>
+
+      <div
+        class="dropzone"
+        [class.drag]="dragging()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="dragging.set(false)"
+        (drop)="onDrop($event)"
+        tabindex="0"
+      >
+        <span class="hint">Paste ({{ pasteHint }}) or drop images or PDFs</span>
+        <label class="filebtn">
+          Choose files
+          <input type="file" (change)="onPick($event)" accept="image/*,application/pdf" multiple hidden />
+        </label>
+      </div>
+
+      @if (queue().length) {
+        <div class="thumbs">
+          @for (item of queue(); track item.url) {
+            <div class="thumb">
+              @if (isImage(item)) {
+                <img [src]="item.url" alt="pending upload" />
+              } @else {
+                <!-- PDFs and other non-images can't render as an <img>; show a file card
+                     instead of a broken-image icon. -->
+                <div class="filecard" [title]="item.file.name">
+                  <span class="ext">{{ ext(item) }}</span>
+                  <span class="fname">{{ item.file.name }}</span>
+                </div>
+              }
+              <button class="rm" (click)="remove(item)" [disabled]="loading()" aria-label="Remove">×</button>
+            </div>
+          }
+        </div>
+        @if (hasNonImage()) {
+          <p class="note">ℹ PDFs are stored but not auto-read, so you'll enter their details
+            manually on the review screen.</p>
+        }
+      }
+
+      <label class="checkbox">
+        <input type="checkbox" name="vital" [(ngModel)]="vital" [disabled]="loading()" />
+        These are vital/sensitive (passport, ID, policy). Encrypt at rest
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" [checked]="settings.aiReading()" (change)="settings.toggleAiReading()" [disabled]="loading()" />
+        Read images with AI automatically (uses AI credits).
+      </label>
+      <p class="muted ai-hint">
+        A saved preference - it applies to every upload until you change it (here, or from the
+        dev panel's Pause button). Turn off to skip the wait and fill the details yourself.
+      </p>
+
+      @if (loading()) {
+        <p class="muted">Uploading {{ done() + 1 }} of {{ total() }}…</p>
+      }
+      @if (error()) { <p class="error">{{ error() }}</p> }
+
+      <button (click)="upload()" [disabled]="!queue().length || loading()">
+        {{ uploadLabel() }}
+      </button>
+    </div>

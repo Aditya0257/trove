@@ -10,26 +10,8 @@ import { Component, Input, computed, signal } from '@angular/core';
 @Component({
   selector: 'trove-avatar',
   standalone: true,
-  template: `
-    <span class="av" [style.width.px]="size" [style.height.px]="size"
-          [style.background]="src() ? 'transparent' : bg()" [style.font-size.px]="size * 0.4">
-      @if (src(); as u) {
-        <img [src]="u" [width]="size" [height]="size" alt="" (error)="src.set(null)" />
-      } @else {
-        {{ initials() }}
-      }
-    </span>
-  `,
-  styles: [
-    `
-      .av {
-        display: inline-flex; align-items: center; justify-content: center; flex: none;
-        border-radius: 50%; overflow: hidden; color: #fff; font-weight: 700; line-height: 1;
-        user-select: none; text-transform: uppercase;
-      }
-      .av img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    `,
-  ],
+  templateUrl: './avatar.html',
+  styleUrl: './avatar.scss',
 })
 export class Avatar {
   @Input() name = '';

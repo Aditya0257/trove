@@ -1,0 +1,163 @@
+    @if (!doc()) {
+      <div class="card"><p class="muted">Loading…</p></div>
+    } @else {
+      <div class="card">
+        <button class="back" type="button" (click)="back()">← Back</button>
+        <div class="row-between">
+          <h1>Review &amp; confirm</h1>
+          <span class="badge" [class.confirmed]="doc()!.status === 'confirmed'">{{ doc()!.status }}</span>
+        </div>
+
+        @if (reading()) {
+          <div class="ai-note reading">
+            <span class="spinner" aria-hidden="true"></span>
+            <div>
+              <b>Reading your document with AI.</b> This usually takes a few seconds (up to about
+              30 seconds for a dense page). You can wait and the fields below fill in on their own,
+              or start typing now if you prefer: anything you enter is kept, and the AI only fills
+              the blanks it reads, so it will not overwrite what you have typed. Either way, give
+              the values a quick check before you Confirm.
+            </div>
+          </div>
+        } @else if (needsReview()) {
+          @if (extractionSkipped()) {
+            <div class="ai-note skipped">
+              <b>AI reading was off for this upload.</b> Enter the details below and Confirm.
+              You can turn AI reading back on any time from the Upload screen.
+            </div>
+          } @else if (failedRead()) {
+            <div class="ai-note failed">
+              <b>We couldn't read this one automatically.</b> The read may have timed out.
+              You can try reading it again, or just fill in the details below.
+              @if (readReason()) { <span class="muted"> · {{ readReason() }}</span> }
+              <div style="margin-top: 10px;">
+                <button type="button" class="view-file" (click)="readAgain()" [disabled]="reading()">
+                  {{ reading() ? 'Reading…' : 'Read again with AI' }}
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div class="ai-note">
+              <b>Please double-check these.</b> The details below were read from your document
+              automatically and can be wrong (a misread amount, date or name happens). Confirm
+              each value; you can edit anything now, or change it later.
+              @if (confidencePct() !== '-') {
+                <span class="muted"> · read confidence {{ confidencePct() }}</span>
+              }
+            </div>
+          }
+        } @else {
+          <p class="muted">You've reviewed and saved this document. Edit any field and Save changes to update it.</p>
+        }
+        @if (anomaly()) {
+          <p class="warn">⚠ This is about {{ anomalyPct() }} higher than usual for this category@if (anomalyAvg() !== null) {<span> (you normally pay around {{ anomalyAvg() | money: doc()!.currency }})</span>}. Worth a second look before you confirm.</p>
+        }
+        @if (uploadedOn()) { <p class="uploaded">Added to Trove on {{ uploadedOn() }}</p> }
+
+        <button class="view-file" type="button" (click)="openFile()">View original file</button>
+
+        <form (ngSubmit)="confirm()">
+          <label>
+            <span class="lbl">Category <span class="tip" tabindex="0">i<span class="bubble">{{ tips.category }}</span></span></span>
+            <trove-select name="category" [(ngModel)]="form.category" [options]="categoryOptions()"
+              placeholder="Choose a category…" ariaLabel="Category"></trove-select>
+          </label>
+          <label>
+            <span class="lbl">Merchant <span class="tip" tabindex="0">i<span class="bubble">{{ tips.merchant }}</span></span></span>
+            <input name="merchant" [(ngModel)]="form.merchant" placeholder="e.g. Reliance Fresh, Airtel, Acko" />
+          </label>
+          <div class="row">
+            <label>
+              <span class="lbl">Amount <span class="tip" tabindex="0">i<span class="bubble">{{ tips.amount }}</span></span></span>
+              <input type="number" step="0.01" name="amount" [(ngModel)]="form.amount" placeholder="0.00" />
+            </label>
+            <label>
+              <span class="lbl">Currency <span class="tip" tabindex="0">i<span class="bubble">{{ tips.currency }}</span></span></span>
+              <trove-select name="currency" [(ngModel)]="form.currency" [options]="currencyOptions" ariaLabel="Currency"></trove-select>
+            </label>
+          </div>
+          <div class="row">
+            <label>
+              <span class="lbl">Document date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.docDate }}</span></span></span>
+              <input type="date" name="docDate" [(ngModel)]="form.docDate" />
+            </label>
+            <label>
+              <span class="lbl">Due date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.dueDate }}</span></span></span>
+              <input type="date" name="dueDate" [(ngModel)]="form.dueDate" />
+            </label>
+          </div>
+          <label>
+            <span class="lbl">Warranty until (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.warranty }}</span></span></span>
+            <div class="warranty-row">
+              <input type="date" name="warrantyUntil" [(ngModel)]="form.warrantyUntil" />
+              <button type="button" class="preset" (click)="setWarranty(1)">+1 year</button>
+              <button type="button" class="preset" (click)="setWarranty(2)">+2 years</button>
+              @if (form.warrantyUntil) { <button type="button" class="preset clear" (click)="form.warrantyUntil = ''">Clear</button> }
+            </div>
+            <span class="help">For a purchase with a warranty (earbuds, a phone, an appliance). Trove reminds you before it runs out, so you can still claim.</span>
+          </label>
+          <label>
+            <span class="lbl">Notes (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
+            <textarea name="notes" [(ngModel)]="form.notes" rows="2"
+              placeholder="Anything you want to remember or find this by later, e.g. Bhopal Indore highway toll"></textarea>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="vital" [(ngModel)]="form.vital" />
+            Vital / sensitive (encrypt at rest)
+          </label>
+          @if (error()) { <p class="error">{{ error() }}</p> }
+          <div class="actions">
+            <button type="submit" [disabled]="saving()">
+              {{ saving() ? 'Saving…' : confirmLabel() }}
+            </button>
+            <button type="button" class="btn-del" (click)="remove()">Delete</button>
+          </div>
+        </form>
+
+        @if (lineItems().length || extraEntries().length || rawText()) {
+          <details class="extracted">
+            <summary>Everything the AI read from this document</summary>
+            @if (lineItems().length) {
+              <div class="ex-title">Line items</div>
+              <table class="li">
+                <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+                <tbody>
+                  @for (li of lineItems(); track $index) {
+                    <tr><td>{{ li.description || '-' }}</td><td>{{ li.quantity ?? '-' }}</td><td>{{ li.amount ?? '-' }}</td></tr>
+                  }
+                </tbody>
+              </table>
+            }
+            @if (extraEntries().length) {
+              <div class="ex-title">Other details found</div>
+              <div class="ex-fields">
+                @for (e of extraEntries(); track e[0]) {
+                  <div class="ex-kv"><span>{{ e[0] }}</span><div>{{ e[1] }}</div></div>
+                }
+              </div>
+            }
+            @if (rawText()) {
+              <div class="ex-title">Full text read</div>
+              <pre class="rawtext">{{ rawText() }}</pre>
+            }
+          </details>
+        }
+      </div>
+
+      @if (related().length) {
+        <div class="card related">
+          <h3>Related documents</h3>
+          <p class="muted">Others from the same merchant (or category). Newest first.</p>
+          <ul class="rel-list">
+            @for (r of related(); track r.id) {
+              <li>
+                <a [routerLink]="['/documents', r.id, 'review']">{{ r.merchant || r.originalFilename || 'Document' }}</a>
+                <span class="rel-meta">
+                  {{ r.category || '-' }}@if (r.docDate) { · {{ r.docDate }} }@if (r.amount !== null) { · {{ r.amount | money: r.currency }} }
+                </span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    }

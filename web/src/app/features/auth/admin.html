@@ -1,0 +1,27 @@
+    <div class="card">
+      <h1>Access requests</h1>
+      @if (!auth.user()?.admin) {
+        <p class="muted">This page is for the admin. <a routerLink="/documents">Back to documents</a>.</p>
+      } @else {
+        <p class="muted">People who signed up and are waiting for your approval before they can sign in.</p>
+        @if (loading()) { <p class="muted">Loading…</p> }
+        @else if (pending().length === 0) { <p class="muted">No pending requests right now.</p> }
+        @else {
+          <div class="reqs">
+            @for (u of pending(); track u.id) {
+              <div class="req">
+                <div class="who">
+                  <span class="name">{{ u.displayName }}</span>
+                  <span class="muted email">{{ u.email }}</span>
+                  <span class="muted small">requested {{ u.requestedAt | prettyDate }}</span>
+                </div>
+                <div class="actions">
+                  <button type="button" (click)="approve(u)" [disabled]="busy()">Approve</button>
+                  <button type="button" class="btn-ghost" (click)="reject(u)" [disabled]="busy()">Decline</button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>

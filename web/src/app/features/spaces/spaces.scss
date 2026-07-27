@@ -1,0 +1,73 @@
+      .member-name { font-weight: 600; }
+      .member-sub { font-size: 12px; color: var(--muted); font-family: monospace; }
+      .drive-account-email { font-weight: 600; font-family: monospace; }
+
+      /* Rotate/Mirror mode toggle. */
+      .drive-mode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 4px; }
+      .drive-mode-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+      .mode-hint { margin: 0 0 12px; }
+      .ccy { display: flex; align-items: center; gap: 6px; }
+      .chip {
+        margin: 0; border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
+        border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+      }
+      .chip.sm { padding: 2px 10px; font-size: 12px; }
+      .chip.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
+
+      /* One linked Drive. The active one (rotate mode) gets an accent frame. */
+      .drive-conn { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
+      .drive-conn.is-active { border-color: var(--accent-line); background: var(--accent-soft); }
+      .drive-conn-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .drive-conn-sub { font-size: 0.8rem; margin: 3px 0 0; }
+      .drive-conn-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+      .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-radius: 6px; padding: 1px 7px; }
+      .badge-active { background: var(--accent); color: var(--brand-ink); }
+      .badge-full { background: var(--danger, #b4402f); color: #fff; }
+      .btn-ghost.sm { padding: 3px 10px; font-size: 12px; margin: 0; border-radius: 8px; cursor: pointer; }
+      .drive-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+      /* Storage bar: Trove's share (accent) + other files (muted grey) over the free track. */
+      .storage { margin: 6px 0 12px; }
+      .storage-bar {
+        display: flex; height: 8px; width: 100%; border-radius: 999px; overflow: hidden;
+        background: var(--hover); border: 1px solid var(--line);
+      }
+      .storage-bar .seg { height: 100%; }
+      .seg-trove { background: var(--accent); }
+      .seg-other { background: var(--muted); opacity: 0.45; }
+      .storage-text { margin: 5px 0 0; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+      .dot-trove { background: var(--accent); }
+      .dot-other { background: var(--muted); opacity: 0.45; }
+      /* Breathing room + a divider between the members table and the invite row. */
+      .invite-form { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+      .invites { border-left: 3px solid var(--accent); }
+      .invite { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+      .invite-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .invite-actions { display: flex; gap: 8px; }
+      .invite-actions button { margin: 0; }
+      .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+      .btn-ghost:hover { background: var(--hover); }
+      .tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+      .approve { margin: 0 0 0 8px; padding: 3px 12px; background: var(--accent); color: var(--brand-ink); border: 0; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+      .approve:hover { filter: brightness(1.05); }
+      .join-link { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+      .join-head { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
+      .join-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .join-row input { flex: 1; min-width: 220px; margin: 0; font-family: monospace; font-size: 12px; }
+      .dismiss { margin: 0 0 0 8px; padding: 2px 8px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 12px; }
+      .dismiss:hover { color: var(--danger); border-color: var(--danger-line); }
+      .space-bio { margin: 6px 0 0; }
+      textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; }
+      .danger { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--danger-line); }
+      .danger h4 { margin: 0 0 4px; color: var(--danger); font-size: 0.95rem; }
+      .btn-danger { margin: 0; background: var(--danger); color: #fff; border: 0; }
+      .btn-danger:hover:not(:disabled) { filter: brightness(0.94); }
+      .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1100; }
+      .modal {
+        position: fixed; z-index: 1101; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: min(460px, 92vw); background: var(--card); border: 1px solid var(--line);
+        border-radius: 12px; padding: 1.25rem 1.4rem; box-shadow: 0 20px 60px var(--shadow);
+      }
+      .modal h3 { margin: 0 0 0.5rem; }
+      .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
+      .modal-actions button { margin: 0; }

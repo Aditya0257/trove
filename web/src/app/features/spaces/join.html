@@ -1,0 +1,13 @@
+    <div class="card auth-card">
+      <h1>Join a space</h1>
+      @if (result()) {
+        <p>✅ Your request to join <b>{{ result()!.spaceName }}</b> has been sent. The owner will
+          approve it, and then the space appears in your switcher at the top.</p>
+        <p class="muted"><a routerLink="/spaces">Go to Spaces</a></p>
+      } @else if (error()) {
+        <p class="error">{{ error() }}</p>
+        <p class="muted"><a routerLink="/documents">Back home</a></p>
+      } @else {
+        <p class="muted">Sending your request…</p>
+      }
+    </div>

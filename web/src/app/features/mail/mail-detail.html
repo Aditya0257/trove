@@ -1,0 +1,61 @@
+    <div class="card">
+      <button class="back" type="button" (click)="back()">← Back to Mail</button>
+      <h1>Email</h1>
+
+      @if (loading()) {
+        <p class="muted">Loading…</p>
+      } @else if (!docs().length) {
+        <p class="muted">This email couldn't be found.</p>
+      } @else {
+        <div class="shots">
+          @for (d of docs(); track d.id) {
+            <button type="button" class="shot" (click)="openShot(d)" title="Open full screenshot">
+              <img [src]="thumb(d)" alt="screenshot" />
+            </button>
+          }
+        </div>
+        <p class="muted small">{{ docs().length }} screenshot(s). Click any to view it full-size.</p>
+
+        @if (hasReadText()) {
+          <details class="read">
+            <summary>Text read by AI (makes this email searchable)</summary>
+            @for (d of docs(); track d.id) {
+              @if (d.rawText) { <pre class="rawtext">{{ d.rawText }}</pre> }
+            }
+          </details>
+        }
+
+        <form (ngSubmit)="save()">
+          <label>
+            <span class="lbl">Account <span class="tip" tabindex="0">i<span class="bubble">{{ tips.account }}</span></span></span>
+            <input name="account" [(ngModel)]="form.account" list="mailAccounts" placeholder="Personal / Office" />
+            <datalist id="mailAccounts"><option value="Personal"></option><option value="Office"></option></datalist>
+          </label>
+          <label>
+            <span class="lbl">Email address (inbox) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.address }}</span></span></span>
+            <input name="address" type="email" [(ngModel)]="form.address" placeholder="e.g. you@work.com" />
+          </label>
+          <label>
+            <span class="lbl">Topic / sender <span class="tip" tabindex="0">i<span class="bubble">{{ tips.topic }}</span></span></span>
+            <input name="topic" [(ngModel)]="form.topic" placeholder="e.g. Plum Insurance, HDFC Bank, Amazon" />
+          </label>
+          <label>
+            <span class="lbl">Subject <span class="tip" tabindex="0">i<span class="bubble">{{ tips.subject }}</span></span></span>
+            <input name="subject" [(ngModel)]="form.subject" placeholder="Exact subject line of the email" />
+          </label>
+          <label>
+            <span class="lbl">Email date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.date }}</span></span></span>
+            <input type="date" name="mdate" [(ngModel)]="form.date" />
+          </label>
+          <label>
+            <span class="lbl">Notes / description (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
+            <textarea name="notes" [(ngModel)]="form.notes" rows="2"
+              placeholder="Anything to remember or find this by later"></textarea>
+          </label>
+          <div class="actions">
+            <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save changes' }}</button>
+            <button type="button" class="btn-del" (click)="remove()">Delete email</button>
+          </div>
+        </form>
+      }
+    </div>

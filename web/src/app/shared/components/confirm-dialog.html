@@ -1,0 +1,15 @@
+    @if (svc.current(); as c) {
+      <div class="scrim" (click)="svc.cancel()"></div>
+      <div class="modal" role="dialog" aria-modal="true">
+        <h3>{{ c.title || 'Please confirm' }}</h3>
+        <p>{{ c.message }}</p>
+        <div class="actions">
+          <button type="button" class="cancel" [disabled]="svc.running()" (click)="svc.cancel()">
+            {{ c.cancelLabel || 'Cancel' }}
+          </button>
+          <button type="button" class="ok" [class.danger]="c.danger" [disabled]="svc.running()" (click)="svc.accept()">
+            {{ svc.running() ? (c.busyLabel || 'Working...') : (c.confirmLabel || 'Confirm') }}
+          </button>
+        </div>
+      </div>
+    }

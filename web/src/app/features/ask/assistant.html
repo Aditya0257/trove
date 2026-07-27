@@ -1,0 +1,92 @@
+    @if (auth.isLoggedIn()) {
+      @if (open()) {
+        <div class="panel">
+          <header>
+            <span class="title">✦ Ask your vault</span>
+            <button type="button" class="icon" aria-label="How this works" data-tip="How this works" [class.on]="helpOpen()" (click)="helpOpen.set(!helpOpen())">ⓘ</button>
+            <button type="button" class="icon" aria-label="Re-index documents"
+              data-tip="Refresh the assistant's index so documents you just added or edited become answerable. This is normally automatic; use it if a recent document is not turning up in answers yet."
+              (click)="reindex()" [disabled]="indexing()">⟳</button>
+            <button type="button" class="icon" aria-label="Close" data-tip="Close" (click)="open.set(false)">✕</button>
+          </header>
+
+          <div class="body" #body>
+            @if (helpOpen()) {
+              <div class="help">
+                <p class="help-user">{{ helpUser }}</p>
+                <div class="help-dev">
+                  <span class="help-dev-label">How it works</span>
+                  <p>{{ helpDev }}</p>
+                </div>
+              </div>
+            }
+            @if (turns().length === 0) {
+              <p class="hint">Ask about your documents - answers are built from your files and cite them.</p>
+              <div class="examples">
+                @for (ex of examples; track ex) {
+                  <button type="button" class="chip" (click)="ask(ex)" [disabled]="loading()">{{ ex }}</button>
+                }
+              </div>
+            }
+            @for (t of turns(); track ti; let ti = $index) {
+              <div class="msg q">{{ t.question }}</div>
+              <div class="msg a">
+                <!-- Clean, talkable answer: citation markers are stripped from the prose. -->
+                <p class="a-text">{{ cleanAnswer(t.answer.answer) }}</p>
+                @if (!t.answer.aiUsed && t.answer.sources.length) {
+                  <p class="muted xs">Most relevant documents (AI summary paused or off).</p>
+                }
+
+                <!-- Source(s) the answer used. One source shows no number; several are numbered. -->
+                @if (citedSources(t).length) {
+                  <div class="sources">
+                    @for (s of citedSources(t); track s.documentId; let i = $index) {
+                      <a class="source cited"
+                         [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
+                        @if (citedSources(t).length > 1) { <span class="src-idx">{{ i + 1 }}.</span> }
+                        <span class="src-title">{{ s.title }}</span>
+                        @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
+                        @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
+                        @if (s.amount != null) { <span class="src-meta">{{ s.amount | money: s.currency }}</span> }
+                      </a>
+                    }
+                  </div>
+                }
+
+                <!-- The rest it considered but didn't use - collapsed to reduce noise. -->
+                @if (otherSources(t).length) {
+                  <button type="button" class="more" (click)="toggleOthers(ti)">
+                    {{ isExpanded(ti) ? 'Hide' : otherSources(t).length + ' more considered' }}
+                  </button>
+                  @if (isExpanded(ti)) {
+                    <div class="sources">
+                      @for (s of otherSources(t); track s.documentId) {
+                        <a class="source dim"
+                           [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
+                          <span class="src-title">{{ s.title }}</span>
+                          @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
+                          @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
+                          @if (s.amount != null) { <span class="src-meta">{{ s.amount | money: s.currency }}</span> }
+                        </a>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            }
+            @if (loading()) { <div class="msg a"><p class="a-text muted">Thinking…</p></div> }
+            @if (error()) { <p class="error">{{ error() }}</p> }
+          </div>
+
+          <form class="composer" (submit)="ask(); $event.preventDefault()">
+            <input [(ngModel)]="q" name="q" autocomplete="off"
+                   placeholder="Ask anything about your vault…" [disabled]="loading()" />
+            <button type="submit" [disabled]="loading() || !q.trim()">Ask</button>
+          </form>
+        </div>
+      }
+
+      <button type="button" class="launcher" [class.hidden]="open()" (click)="open.set(true)" aria-label="Ask your vault">
+        ✦ Ask
+      </button>
+    }

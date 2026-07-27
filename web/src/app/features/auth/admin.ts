@@ -10,52 +10,8 @@ import { PendingUser } from '../../core/models/models';
 @Component({
   selector: 'app-admin',
   imports: [RouterLink, DateTimePipe],
-  template: `
-    <div class="card">
-      <h1>Access requests</h1>
-      @if (!auth.user()?.admin) {
-        <p class="muted">This page is for the admin. <a routerLink="/documents">Back to documents</a>.</p>
-      } @else {
-        <p class="muted">People who signed up and are waiting for your approval before they can sign in.</p>
-        @if (loading()) { <p class="muted">Loading…</p> }
-        @else if (pending().length === 0) { <p class="muted">No pending requests right now.</p> }
-        @else {
-          <div class="reqs">
-            @for (u of pending(); track u.id) {
-              <div class="req">
-                <div class="who">
-                  <span class="name">{{ u.displayName }}</span>
-                  <span class="muted email">{{ u.email }}</span>
-                  <span class="muted small">requested {{ u.requestedAt | prettyDate }}</span>
-                </div>
-                <div class="actions">
-                  <button type="button" (click)="approve(u)" [disabled]="busy()">Approve</button>
-                  <button type="button" class="btn-ghost" (click)="reject(u)" [disabled]="busy()">Decline</button>
-                </div>
-              </div>
-            }
-          </div>
-        }
-      }
-    </div>
-  `,
-  styles: [
-    `
-      .reqs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-      .req {
-        display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-        border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
-      }
-      .who { display: flex; flex-direction: column; gap: 2px; }
-      .name { font-weight: 600; }
-      .email { font-family: monospace; font-size: 13px; }
-      .small { font-size: 12px; }
-      .actions { display: flex; gap: 8px; }
-      .actions button { margin: 0; }
-      .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
-      .btn-ghost:hover { background: var(--hover); }
-    `,
-  ],
+  templateUrl: './admin.html',
+  styleUrl: './admin.scss',
 })
 export class Admin {
   protected auth = inject(AuthService);

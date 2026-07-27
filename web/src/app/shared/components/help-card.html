@@ -1,0 +1,18 @@
+    <div class="help-card" [class.open]="open">
+      <button type="button" class="hc-head" (click)="open = !open" [attr.aria-expanded]="open">
+        <span class="hc-tag">Help</span>
+        <span class="hc-title">{{ title }}</span>
+        <span class="chev">▾</span>
+      </button>
+      @if (open) {
+        <div class="hc-body">
+          <p class="hc-user">{{ user }}</p>
+          @if (dev) {
+            <div class="hc-dev">
+              <div class="hc-dev-label">How it works</div>
+              <p>{{ dev }}</p>
+            </div>
+          }
+        </div>
+      }
+    </div>

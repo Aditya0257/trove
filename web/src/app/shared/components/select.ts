@@ -21,61 +21,8 @@ export interface SelectOption {
   selector: 'trove-select',
   standalone: true,
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => TroveSelect), multi: true }],
-  template: `
-    <div class="ts" [class.open]="open()">
-      <button type="button" class="ts-btn" [disabled]="disabled()"
-              (click)="toggle()" (keydown)="onKey($event)"
-              [attr.aria-expanded]="open()" [attr.aria-label]="ariaLabel || placeholder">
-        <span class="ts-label" [class.ph]="!selected()">{{ selected()?.label || placeholder }}</span>
-        <span class="ts-chev">▾</span>
-      </button>
-      @if (open()) {
-        <ul class="ts-list" role="listbox">
-          @for (o of opts(); track o.value; let i = $index) {
-            <li role="option" [attr.aria-selected]="o.value === value()"
-                [class.sel]="o.value === value()" [class.hi]="i === highlight()"
-                (click)="pick(o.value)" (mouseenter)="highlight.set(i)">
-              <span class="ts-main">
-                <span class="ts-opt">{{ o.label }}</span>
-                @if (o.sub) { <span class="ts-sub">{{ o.sub }}</span> }
-              </span>
-              @if (o.value === value()) { <span class="ts-check"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4 4L19 7" /></svg></span> }
-            </li>
-          }
-        </ul>
-      }
-    </div>
-  `,
-  styles: [
-    `
-      .ts { position: relative; }
-      .ts-btn {
-        margin: 0; width: 100%; display: flex; align-items: center; gap: 8px;
-        padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 8px;
-        background: var(--input-bg); color: var(--ink); font-size: 0.95rem; cursor: pointer; text-align: left;
-      }
-      .ts-btn:disabled { opacity: 0.55; cursor: default; }
-      .ts.open .ts-btn, .ts-btn:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-      .ts-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ts-label.ph { color: var(--muted); }
-      .ts-chev { flex: none; color: var(--muted); transition: transform 150ms; }
-      .ts.open .ts-chev { transform: rotate(180deg); }
-      .ts-list {
-        position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px;
-        list-style: none; max-height: 260px; overflow-y: auto; background: var(--card); font-size: 0.9rem;
-        border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px var(--shadow);
-      }
-      .ts-list li {
-        display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; cursor: pointer;
-      }
-      .ts-list li.hi { background: var(--accent-soft); }
-      .ts-list li.sel .ts-opt { color: var(--accent); font-weight: 600; }
-      .ts-main { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-      .ts-opt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ts-sub { font-size: 11px; color: var(--muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ts-check { flex: none; color: var(--accent); display: inline-flex; align-items: center; }
-    `,
-  ],
+  templateUrl: './select.html',
+  styleUrl: './select.scss',
 })
 export class TroveSelect implements ControlValueAccessor {
   // Signal-backed so the displayed label reacts when the options change (e.g. a space
