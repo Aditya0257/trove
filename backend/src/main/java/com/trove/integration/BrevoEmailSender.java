@@ -28,6 +28,7 @@
  */
 package com.trove.integration;
 import com.trove.config.EmailProperties;
+import com.trove.service.impl.EmailUsageTracker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -51,11 +52,13 @@ public class BrevoEmailSender implements EmailSender {
 
     private final EmailProperties props;
     private final ObjectMapper mapper;
+    private final EmailUsageTracker usage;
     private final HttpClient http;
 
-    public BrevoEmailSender(EmailProperties props, ObjectMapper mapper) {
+    public BrevoEmailSender(EmailProperties props, ObjectMapper mapper, EmailUsageTracker usage) {
         this.props = props;
         this.mapper = mapper;
+        this.usage = usage;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
@@ -73,6 +76,11 @@ public class BrevoEmailSender implements EmailSender {
         if (to == null || to.isEmpty()) {
             return false;
         }
+        if (!usage.canSend()) {
+            log.warn("Daily email limit ({}) reached - skipping send of '{}'. Resets at 00:00 UTC.",
+                    usage.dailyLimit(), subject);
+            return false;
+        }
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(ENDPOINT))
                     .timeout(Duration.ofSeconds(20))
@@ -83,6 +91,7 @@ public class BrevoEmailSender implements EmailSender {
                     .build();
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() / 100 == 2) {
+                usage.record();
                 return true;
             }
             log.warn("Brevo send failed (HTTP {}) for '{}'", resp.statusCode(), subject);

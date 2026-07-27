@@ -1,7 +1,7 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { DevLogService, DevLogEntry } from '../../core/services/dev-log.service';
 import { ApiService } from '../../core/services/api.service';
-import { AiUsage } from '../../core/models/models';
+import { UsageOverview } from '../../core/models/models';
 import { TERMS } from '../../core/config/terms';
 import { SettingsService } from '../../core/services/settings.service';
 
@@ -23,7 +23,7 @@ export class DevDrawer {
   protected api = inject(ApiService);
   protected entries = this.log.entries;
   protected open = signal(false);
-  protected usage = signal<AiUsage | null>(null);
+  protected usage = signal<UsageOverview | null>(null);
   /** Vendor-neutral labels (see core/terms.ts). */
   protected terms = TERMS;
   protected settings = inject(SettingsService);
@@ -55,7 +55,7 @@ export class DevDrawer {
   }
 
   protected fetchUsage(): void {
-    this.api.aiUsage().subscribe({ next: (u) => this.usage.set(u), error: () => {} });
+    this.api.usage().subscribe({ next: (u) => this.usage.set(u), error: () => {} });
   }
 
   protected path = (e: DevLogEntry) => e.url.replace(/^https?:\/\/[^/]+/, '');
@@ -141,7 +141,38 @@ export class DevDrawer {
   }
 
   protected fmt = (n: number) => Math.round(n).toLocaleString('en-US');
-  protected pct = (used: number, limit: number) => Math.min(100, Math.round((used / limit) * 100));
+  protected pct = (used: number, limit: number) => (limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0);
   protected left = (used: number, limit: number) => Math.max(0, limit - used);
   protected pretty = (o: unknown) => (typeof o === 'string' ? o : JSON.stringify(o, null, 2));
+
+  /** Human bytes, e.g. 24.4 MB / 10.0 GB. */
+  protected bytes = (n: number): string => {
+    if (n < 1024) return `${Math.round(n)} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let v = n / 1024;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i++;
+    }
+    return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+  };
+
+  /** The daily-reset instant rendered in IST (e.g. "5:30 AM"). */
+  protected resetAt = (iso: string): string =>
+    new Date(iso).toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+  /** Time remaining until the daily reset, coarse (e.g. "6h 12m"). */
+  protected resetIn = (iso: string): string => {
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return 'now';
+    const h = Math.floor(ms / 3_600_000);
+    const m = Math.floor((ms % 3_600_000) / 60_000);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
 }

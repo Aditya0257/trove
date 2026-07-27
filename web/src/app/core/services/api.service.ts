@@ -17,6 +17,7 @@ function categoryRank(code: string): number {
 }
 import {
   AiUsage,
+  UsageOverview,
   BackupRun,
   Category,
   CategorySpend,
@@ -111,6 +112,10 @@ export class ApiService {
 
   aiUsage() {
     return this.http.get<AiUsage>(`${API_BASE}/api/ai-usage`);
+  }
+
+  usage() {
+    return this.http.get<UsageOverview>(`${API_BASE}/api/usage`);
   }
   fileUrl(doc: DocumentResponse): string | null {
     if (!doc.fileUrl) return null;

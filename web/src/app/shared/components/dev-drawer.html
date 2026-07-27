@@ -20,21 +20,22 @@
           <div class="gauge">
             <div class="gauge-row">
               <span>All users today
-                <span class="tip" tabindex="0">i<span class="bubble">Total across everyone using {{ terms.aiService }} today. Measured in {{ terms.aiCredits }}, the unit it bills; this is what counts toward the free {{ fmt(u.limitNeurons) }}/day limit.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">Total across everyone using {{ terms.aiService }} today. Measured in {{ terms.aiCredits }}, the unit it bills; this is what counts toward the free {{ fmt(u.ai.limitNeurons) }}/day limit.</span></span>
               </span>
-              <span class="gauge-nums">{{ fmt(u.global.neurons) }} / {{ fmt(u.limitNeurons) }} {{ terms.aiCredits }}</span>
+              <span class="gauge-nums">{{ fmt(u.ai.globalNeurons) }} / {{ fmt(u.ai.limitNeurons) }} {{ terms.aiCredits }}</span>
             </div>
-            <div class="bar"><div class="fill" [style.width.%]="pct(u.global.neurons, u.limitNeurons)"></div></div>
-            <div class="gauge-sub">{{ fmt(u.global.tokens) }} tokens · {{ fmt(left(u.global.neurons, u.limitNeurons)) }} {{ terms.aiCredits }} left today</div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.ai.globalNeurons, u.ai.limitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.ai.globalTokens) }} tokens · {{ fmt(left(u.ai.globalNeurons, u.ai.limitNeurons)) }} {{ terms.aiCredits }} left today</div>
 
             <div class="gauge-row two">
               <span>Your usage today
-                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today, a subset of the global total above. Each user is capped at {{ fmt(u.perUserLimitNeurons) }} {{ terms.aiCredits }}/day so one person can't drain the shared budget; over it, uploads still file via {{ terms.aiReader }}'s free fallback.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today, a subset of the global total above. Each user is capped at {{ fmt(u.ai.perUserLimitNeurons) }} {{ terms.aiCredits }}/day so one person can't drain the shared budget; over it, uploads still file via {{ terms.aiReader }}'s free fallback.</span></span>
               </span>
-              <span class="gauge-nums you">{{ fmt(u.user.neurons) }} / {{ fmt(u.perUserLimitNeurons) }} {{ terms.aiCredits }}</span>
+              <span class="gauge-nums you">{{ fmt(u.ai.userNeurons) }} / {{ fmt(u.ai.perUserLimitNeurons) }} {{ terms.aiCredits }}</span>
             </div>
-            <div class="bar"><div class="fill you" [style.width.%]="pct(u.user.neurons, u.perUserLimitNeurons)"></div></div>
-            <div class="gauge-sub">{{ fmt(u.user.tokens) }} tokens · {{ fmt(left(u.user.neurons, u.perUserLimitNeurons)) }} {{ terms.aiCredits }} left today</div>
+            <div class="bar"><div class="fill you" [style.width.%]="pct(u.ai.userNeurons, u.ai.perUserLimitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.ai.userTokens) }} tokens · {{ fmt(left(u.ai.userNeurons, u.ai.perUserLimitNeurons)) }} {{ terms.aiCredits }} left today</div>
+            <div class="gauge-sub">Resets 00:00 UTC · {{ resetAt(u.dailyResetAt) }} IST (in {{ resetIn(u.dailyResetAt) }})</div>
 
             <div class="gauge-foot">
               <span class="dot"></span>Your usage updates instantly · the shared total refreshes every minute while this panel is open
@@ -60,6 +61,51 @@
                 <li>Confirming, editing, deleting, backups and everything else use <b>no</b> AI.</li>
               </ul>
             </details>
+
+            <div class="gauge-split">Other free-tier limits</div>
+
+            <div class="gauge-row">
+              <span>Email today
+                <span class="tip" tabindex="0">i<span class="bubble">Shared daily allowance for outbound email (reminders, password resets, approvals) across {{ terms.emailService }}. When it's used up, new emails wait until the reset - reminders still show in-app and as phone notifications.</span></span>
+              </span>
+              <span class="gauge-nums">{{ fmt(u.email.sentToday) }} / {{ fmt(u.email.dailyLimit) }} emails</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.email.sentToday, u.email.dailyLimit)"></div></div>
+            <div class="gauge-sub">{{ fmt(left(u.email.sentToday, u.email.dailyLimit)) }} left · resets {{ resetAt(u.dailyResetAt) }} IST (in {{ resetIn(u.dailyResetAt) }})</div>
+            @if (u.email.sentToday >= u.email.dailyLimit) {
+              <div class="gauge-warn">Daily email limit reached - new emails won't send until {{ resetAt(u.dailyResetAt) }} IST. Reminders still appear in-app and as phone notifications.</div>
+            }
+
+            <div class="gauge-row two">
+              <span>Object storage
+                <span class="tip" tabindex="0">i<span class="bubble">Total size of stored originals in {{ terms.objectStorage }} (the tier-1 hot store). A running total, not a daily limit; the free tier is {{ bytes(u.storage.limitBytes) }}.</span></span>
+              </span>
+              <span class="gauge-nums">{{ bytes(u.storage.usedBytes) }} / {{ bytes(u.storage.limitBytes) }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.storage.usedBytes, u.storage.limitBytes)"></div></div>
+            <div class="gauge-sub">{{ pct(u.storage.usedBytes, u.storage.limitBytes) }}% used · running total, no daily reset</div>
+
+            <div class="gauge-row two">
+              <span>Database
+                <span class="tip" tabindex="0">i<span class="bubble">Size of {{ terms.database }} (the rebuildable metadata index - kilobytes per document). A running total; the free tier is {{ bytes(u.database.limitBytes) }}.</span></span>
+              </span>
+              <span class="gauge-nums">{{ bytes(u.database.usedBytes) }} / {{ bytes(u.database.limitBytes) }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.database.usedBytes, u.database.limitBytes)"></div></div>
+            <div class="gauge-sub">{{ pct(u.database.usedBytes, u.database.limitBytes) }}% used · running total, no daily reset</div>
+
+            @if (u.mirror.enabled) {
+              <div class="gauge-row two">
+                <span>Mirror copy
+                  <span class="tip" tabindex="0">i<span class="bubble">Size of the independent second-cloud copy ({{ terms.mirrorStorage }}). A running total; the free tier is {{ bytes(u.mirror.limitBytes) }}.</span></span>
+                </span>
+                <span class="gauge-nums">{{ bytes(u.mirror.usedBytes) }} / {{ bytes(u.mirror.limitBytes) }}</span>
+              </div>
+              <div class="bar"><div class="fill" [style.width.%]="pct(u.mirror.usedBytes, u.mirror.limitBytes)"></div></div>
+              <div class="gauge-sub">{{ pct(u.mirror.usedBytes, u.mirror.limitBytes) }}% used · running total, no daily reset</div>
+            } @else {
+              <div class="gauge-sub muted">Mirror copy: not configured.</div>
+            }
           </div>
         }
 

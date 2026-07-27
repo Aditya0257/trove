@@ -89,6 +89,16 @@
       .fill { height: 100%; background: linear-gradient(90deg, #3b7ddd, #2c5aa0); border-radius: 999px; transition: width 300ms; }
       .fill.you { background: linear-gradient(90deg, #43b581, #2e7d5b); }
       .gauge-sub { font-size: 11px; color: #8a8a8a; margin-top: 4px; }
+      .gauge-sub.muted { font-style: italic; opacity: 0.85; }
+      .gauge-split {
+        margin: 14px 0 8px; padding-top: 10px; font-size: 10.5px; font-weight: 700;
+        letter-spacing: 0.04em; text-transform: uppercase; color: #8a8a8a;
+        border-top: 1px solid rgba(59, 125, 221, 0.15);
+      }
+      .gauge-warn {
+        margin-top: 6px; padding: 6px 8px; border-radius: 6px; font-size: 10.5px; line-height: 1.4;
+        color: #8a5a00; background: rgba(184, 134, 11, 0.12); border: 1px solid rgba(184, 134, 11, 0.3);
+      }
       .ai-toggle {
         margin: 10px 0 0; width: 100%; padding: 7px 10px; border-radius: 8px; cursor: pointer;
         border: 1px solid rgba(59, 125, 221, 0.3); background: rgba(59, 125, 221, 0.1); color: #2c5aa0;

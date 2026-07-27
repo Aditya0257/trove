@@ -22,6 +22,8 @@ export const TERMS = {
   aiCredits: 'AI credits',
   /** The rebuildable metadata index. (was: Postgres / Neon) */
   database: 'the database',
+  /** The outbound email provider the whole app shares. (was: Brevo) */
+  emailService: 'the email service',
   /** Tier-3 human-browsable backup the user connects their own account to. */
   driveBackup: 'Google Drive',
 } as const;

@@ -60,6 +60,11 @@ public interface DocumentRepository extends JpaRepository<Document, UUID>,
             """)
     Page<Document> findLiveExcludingEmail(@Param("spaceId") UUID spaceId, @Param("status") String status, Pageable pageable);
 
+    /** Total bytes of all stored document files across every space (a truthful estimate
+     *  of object-storage usage for the free-tier gauge; sidecars/variants aside). */
+    @Query("select coalesce(sum(d.sizeBytes), 0) from Document d")
+    long sumAllSizeBytes();
+
     /** Every live document in a space excluding the "email" category, newest first (the
      *  unpaged "show all" path for browser-find / export). */
     @Query("""

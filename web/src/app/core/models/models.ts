@@ -303,3 +303,24 @@ export interface AiUsage {
   user: { neurons: number; tokens: number };
 }
 
+/**
+ * Free-tier usage across every backing service, for the Developer gauge. Two daily
+ * pools (AI, email) reset at `dailyResetAt` (the next 00:00 UTC instant); the storage
+ * meters are running totals with no reset.
+ */
+export interface UsageOverview {
+  dailyResetAt: string;
+  ai: {
+    limitNeurons: number;
+    perUserLimitNeurons: number;
+    globalNeurons: number;
+    globalTokens: number;
+    userNeurons: number;
+    userTokens: number;
+  };
+  email: { dailyLimit: number; sentToday: number };
+  storage: { usedBytes: number; limitBytes: number };
+  database: { usedBytes: number; limitBytes: number };
+  mirror: { enabled: boolean; usedBytes: number; limitBytes: number };
+}
+
