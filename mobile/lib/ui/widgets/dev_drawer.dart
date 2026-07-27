@@ -236,6 +236,14 @@ class _AiUsageGauge extends ConsumerWidget {
                     fontSize: 10.5,
                     fontStyle: FontStyle.italic,
                     color: scheme.onSurfaceVariant,),),
+          const SizedBox(height: 10),
+          Text(
+            'Storage figures are app-wide (not per user), updated live. Database size is '
+            'mostly fixed Postgres + search-extension baseline (~8-10 MB); your rows are only '
+            'KB of text + metadata per document. Images and PDFs live in object storage, never '
+            'the database.',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, height: 1.4),
+          ),
         ],
       ),
     );

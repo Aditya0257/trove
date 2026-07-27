@@ -78,7 +78,7 @@
 
             <div class="gauge-row two">
               <span>Object storage
-                <span class="tip" tabindex="0">i<span class="bubble">Total size of stored originals in {{ terms.objectStorage }} (the tier-1 hot store). A running total, not a daily limit; the free tier is {{ bytes(u.storage.limitBytes) }}.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">Total size of your stored originals (images and PDFs) in {{ terms.objectStorage }}, the tier-1 hot store - this is where file bytes live, not the database. A running total, not a daily limit; the free tier is {{ bytes(u.storage.limitBytes) }}.</span></span>
               </span>
               <span class="gauge-nums">{{ bytes(u.storage.usedBytes) }} / {{ bytes(u.storage.limitBytes) }}</span>
             </div>
@@ -87,7 +87,7 @@
 
             <div class="gauge-row two">
               <span>Database
-                <span class="tip" tabindex="0">i<span class="bubble">Size of {{ terms.database }} (the rebuildable metadata index - kilobytes per document). A running total; the free tier is {{ bytes(u.database.limitBytes) }}.</span></span>
+                <span class="tip" tabindex="0">i<span class="bubble">Whole-{{ terms.database }} size, app-wide (not per user) and updated live. Most of it is fixed baseline that Postgres and the vector-search extension carry - system catalogs and indexes, ~8-10 MB before any data. The rest is your rows: only kilobytes of text + metadata per document. Images and PDFs never live here - they are in {{ terms.objectStorage }}. What actually grows this is per-document search embeddings. Free tier is {{ bytes(u.database.limitBytes) }}.</span></span>
               </span>
               <span class="gauge-nums">{{ bytes(u.database.usedBytes) }} / {{ bytes(u.database.limitBytes) }}</span>
             </div>
