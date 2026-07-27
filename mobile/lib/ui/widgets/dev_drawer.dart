@@ -238,6 +238,9 @@ class _AiUsageGauge extends ConsumerWidget {
                     color: scheme.onSurfaceVariant,),),
           const SizedBox(height: 10),
           Text(
+            'AI credits are the unit the shared reader bills; everyone shares a daily pool and '
+            'each person has a smaller per-user cap. Email is a shared daily send allowance. '
+            'Both reset at the time shown above.\n'
             'Storage figures are app-wide (not per user), updated live. Database size is '
             'mostly fixed Postgres + search-extension baseline (~8-10 MB); your rows are only '
             'KB of text + metadata per document. Images and PDFs live in object storage, never '
@@ -632,7 +635,7 @@ _Meaning _meaningFor(String method, String path) {
     return mk('Recurring', 'Finding your subscriptions', 'group confirmed docs by merchant+category; infer cadence + predict next', 'spot what recurs', '$a -> InsightsController.recurring() -> InsightsService');
   }
   if (p.startsWith('/api/integrations/google-drive')) {
-    return mk('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-navigable third copy', '$a -> DriveController');
+    return mk('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-browsable third copy', '$a -> DriveController');
   }
   if (p.startsWith('/api/integrity')) {
     return mk('Data health', 'Checking your backups', 'verify the tiers agree; recent runs', 'proof the copies are intact', '$a -> IntegrityController');

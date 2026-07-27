@@ -20,6 +20,7 @@
           <div class="ccy">
             <button type="button" class="chip sm" [class.on]="chartType() === 'bar'" (click)="setChartType('bar')">Bars</button>
             <button type="button" class="chip sm" [class.on]="chartType() === 'donut'" (click)="setChartType('donut')">Donut</button>
+            <trove-info-tip text="Your chart-view choice is remembered across reloads and re-login." align="right"></trove-info-tip>
           </div>
         </div>
         @if (s.byCategory.length) {

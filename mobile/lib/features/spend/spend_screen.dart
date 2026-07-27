@@ -8,11 +8,14 @@
 ///  Layout:   totals -> per-category breakdown (chart + numeric list) FIRST,
 ///            then the by-time series below it.
 ///
-///  Toggles (local state, so no refetch on chart switches):
+///  Toggles:
 ///    - Category view: Bar (per-category vertical bars) | Donut (a CustomPaint
 ///      donut with a label / amount / swatch legend).
 ///    - Time view:     Bar (per-period bars) | Wave (a smooth CustomPaint area
 ///      line of the same series).
+///      The Category and Time view choices are persisted via chartPrefsProvider
+///      (the keychain), so they survive reload and re-login; switching them never
+///      refetches.
 ///    - Granularity:   Day | Week | Month for the time series. This one DOES
 ///      refetch: it keys spendByMonthProvider by (spaceId, granularity), so the
 ///      backend re-runs GET /api/spend/by-month with the chosen granularity.

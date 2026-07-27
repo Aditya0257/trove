@@ -5,12 +5,13 @@ import { SpaceContext } from '../../core/services/space.context';
 import { SettingsService, CategoryChart, TrendChart } from '../../core/services/settings.service';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { InfoTip } from '../../shared/components/info-tip';
 import { CURRENCIES } from '../../core/config/currencies';
 import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models/models';
 
 @Component({
   selector: 'app-spend',
-  imports: [RouterLink, MoneyPipe, DateTimePipe],
+  imports: [RouterLink, MoneyPipe, DateTimePipe, InfoTip],
   templateUrl: './spend.html',
   styleUrl: './spend.scss',
 })
