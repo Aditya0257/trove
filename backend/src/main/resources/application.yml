@@ -38,6 +38,18 @@ spring:
     url: ${TROVE_DB_URL:jdbc:postgresql://localhost:5432/trove}
     username: ${TROVE_DB_USER:trove}
     password: ${TROVE_DB_PASSWORD:trove}
+    hikari:
+      # Tuned for serverless Postgres (Neon free tier scales compute to zero after
+      # ~5 min idle and drops its connections). Recycle/validate our pooled connections
+      # BEFORE Neon kills them so a request after a quiet period gets a fresh, live
+      # connection instead of a timed-out "connection has been closed" 500. Keep the
+      # pool small — free tiers cap total connections.
+      maximum-pool-size: ${TROVE_DB_POOL_MAX:5}
+      minimum-idle: ${TROVE_DB_POOL_MIN_IDLE:0}
+      max-lifetime: ${TROVE_DB_MAX_LIFETIME_MS:240000}      # 4 min < Neon's idle cutoff
+      keepalive-time: ${TROVE_DB_KEEPALIVE_MS:120000}       # ping idle connections every 2 min
+      idle-timeout: ${TROVE_DB_IDLE_TIMEOUT_MS:120000}
+      connection-timeout: ${TROVE_DB_CONN_TIMEOUT_MS:30000} # allow for a Neon cold start
 
   jpa:
     hibernate:
