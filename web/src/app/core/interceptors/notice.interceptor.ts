@@ -16,11 +16,11 @@ export const noticeInterceptor: HttpInterceptorFn = (req, next) => {
   const devlog = inject(DevLogService);
   const start = performance.now();
 
-  // The drawer polls /api/ai-usage to refresh its gauge; logging that call would add a
+  // The drawer polls /api/usage to refresh its gauge; logging that call would add a
   // trail entry, which retriggers the refresh, which polls again - an infinite loop that
   // floods the backend. Background polls are also just noise in the trail, so skip both
-  // the log entry and any error toast for them.
-  const isBackgroundPoll = req.url.includes('/api/ai-usage');
+  // the log entry and any error toast for them. (Match the legacy /api/ai-usage path too.)
+  const isBackgroundPoll = req.url.includes('/api/usage') || req.url.includes('/api/ai-usage');
 
   return next(req).pipe(
     tap((event) => {
