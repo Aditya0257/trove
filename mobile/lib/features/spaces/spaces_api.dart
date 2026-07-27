@@ -9,6 +9,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/models/drive.dart';
 import '../../core/models/membership.dart';
 import '../../core/providers.dart';
 
@@ -62,6 +63,26 @@ class SpacesApi {
         await _api.post('/api/spaces/$spaceId/ingest-address/rotate') as Map<String, dynamic>;
     return data['address'] as String;
   }
+
+  // ── Google Drive backup (mobile: status + sync + disconnect) ───────────────
+
+  Future<DriveStatus> driveStatus(String spaceId) async {
+    final d = await _api.get('/api/integrations/google-drive/status',
+        query: {'spaceId': spaceId}) as Map<String, dynamic>;
+    return DriveStatus.fromJson(d);
+  }
+
+  Future<DriveSyncResult> driveSync(String spaceId) async {
+    final d = await _api.post('/api/integrations/google-drive/sync',
+        query: {'spaceId': spaceId}) as Map<String, dynamic>;
+    num n(Object? v) => v is num ? v : 0;
+    return DriveSyncResult(synced: n(d['synced']).toInt(), skipped: n(d['skipped']).toInt());
+  }
+
+  Future<void> driveDisconnect(String spaceId, String connectionId) async {
+    await _api.delete('/api/integrations/google-drive/connections/$connectionId',
+        query: {'spaceId': spaceId});
+  }
 }
 
 final spacesApiProvider = Provider<SpacesApi>((ref) => SpacesApi(ref));
@@ -73,3 +94,7 @@ final invitationsProvider = FutureProvider.autoDispose<List<Invitation>>(
 /// Members of a space (owner-only on the backend).
 final membersProvider = FutureProvider.autoDispose.family<List<Member>, String>(
     (ref, spaceId) => ref.watch(spacesApiProvider).members(spaceId),);
+
+/// Google Drive backup status for a space (any member can read).
+final driveStatusProvider = FutureProvider.autoDispose.family<DriveStatus, String>(
+    (ref, spaceId) => ref.watch(spacesApiProvider).driveStatus(spaceId),);
