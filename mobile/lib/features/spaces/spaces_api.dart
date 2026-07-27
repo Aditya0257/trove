@@ -68,20 +68,20 @@ class SpacesApi {
 
   Future<DriveStatus> driveStatus(String spaceId) async {
     final d = await _api.get('/api/integrations/google-drive/status',
-        query: {'spaceId': spaceId}) as Map<String, dynamic>;
+        query: {'spaceId': spaceId},) as Map<String, dynamic>;
     return DriveStatus.fromJson(d);
   }
 
   Future<DriveSyncResult> driveSync(String spaceId) async {
     final d = await _api.post('/api/integrations/google-drive/sync',
-        query: {'spaceId': spaceId}) as Map<String, dynamic>;
+        query: {'spaceId': spaceId},) as Map<String, dynamic>;
     num n(Object? v) => v is num ? v : 0;
     return DriveSyncResult(synced: n(d['synced']).toInt(), skipped: n(d['skipped']).toInt());
   }
 
   Future<void> driveDisconnect(String spaceId, String connectionId) async {
     await _api.delete('/api/integrations/google-drive/connections/$connectionId',
-        query: {'spaceId': spaceId});
+        query: {'spaceId': spaceId},);
   }
 }
 
