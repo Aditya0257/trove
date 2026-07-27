@@ -1,35 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
-import { PasswordInput } from '../../core/password-input';
+import { AuthService } from '../../core/services/auth.service';
+import { PasswordInput } from '../../shared/components/password-input';
 
 @Component({
   selector: 'app-login',
   imports: [FormsModule, RouterLink, PasswordInput],
-  template: `
-    <div class="card auth-card">
-      <h1>Sign in to Trove</h1>
-      <form (ngSubmit)="submit()">
-        <label>Email
-          <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
-        </label>
-        <label>Password
-          <trove-password name="password" autocomplete="current-password" [(ngModel)]="password"></trove-password>
-        </label>
-        @if (twoFactor()) {
-          <label>Authenticator code
-            <input type="text" name="code" [(ngModel)]="code" inputmode="numeric" autocomplete="one-time-code"
-                   placeholder="6-digit code" maxlength="6" />
-          </label>
-        }
-        @if (error()) { <p class="error">{{ error() }}</p> }
-        <button type="submit" [disabled]="loading()">{{ loading() ? 'Signing in…' : 'Sign in' }}</button>
-      </form>
-      <p class="muted"><a routerLink="/forgot">Forgot password?</a></p>
-      <p class="muted">No account? <a routerLink="/register">Create one</a></p>
-    </div>
-  `,
+  templateUrl: './login.html',
 })
 export class Login {
   private auth = inject(AuthService);

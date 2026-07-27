@@ -1,0 +1,17 @@
+      .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 1200; }
+      .modal {
+        position: fixed; z-index: 1201; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: min(420px, 92vw); background: var(--card); color: var(--ink);
+        border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.4rem;
+        box-shadow: 0 20px 60px var(--shadow);
+      }
+      .modal h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+      .modal p { margin: 0; line-height: 1.55; color: var(--ink); }
+      .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.25rem; }
+      .actions button { margin: 0; padding: 0.5rem 1.1rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
+      .actions button:disabled { opacity: 0.65; cursor: default; }
+      .cancel { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+      .cancel:hover:not(:disabled) { background: var(--hover); }
+      .ok { background: var(--brand); color: var(--brand-ink); border: 0; }
+      .ok:hover:not(:disabled) { filter: brightness(1.05); }
+      .ok.danger { background: var(--danger, #c0392b); color: #fff; }

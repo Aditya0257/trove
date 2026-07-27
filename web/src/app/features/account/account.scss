@@ -1,0 +1,38 @@
+      h2 { margin: 0 0 10px; font-size: 1.05rem; }
+      .profile-head { display: flex; gap: 18px; align-items: center; margin: 6px 0 18px; flex-wrap: wrap; }
+      .ph-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+      .ph-actions .button, .ph-actions .btn-ghost { margin: 0; }
+      .hint { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+      .field { display: block; margin: 0 0 4px; font-size: 0.9rem; color: var(--muted); }
+      .field input { margin-top: 4px; }
+      .stack { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+      .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .inline input { margin: 0; }
+      .inline button { margin: 0; }
+      .inline .grow { flex: 1; min-width: 200px; }
+      input.code { width: 150px; font-family: monospace; letter-spacing: 0.15em; }
+      .button.sm, .btn-ghost.sm { padding: 6px 14px; font-size: 13px; }
+      .button.sm { display: inline-block; cursor: pointer; }
+      .btn-ghost {
+        border: 1px solid var(--line); background: transparent; color: var(--muted);
+        border-radius: 8px; padding: 0.55rem 1.1rem; font-weight: 600; cursor: pointer;
+      }
+      .btn-ghost:hover { background: var(--hover); color: var(--accent); }
+      .btn-danger { background: var(--danger); color: #fff; border: 0; }
+      .status { font-size: 15px; }
+      .status.on { color: var(--accent); }
+      .secret {
+        font-family: monospace; font-size: 18px; letter-spacing: 0.12em; user-select: all;
+        background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+        padding: 10px 14px; display: inline-block; margin: 6px 0;
+      }
+      .small { font-size: 12px; }
+      .pending { font-size: 13px; color: var(--warn); }
+      .admin-chip {
+        display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.03em; color: var(--accent); background: var(--accent-soft);
+        border: 1px solid var(--accent-line); border-radius: 5px; padding: 1px 6px;
+      }
+      .danger-card { border: 1px solid var(--danger-line); }
+      .danger-card h2 { color: var(--danger); }
+      .confirm-line { font-size: 13px; margin: 10px 0 6px; }

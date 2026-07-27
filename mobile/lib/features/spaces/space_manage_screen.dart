@@ -10,7 +10,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/models/drive.dart';
 import '../../core/models/membership.dart';
 import '../../core/models/space.dart';
 import '../../core/notice/notice.dart';
@@ -33,6 +35,7 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
   bool _busy = false;
   String? _ingestAddress;
   bool _ingestBusy = false;
+  bool _driveBusy = false;
 
   String get _spaceId => widget.space.id;
 
@@ -110,6 +113,53 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
       // The API client already surfaces failures via the Notice System.
     } finally {
       if (mounted) setState(() => _ingestBusy = false);
+    }
+  }
+
+  Future<void> _syncDrive() async {
+    setState(() => _driveBusy = true);
+    try {
+      final r = await ref.read(spacesApiProvider).driveSync(_spaceId);
+      ref.invalidate(driveStatusProvider(_spaceId));
+      NoticeCenter.instance.show(Notice.local(
+        level: NoticeLevel.success,
+        code: 'DRIVE_SYNCED',
+        userMessage: 'Backed up ${r.synced} document${r.synced == 1 ? '' : 's'}'
+            '${r.skipped > 0 ? ' (${r.skipped} already up to date)' : ''}.',
+      ),);
+    } catch (_) {
+      // surfaced by the notice interceptor
+    } finally {
+      if (mounted) setState(() => _driveBusy = false);
+    }
+  }
+
+  Future<void> _disconnectDrive(DriveConnection c) async {
+    final label = c.googleAccountName ?? c.googleEmail;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Disconnect Drive?'),
+        content: Text('"$label" will stop backing up this space. Files already copied '
+            'there stay; nothing is deleted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Disconnect')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _driveBusy = true);
+    try {
+      await ref.read(spacesApiProvider).driveDisconnect(_spaceId, c.id);
+      ref.invalidate(driveStatusProvider(_spaceId));
+      NoticeCenter.instance.show(Notice.local(
+        level: NoticeLevel.info, code: 'DRIVE_DISCONNECTED', userMessage: 'Drive disconnected.',
+      ),);
+    } catch (_) {
+      // surfaced by the notice interceptor
+    } finally {
+      if (mounted) setState(() => _driveBusy = false);
     }
   }
 
@@ -271,8 +321,138 @@ class _SpaceManageScreenState extends ConsumerState<SpaceManageScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 20),
+          _driveCard(scheme),
         ],
       ),
     );
+  }
+
+  Widget _driveCard(ColorScheme scheme) {
+    final status = ref.watch(driveStatusProvider(_spaceId));
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Google Drive backup',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),),
+                ),
+                if (_driveBusy)
+                  const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'A human-browsable third copy in your own Drive. Connect a Drive, and choose '
+              'rotate vs mirror, from the web app; here you can see status, sync now, and disconnect.',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            status.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => Text('Drive status could not be loaded.',
+                  style: TextStyle(color: scheme.onSurfaceVariant),),
+              data: (s) => _driveBody(s, scheme),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _driveBody(DriveStatus s, ColorScheme scheme) {
+    if (!s.connected || s.connections.isEmpty) {
+      return Text('No Drive connected yet. Open the web app to connect one.',
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),);
+    }
+    final fmt = DateFormat('d MMM yyyy, h:mm a');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final c in s.connections) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                    c.googleAccountName?.isNotEmpty == true
+                        ? '${c.googleAccountName} (${c.googleEmail})'
+                        : c.googleEmail,
+                    style: const TextStyle(fontWeight: FontWeight.w600),),
+              ),
+              if (c.active)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text('ACTIVE',
+                      style: TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w700,
+                          color: scheme.onPrimaryContainer,),),
+                ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            c.lastSyncAt == null
+                ? 'Not synced yet'
+                : 'Last sync ${fmt.format(c.lastSyncAt!.toLocal())}',
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+          ),
+          if (c.troveBytes != null && c.storageLimitBytes != null)
+            Text(
+              'Trove ${_bytes(c.troveBytes!)} · ${_bytes(c.storageUsageBytes ?? 0)} of '
+              '${_bytes(c.storageLimitBytes!)} used',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _driveBusy ? null : () => _disconnectDrive(c),
+              icon: const Icon(Icons.link_off, size: 18),
+              label: const Text('Disconnect'),
+            ),
+          ),
+          const Divider(height: 16),
+        ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _driveBusy ? null : _syncDrive,
+            icon: const Icon(Icons.sync, size: 18),
+            label: const Text('Sync now'),
+          ),
+        ),
+        if (s.connections.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('Mode: ${s.mode}. Change rotate/mirror from the web app.',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),),
+          ),
+      ],
+    );
+  }
+
+  static String _bytes(num n) {
+    if (n < 1024) return '${n.round()} B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    double v = n / 1024;
+    var i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i++;
+    }
+    return '${v.toStringAsFixed(v < 10 ? 1 : 0)} ${units[i]}';
   }
 }

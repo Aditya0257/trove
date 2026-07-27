@@ -1,0 +1,52 @@
+package com.trove.dto;
+
+import com.trove.event.DocumentConfirmedEvent;
+import com.trove.event.DocumentPurgedEvent;
+import com.trove.event.DocumentRestoredEvent;
+import com.trove.enums.DocumentStatus;
+import com.trove.event.DocumentTrashedEvent;
+import com.trove.event.DocumentUploadedEvent;
+import com.trove.entity.Document;
+import com.trove.repository.DocumentRepository;
+import com.trove.repository.LineItemRepository;
+import com.trove.entity.Category;
+import com.trove.repository.CategoryRepository;
+import com.trove.service.CategoryService;
+import com.trove.common.HashUtil;
+import com.trove.security.EncryptionService;
+import com.trove.exception.DuplicateDocumentException;
+import com.trove.exception.NotFoundException;
+import com.trove.dto.ConfirmRequest;
+import com.trove.dto.DocumentResponse;
+import com.trove.dto.LineItemResponse;
+import com.trove.dto.AnomalyResult;
+import com.trove.service.AnomalyService;
+import com.trove.entity.Merchant;
+import com.trove.repository.MerchantRepository;
+import com.trove.service.MerchantService;
+import com.trove.security.SpaceAuthorization;
+import com.trove.dto.DocumentSidecar;
+import com.trove.config.StorageProperties;
+import com.trove.integration.StorageService;
+import com.trove.dto.StoredObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HashMap;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+public record Paged<T>(List<T> items, long total) {
+}

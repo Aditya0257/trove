@@ -1,0 +1,147 @@
+    <div class="card">
+      <div class="row-between">
+        <h1>Spend</h1>
+        <div class="ccy">
+          <span class="muted">Show in</span>
+          @for (c of currencies; track c) {
+            <button type="button" class="chip" [class.on]="currency() === c" (click)="setCurrency(c)">{{ c }}</button>
+          }
+        </div>
+      </div>
+      <p class="muted">Totals over <b>confirmed</b> documents only, converted to {{ currency() }}.</p>
+
+      @if (summary(); as s) {
+        <p><b>Total: {{ s.total | money: currency() }}</b> across {{ s.count }} document(s).</p>
+        @if (s.ratesAsOf) {
+          <p class="muted small">Amounts in other currencies converted at rates from {{ s.ratesAsOf | prettyDate }}.</p>
+        }
+        <div class="row-between section-head">
+          <h3>By category</h3>
+          <div class="ccy">
+            <button type="button" class="chip sm" [class.on]="chartType() === 'bar'" (click)="setChartType('bar')">Bars</button>
+            <button type="button" class="chip sm" [class.on]="chartType() === 'donut'" (click)="setChartType('donut')">Donut</button>
+            <trove-info-tip text="Your chart-view choice is remembered across reloads and re-login." align="right"></trove-info-tip>
+          </div>
+        </div>
+        @if (s.byCategory.length) {
+          @if (chartType() === 'bar') {
+            <div class="bars">
+              @for (c of s.byCategory; track c.category) {
+                <div class="bar-row">
+                  <span class="bar-label" [title]="c.label">{{ c.label }}</span>
+                  <div class="bar-track">
+                    <div class="bar-fill" [style.width.%]="pctOfMax(c.total, maxCategory())"></div>
+                  </div>
+                  <span class="bar-val">{{ c.total | money: currency() }}</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="donut-wrap">
+              <svg viewBox="0 0 170 170" class="donut" aria-hidden="true">
+                <g transform="rotate(-90 85 85)">
+                  @for (seg of donut(); track seg.label) {
+                    <circle cx="85" cy="85" r="60" fill="none" [attr.stroke]="seg.color" stroke-width="24"
+                      [attr.stroke-dasharray]="seg.dash" [attr.stroke-dashoffset]="seg.offset" />
+                  }
+                </g>
+                <text x="85" y="80" class="donut-c1">{{ s.count }}</text>
+                <text x="85" y="98" class="donut-c2">docs</text>
+              </svg>
+              <div class="legend">
+                @for (seg of donut(); track seg.label) {
+                  <div class="leg">
+                    <span class="sw" [style.background]="seg.color"></span>
+                    <span class="leg-label">{{ seg.label }}</span>
+                    <span class="leg-val">{{ seg.value | money: currency() }} · {{ seg.pct }}%</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          <details class="detail-table">
+            <summary>Show as table</summary>
+            <table>
+              <thead><tr><th>Category</th><th>Total</th><th>Count</th></tr></thead>
+              <tbody>
+                @for (c of s.byCategory; track c.category) {
+                  <tr><td>{{ c.label }}</td><td>{{ c.total | money: currency() }}</td><td>{{ c.count }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </details>
+        } @else { <p class="muted">No confirmed spend yet.</p> }
+      }
+
+      <div class="row-between section-head">
+        <h3>Over time</h3>
+        <!-- Chart-type toggle: same teal chips as the category Bars/Donut, so "how to draw it"
+             looks identical in both sections. -->
+        <div class="ccy">
+          <button type="button" class="chip sm" [class.on]="trendType() === 'bar'" (click)="setTrendType('bar')">Bars</button>
+          <button type="button" class="chip sm" [class.on]="trendType() === 'wave'" (click)="setTrendType('wave')">Wave</button>
+        </div>
+      </div>
+      <!-- Granularity is a different kind of choice (timeframe, not chart style), so it sits on
+           its own row with a label and a distinct indigo accent. -->
+      <div class="gran-row">
+        <span class="gran-label">View by</span>
+        <div class="ccy">
+          <button type="button" class="chip sm gran" [class.on]="trendGran() === 'day'" (click)="trendGran.set('day')">Day</button>
+          <button type="button" class="chip sm gran" [class.on]="trendGran() === 'week'" (click)="trendGran.set('week')">Week</button>
+          <button type="button" class="chip sm gran" [class.on]="trendGran() === 'month'" (click)="trendGran.set('month')">Month</button>
+        </div>
+      </div>
+      @if (byMonth().length) {
+        @if (trendType() === 'bar') {
+          <div class="trend">
+            @for (m of byMonth(); track m.period) {
+              <div class="trend-col" [title]="m.period">
+                <div class="trend-bar-wrap">
+                  <div class="trend-bar" [style.height.%]="pctOfMax(m.total, maxMonth())"></div>
+                </div>
+                <span class="trend-val">{{ compact(m.total) }}</span>
+                <span class="trend-label">{{ periodLabel(m.period) }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="wave-scroll">
+            <svg class="wave" [attr.viewBox]="'0 0 ' + wave().w + ' ' + wave().h"
+                 [attr.width]="wave().w" [attr.height]="wave().h">
+              <defs>
+                <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.32" />
+                  <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02" />
+                </linearGradient>
+              </defs>
+              @if (wave().area) { <path [attr.d]="wave().area" fill="url(#waveGrad)" /> }
+              <path [attr.d]="wave().line" fill="none" stroke="var(--accent)" stroke-width="2.5"
+                    stroke-linejoin="round" stroke-linecap="round" />
+              @for (p of wave().pts; track p.period) {
+                <circle [attr.cx]="p.x" [attr.cy]="p.y" r="3.5" fill="var(--brand)" />
+                <text [attr.x]="p.x" [attr.y]="p.y - 9" class="wave-val">{{ compact(p.val) }}</text>
+                <text [attr.x]="p.x" [attr.y]="wave().h - 6" class="wave-lbl">{{ periodLabel(p.period) }}</text>
+              }
+            </svg>
+          </div>
+        }
+      } @else { <p class="muted">Nothing to show yet.</p> }
+
+      <h3>Flagged as unusual</h3>
+      @if (anomalies().length) {
+        <table>
+          <thead><tr><th>File</th><th>Category</th><th>Amount</th><th>vs usual</th></tr></thead>
+          <tbody>
+            @for (d of anomalies(); track d.id) {
+              <tr>
+                <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
+                <td>{{ d.category }}</td>
+                <td>{{ d.amount | money: d.currency }}</td>
+                <td class="warn">{{ deltaPct(d) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else { <p class="muted">Nothing unusual.</p> }
+    </div>

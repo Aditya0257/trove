@@ -1,0 +1,23 @@
+    <div class="ts" [class.open]="open()">
+      <button type="button" class="ts-btn" [disabled]="disabled()"
+              (click)="toggle()" (keydown)="onKey($event)"
+              [attr.aria-expanded]="open()" [attr.aria-label]="ariaLabel || placeholder">
+        <span class="ts-label" [class.ph]="!selected()">{{ selected()?.label || placeholder }}</span>
+        <span class="ts-chev">▾</span>
+      </button>
+      @if (open()) {
+        <ul class="ts-list" role="listbox">
+          @for (o of opts(); track o.value; let i = $index) {
+            <li role="option" [attr.aria-selected]="o.value === value()"
+                [class.sel]="o.value === value()" [class.hi]="i === highlight()"
+                (click)="pick(o.value)" (mouseenter)="highlight.set(i)">
+              <span class="ts-main">
+                <span class="ts-opt">{{ o.label }}</span>
+                @if (o.sub) { <span class="ts-sub">{{ o.sub }}</span> }
+              </span>
+              @if (o.value === value()) { <span class="ts-check"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4 4L19 7" /></svg></span> }
+            </li>
+          }
+        </ul>
+      }
+    </div>

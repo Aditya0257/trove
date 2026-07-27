@@ -1,12 +1,12 @@
 import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { AuthService } from '../../core/auth.service';
-import { SpaceContext } from '../../core/space.context';
-import { NoticeService } from '../../core/notice/notice.service';
-import { MoneyPipe } from '../../core/money.pipe';
-import { ChatAnswer, ChatCitation } from '../../core/models';
+import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { NoticeService } from '../../core/services/notice.service';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { ChatAnswer, ChatCitation } from '../../core/models/models';
 
 interface Turn {
   question: string;
@@ -22,195 +22,8 @@ interface Turn {
 @Component({
   selector: 'trove-assistant',
   imports: [FormsModule, RouterLink, MoneyPipe],
-  template: `
-    @if (auth.isLoggedIn()) {
-      @if (open()) {
-        <div class="panel">
-          <header>
-            <span class="title">✦ Ask your vault</span>
-            <button type="button" class="icon" aria-label="How this works" data-tip="How this works" [class.on]="helpOpen()" (click)="helpOpen.set(!helpOpen())">ⓘ</button>
-            <button type="button" class="icon" aria-label="Re-index documents"
-              data-tip="Refresh the assistant's index so documents you just added or edited become answerable. This is normally automatic; use it if a recent document is not turning up in answers yet."
-              (click)="reindex()" [disabled]="indexing()">⟳</button>
-            <button type="button" class="icon" aria-label="Close" data-tip="Close" (click)="open.set(false)">✕</button>
-          </header>
-
-          <div class="body" #body>
-            @if (helpOpen()) {
-              <div class="help">
-                <p class="help-user">{{ helpUser }}</p>
-                <div class="help-dev">
-                  <span class="help-dev-label">How it works</span>
-                  <p>{{ helpDev }}</p>
-                </div>
-              </div>
-            }
-            @if (turns().length === 0) {
-              <p class="hint">Ask about your documents - answers are built from your files and cite them.</p>
-              <div class="examples">
-                @for (ex of examples; track ex) {
-                  <button type="button" class="chip" (click)="ask(ex)" [disabled]="loading()">{{ ex }}</button>
-                }
-              </div>
-            }
-            @for (t of turns(); track ti; let ti = $index) {
-              <div class="msg q">{{ t.question }}</div>
-              <div class="msg a">
-                <!-- Clean, talkable answer: citation markers are stripped from the prose. -->
-                <p class="a-text">{{ cleanAnswer(t.answer.answer) }}</p>
-                @if (!t.answer.aiUsed && t.answer.sources.length) {
-                  <p class="muted xs">Most relevant documents (AI summary paused or off).</p>
-                }
-
-                <!-- Source(s) the answer used. One source shows no number; several are numbered. -->
-                @if (citedSources(t).length) {
-                  <div class="sources">
-                    @for (s of citedSources(t); track s.documentId; let i = $index) {
-                      <a class="source cited"
-                         [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
-                        @if (citedSources(t).length > 1) { <span class="src-idx">{{ i + 1 }}.</span> }
-                        <span class="src-title">{{ s.title }}</span>
-                        @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
-                        @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
-                        @if (s.amount != null) { <span class="src-meta">{{ s.amount | money: s.currency }}</span> }
-                      </a>
-                    }
-                  </div>
-                }
-
-                <!-- The rest it considered but didn't use - collapsed to reduce noise. -->
-                @if (otherSources(t).length) {
-                  <button type="button" class="more" (click)="toggleOthers(ti)">
-                    {{ isExpanded(ti) ? 'Hide' : otherSources(t).length + ' more considered' }}
-                  </button>
-                  @if (isExpanded(ti)) {
-                    <div class="sources">
-                      @for (s of otherSources(t); track s.documentId) {
-                        <a class="source dim"
-                           [routerLink]="['/documents', s.documentId, 'review']" (click)="open.set(false)">
-                          <span class="src-title">{{ s.title }}</span>
-                          @if (s.category) { <span class="src-meta">{{ s.category }}</span> }
-                          @if (s.docDate) { <span class="src-meta">{{ s.docDate }}</span> }
-                          @if (s.amount != null) { <span class="src-meta">{{ s.amount | money: s.currency }}</span> }
-                        </a>
-                      }
-                    </div>
-                  }
-                }
-              </div>
-            }
-            @if (loading()) { <div class="msg a"><p class="a-text muted">Thinking…</p></div> }
-            @if (error()) { <p class="error">{{ error() }}</p> }
-          </div>
-
-          <form class="composer" (submit)="ask(); $event.preventDefault()">
-            <input [(ngModel)]="q" name="q" autocomplete="off"
-                   placeholder="Ask anything about your vault…" [disabled]="loading()" />
-            <button type="submit" [disabled]="loading() || !q.trim()">Ask</button>
-          </form>
-        </div>
-      }
-
-      <button type="button" class="launcher" [class.hidden]="open()" (click)="open.set(true)" aria-label="Ask your vault">
-        ✦ Ask
-      </button>
-    }
-  `,
-  styles: [
-    `
-      .launcher {
-        position: fixed; bottom: 16px; right: 16px; z-index: 900; margin: 0;
-        border: 0; border-radius: 999px; padding: 10px 18px; cursor: pointer;
-        background: var(--brand); color: var(--brand-ink); font-weight: 600; font-size: 14px;
-        box-shadow: 0 6px 20px var(--shadow);
-      }
-      .launcher:hover { filter: brightness(1.05); }
-      .launcher.hidden { display: none; }
-
-      .panel {
-        position: fixed; bottom: 16px; right: 16px; z-index: 951;
-        width: min(400px, 94vw); height: min(560px, 76vh);
-        display: flex; flex-direction: column; overflow: hidden;
-        background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-        box-shadow: 0 20px 60px var(--shadow);
-      }
-      header {
-        display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-        border-bottom: 1px solid var(--line);
-      }
-      header .title { flex: 1; font-weight: 700; font-size: 14px; }
-      header .icon {
-        position: relative;
-        margin: 0; padding: 3px 8px; background: transparent; border: 1px solid var(--line);
-        border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
-      }
-      header .icon:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
-      header .icon.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
-      /* In-app tooltip (replaces the browser's native title bubble, which rendered outside the app).
-         Anchored under the icon and right-aligned so it never spills past the panel edge. */
-      header .icon[data-tip]::after {
-        content: attr(data-tip);
-        position: absolute; top: calc(100% + 7px); right: 0;
-        width: max-content; max-width: 230px; text-align: left; white-space: normal;
-        background: #222; color: #fff; padding: 7px 9px; border-radius: 8px;
-        font-size: 11px; font-weight: 400; line-height: 1.45;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-        opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity 120ms, transform 120ms;
-        z-index: 60; pointer-events: none;
-      }
-      header .icon[data-tip]:hover:not(:disabled)::after,
-      header .icon[data-tip]:focus-visible::after { opacity: 1; visibility: visible; transform: translateY(0); }
-
-      .body { flex: 1; overflow-y: auto; padding: 12px; }
-      /* Compact in-panel help - the floating widget's own take, lighter than the page help card. */
-      .help {
-        border: 1px solid var(--accent-line); background: var(--accent-soft);
-        border-radius: 10px; padding: 10px 11px; margin-bottom: 10px;
-      }
-      .help-user { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--ink); }
-      .help-dev { margin-top: 7px; border-top: 1px dashed var(--accent-line); padding-top: 7px; }
-      .help-dev-label {
-        font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
-      }
-      .help-dev p { margin: 2px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
-      .hint { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
-      .examples { display: flex; flex-wrap: wrap; gap: 6px; }
-      .chip {
-        border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
-        border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
-      }
-      .chip:hover:not(:disabled) { background: var(--accent-soft); }
-
-      .msg { margin: 7px 0; padding: 7px 10px; border-radius: 12px; font-size: 12px; line-height: 1.5; }
-      .msg.q { background: var(--accent-soft); color: var(--ink); margin-left: 24px; }
-      .msg.a { background: var(--hover); }
-      .a-text { margin: 0; white-space: pre-wrap; }
-      .xs { font-size: 10.5px; margin: 6px 0 0; }
-      .sources { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
-      .source {
-        display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; text-decoration: none;
-        border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--ink); background: var(--card);
-      }
-      .source:hover { border-color: var(--accent-line); }
-      /* Cited sources stand out with an accent edge; considered-but-unused ones are dimmed. */
-      .source.cited { border-left: 3px solid var(--accent); }
-      .source.dim { opacity: 0.6; }
-      .source.dim:hover { opacity: 1; }
-      .more {
-        margin: 8px 0 0; padding: 3px 4px; background: transparent; border: 0; cursor: pointer;
-        color: var(--muted); font-size: 11.5px; font-weight: 600;
-      }
-      .more:hover { color: var(--accent); }
-      .src-idx { color: var(--accent); font-weight: 700; font-size: 10.5px; }
-      .src-title { font-weight: 600; font-size: 11.5px; }
-      .src-meta { font-size: 10px; color: var(--muted); background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; }
-
-      .composer { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); }
-      .composer input { flex: 1; margin: 0; }
-      .composer button { margin: 0; flex: none; }
-      .error { color: var(--danger); font-size: 13px; }
-    `,
-  ],
+  templateUrl: './assistant.html',
+  styleUrl: './assistant.scss',
 })
 export class AssistantWidget {
   private api = inject(ApiService);

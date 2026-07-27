@@ -1,0 +1,155 @@
+    <div class="card">
+      <div class="row-between">
+        <h1>{{ showTrash() ? 'Trash' : 'Documents' }}</h1>
+        <div class="head-actions">
+          <button type="button" class="btn-ghost" (click)="toggleTrash()">
+            {{ showTrash() ? '← Documents' : '🗑 Trash' }}
+          </button>
+          @if (!showTrash()) { <a routerLink="/upload" class="button">＋ Upload</a> }
+        </div>
+      </div>
+
+      @if (showTrash()) {
+        <trove-help-card title="How deleting & restoring works" [open]="false"
+          [user]="trashHelpUser" [dev]="trashHelpDev"></trove-help-card>
+        <p class="muted">Deleted documents stay here for 30 days, then they're permanently removed from
+          storage. Restore anything before then.</p>
+        @if (trashLoading()) { <p class="muted">Loading…</p> }
+        @else if (trash().length === 0) { <p class="muted">Trash is empty.</p> }
+        @else {
+          <div class="list-help">
+            <span>Restore
+              <trove-info-tip text="Puts the file back in your live vault and out of the Trove/_Deleted folder in Drive - it reappears in Documents."></trove-info-tip>
+            </span>
+            <span>Delete forever
+              <trove-info-tip text="Erases the file now from the live store (R2) and from Google Drive, and removes the database row - permanently, no undo. The independent B2 mirror keeps an archival copy by design."></trove-info-tip>
+            </span>
+          </div>
+          <div class="bulk-bar">
+            <button type="button" class="btn-ghost sm" (click)="restoreSelected()"
+              [disabled]="selected().size === 0 || bulkBusy()">Restore selected ({{ selected().size }})</button>
+            <button type="button" class="del sm" (click)="purgeSelected()"
+              [disabled]="selected().size === 0 || bulkBusy()">Delete selected ({{ selected().size }})</button>
+            <span class="spacer"></span>
+            <button type="button" class="del sm" (click)="purgeAll()" [disabled]="bulkBusy()">Delete all</button>
+          </div>
+          <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="chk"><input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll()"
+                  [attr.aria-label]="allSelected() ? 'Deselect all' : 'Select all'" /></th>
+                <th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Deleted</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of trash(); track d.id) {
+                <tr [class.sel]="selected().has(d.id)">
+                  <td class="chk"><input type="checkbox" [checked]="selected().has(d.id)"
+                    (change)="toggleSelect(d.id)" [attr.aria-label]="'Select ' + (d.originalFilename || d.id)" /></td>
+                  <td>{{ d.originalFilename || d.id }}</td>
+                  <td>{{ d.category || '-' }}</td>
+                  <td>{{ d.merchant || '-' }}</td>
+                  <td>{{ d.amount | money: d.currency }}</td>
+                  <td>{{ d.deletedAt ? (d.deletedAt | prettyDate) : '-' }}</td>
+                  <td class="row-actions">
+                    <button type="button" class="btn-ghost sm" (click)="restore(d)" [disabled]="restoringId() === d.id">
+                      {{ restoringId() === d.id ? 'Restoring...' : 'Restore' }}
+                    </button>
+                    <button type="button" class="del" (click)="purge(d)">Delete forever</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          </div>
+          <p class="muted total">{{ trash().length }} in trash</p>
+        }
+      } @else {
+
+      @if (adminPending().length) {
+        <a routerLink="/admin" class="admin-strip">
+          <span class="rs-icon">👤</span>
+          <span class="rs-text">
+            <b>{{ adminPending().length }}</b> account{{ adminPending().length > 1 ? 's are' : ' is' }}
+            waiting for your approval to join Trove.
+          </span>
+          <span class="rs-cta">Review →</span>
+        </a>
+      }
+
+      @if (upcomingReminders().length) {
+        <a routerLink="/reminders" class="reminder-strip" [class.overdue]="hasOverdue()">
+          <span class="rs-icon">🔔</span>
+          <span class="rs-text">
+            <b>{{ upcomingReminders().length }}</b> reminder{{ upcomingReminders().length > 1 ? 's' : '' }} to act on -
+            {{ reminderSummary() }}
+          </span>
+          <span class="rs-cta">View all →</span>
+        </a>
+      }
+
+      <div class="cats">
+        <button type="button" class="chip" [class.on]="category === ''" (click)="setCategory('')">All</button>
+        @for (c of visibleCategories(); track c.code) {
+          <button type="button" class="chip" [class.on]="category === c.code" (click)="setCategory(c.code)">
+            {{ c.label }}
+          </button>
+        }
+      </div>
+
+      @if (loading()) { <p class="muted">Loading…</p> }
+      @else if (total() === 0) {
+        <p class="muted">
+          No documents{{ category ? ' in this category' : '' }} yet.
+          <a routerLink="/upload">Snap or paste your first</a>.
+        </p>
+      }
+      @else {
+        <div class="list-help">
+          <span>Status
+            <trove-info-tip text="needs_review = the AI read this and it's waiting for you to confirm the details. confirmed = you've verified them (only confirmed documents count toward Spend)."></trove-info-tip>
+          </span>
+          <span>Delete
+            <trove-info-tip text="Moves a document to Trash - recoverable for 30 days, not a permanent erase. It's hidden from lists, Spend and Search, and its Drive copy moves to Trove/_Deleted. Open Trash to restore or delete for good."></trove-info-tip>
+          </span>
+        </div>
+        <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Date</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (d of docs(); track d.id) {
+              <tr>
+                <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
+                <td>{{ d.category || '-' }}</td>
+                <td>{{ d.merchant || '-' }}</td>
+                <td>
+                  {{ d.amount | money: d.currency }}
+                  @if (isAnomalous(d)) { <span class="anom" title="Higher than usual for this category - worth a second look">↑ {{ anomalyPct(d) }}</span> }
+                </td>
+                <td>{{ d.docDate || '-' }}</td>
+                <td><span class="badge" [class.confirmed]="d.status === 'confirmed'">{{ d.status }}</span></td>
+                <td><button class="del" type="button" (click)="remove(d)">Delete</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        </div>
+
+        <div class="pager">
+          <trove-select class="page-size" [ngModel]="pageSizeStr()" (ngModelChange)="setPageSize($event)"
+            [options]="pageSizeOptions" ariaLabel="Page size"></trove-select>
+          @if (pageSize() !== 0 && totalPages() > 1) {
+            <div class="pages">
+              <button type="button" [disabled]="page() === 0" (click)="goToPage(page() - 1)">‹ Prev</button>
+              <span>Page {{ page() + 1 }} of {{ totalPages() }}</span>
+              <button type="button" [disabled]="page() >= totalPages() - 1" (click)="goToPage(page() + 1)">Next ›</button>
+            </div>
+          }
+          <span class="muted total">{{ total() }} document(s)</span>
+        </div>
+      }
+      }
+    </div>

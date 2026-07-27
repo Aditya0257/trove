@@ -1,0 +1,151 @@
+    <div class="card">
+      <h1>Your profile</h1>
+      <div class="profile-head">
+        <trove-avatar [name]="acct()?.displayName || ''" [url]="acct()?.avatarUrl ?? null" [size]="88"></trove-avatar>
+        <div class="ph-actions">
+          <label class="button sm">
+            {{ uploadingPhoto() ? 'Uploading…' : (acct()?.avatarUrl ? 'Change photo' : 'Add photo') }}
+            <input type="file" accept="image/*" (change)="onPhoto($event)" hidden />
+          </label>
+          @if (acct()?.avatarUrl) {
+            <button type="button" class="btn-ghost sm" (click)="removePhoto()">Remove</button>
+          }
+          <p class="hint">A square image under 2 MB works best. No photo shows your initials.</p>
+        </div>
+      </div>
+
+      <label class="field">Display name
+        <div class="inline">
+          <input name="name" [(ngModel)]="name" maxlength="60" placeholder="Your name" />
+          <button type="button" (click)="saveName()" [disabled]="savingName() || !name.trim() || name.trim() === acct()?.displayName">
+            {{ savingName() ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>Email</h2>
+      <p class="muted">Your sign-in email is <b>{{ acct()?.email }}</b>. We send verification codes,
+        password resets and reminders here, so it must be one you can receive mail at.</p>
+      @if (acct()?.pendingEmail) {
+        <p class="pending">A change to <b>{{ acct()?.pendingEmail }}</b> is awaiting the code we sent there.</p>
+      }
+      @if (emailStep() === 'idle') {
+        <button type="button" class="btn-ghost" (click)="emailStep.set('form')">Change email</button>
+      } @else if (emailStep() === 'form') {
+        <div class="stack">
+          <label class="field">New email
+            <input name="newEmail" type="email" [(ngModel)]="newEmail" placeholder="you@example.com" />
+          </label>
+          <label class="field">Current password
+            <trove-info-tip text="We re-check your password so a change can't be made from a session left open on a shared computer."></trove-info-tip>
+            <input name="emailPw" type="password" [(ngModel)]="emailPw" autocomplete="current-password" />
+          </label>
+          <div class="inline">
+            <button type="button" (click)="startEmailChange()" [disabled]="savingEmail() || !newEmail.trim() || !emailPw">
+              {{ savingEmail() ? 'Sending code…' : 'Send code to new email' }}
+            </button>
+            <button type="button" class="btn-ghost" (click)="cancelEmail()">Cancel</button>
+          </div>
+        </div>
+      } @else {
+        <div class="stack">
+          <p class="muted">Enter the 6-digit code we sent to <b>{{ newEmail }}</b>.</p>
+          <div class="inline">
+            <input name="emailCode" inputmode="numeric" maxlength="6" [(ngModel)]="emailCode" placeholder="6-digit code" class="code" />
+            <button type="button" (click)="verifyEmailChange()" [disabled]="savingEmail() || emailCode.trim().length < 6">
+              {{ savingEmail() ? 'Confirming…' : 'Confirm new email' }}
+            </button>
+            <button type="button" class="btn-ghost" (click)="cancelEmail()">Cancel</button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="card">
+      <h2>Password</h2>
+      <div class="stack">
+        <label class="field">Current password
+          <input name="curPw" type="password" [(ngModel)]="curPw" autocomplete="current-password" />
+        </label>
+        <label class="field">New password
+          <input name="newPw" type="password" [(ngModel)]="newPw" autocomplete="new-password" placeholder="At least 8 characters" />
+        </label>
+        <label class="field">Confirm new password
+          <input name="confirmPw" type="password" [(ngModel)]="confirmPw" autocomplete="new-password" />
+        </label>
+        @if (pwError()) { <p class="error">{{ pwError() }}</p> }
+        <div>
+          <button type="button" (click)="changePassword()" [disabled]="savingPw()">
+            {{ savingPw() ? 'Updating…' : 'Update password' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Two-factor authentication</h2>
+      <trove-help-card title="About two-factor" [open]="false"
+        user="Two-factor adds a second step at sign-in: a 6-digit code from an authenticator app (Google Authenticator, Authy, and similar) that changes every 30 seconds. Even if someone learns your password, they can't sign in without your phone."
+        dev="TOTP (RFC 6238): a shared secret produces a time-based code (HMAC-SHA1 over the 30s step). It runs fully offline in the app, so it needs no SMS and costs nothing. The secret is AES-GCM encrypted at rest; enabling requires proving one valid code so a bad setup can't lock you out.">
+      </trove-help-card>
+      @if (twoFaEnabled()) {
+        <p class="status on">Two-factor is <b>on</b> for your account.</p>
+        <div class="inline">
+          <input name="offcode" [(ngModel)]="offCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" class="code" />
+          <button type="button" class="btn-danger" (click)="disable2fa()" [disabled]="busy2fa()">Turn off</button>
+        </div>
+      } @else if (setup2fa()) {
+        <p class="muted">1. In your authenticator app, add an account and enter this key (or open the setup link):</p>
+        <div class="secret">{{ setup2fa()!.secret }}</div>
+        <p class="muted small"><a [href]="setup2fa()!.otpauthUri">Open in an authenticator app</a> (on this device)</p>
+        <p class="muted">2. Enter the 6-digit code it shows to finish:</p>
+        <div class="inline">
+          <input name="oncode" [(ngModel)]="onCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" class="code" />
+          <button type="button" (click)="enable2fa()" [disabled]="busy2fa()">Verify &amp; turn on</button>
+        </div>
+        @if (twoFaError()) { <p class="error">{{ twoFaError() }}</p> }
+      } @else {
+        <p class="status off">Two-factor is <b>off</b>.</p>
+        <button type="button" (click)="start2fa()" [disabled]="busy2fa()">Set up two-factor</button>
+      }
+    </div>
+
+    <div class="card">
+      <h2>Session</h2>
+      <p class="muted">Signed in as <b>{{ acct()?.email }}</b>@if (acct()?.admin) { <span class="admin-chip">admin</span> }.
+        @if (acct()?.createdAt) { Member since {{ acct()!.createdAt | prettyDate }}. }</p>
+      <p class="muted small">Sessions are stateless tokens that expire on their own, so signing out here clears
+        this device. Sign out from every device by changing your password.</p>
+      <button type="button" class="btn-ghost" (click)="signOut()">Sign out</button>
+    </div>
+
+    @if (acct()?.admin) {
+      <div class="card danger-card">
+        <h2>Delete an account</h2>
+        <trove-help-card title="What deleting an account does" [open]="false"
+          user="This permanently removes a person's account and everything in it: their documents (from live storage and Google Drive), spaces they own, reminders, and history. It cannot be undone. Only admins can do this. As a safeguard, you must type the account's email to confirm."
+          dev="Runs AccountDeletionService: every document in the user's owned spaces is purged (R2 + Drive + index rows), then the remaining per-space and per-user rows are cleared in FK-safe order and the account row is removed. The independent B2 mirror is append-only and keeps an archival copy by design. Guards: you cannot delete yourself or another admin, and the server re-checks the typed email.">
+        </trove-help-card>
+
+        @if (users().length) {
+          <label class="field">Account to delete
+            <trove-select [options]="userOptions()" [ngModel]="deleteId()" (ngModelChange)="deleteId.set($event)"
+              name="deleteId" placeholder="Choose an account…" ariaLabel="Account to delete"></trove-select>
+          </label>
+          @if (deleteTarget()) {
+            <p class="confirm-line">To confirm, type <b>{{ deleteTarget()!.email }}</b> below.</p>
+            <div class="inline">
+              <input name="confirmEmail" [(ngModel)]="confirmEmail" placeholder="Type the email to confirm" class="grow" />
+              <button type="button" class="btn-danger" (click)="deleteAccount()"
+                [disabled]="deleting() || confirmEmail.trim().toLowerCase() !== deleteTarget()!.email.toLowerCase()">
+                {{ deleting() ? 'Deleting…' : 'Delete this account' }}
+              </button>
+            </div>
+          }
+        } @else {
+          <p class="muted">No other accounts to manage.</p>
+        }
+      </div>
+    }

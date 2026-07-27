@@ -1,0 +1,141 @@
+    <div class="card">
+      <div class="row-between">
+        <h1>Backups &amp; integrity</h1>
+        <div class="head-actions">
+          <trove-info-tip align="right"
+            text="Re-checks every document right now: confirms the live file, its sidecar, the mirror and Drive copy all exist. Read-only - it changes nothing.">
+          </trove-info-tip>
+          <button type="button" class="btn-ghost" (click)="verify()" [disabled]="loading()">
+            {{ loading() ? 'Verifying…' : 'Verify now' }}
+          </button>
+        </div>
+      </div>
+      <trove-help-card title="About backup integrity" [open]="false" [user]="helpUser" [dev]="helpDev"></trove-help-card>
+
+      @if (report(); as r) {
+        <!-- Headline health -->
+        @if (r.criticalCount > 0) {
+          <div class="banner bad">
+            ⚠ {{ r.criticalCount }} document(s) are missing their live copy - investigate below.
+          </div>
+        } @else if (r.documents === 0) {
+          <div class="banner ok">No documents in this space yet.</div>
+        } @else {
+          <div class="banner ok">
+            ✅ All {{ r.documents }} document(s) are safely stored. Verified {{ r.checkedAt | prettyDate }}.
+            <trove-info-tip text="Counts every stored file in this space, including each email screenshot. Mail groups screenshots into records, but each screenshot is its own file - so this can be higher than the Documents tab, which hides emails. Example: 26 documents + 5 email screenshots = 31."></trove-info-tip>
+          </div>
+        }
+
+        <!-- Per-tier coverage -->
+        <div class="tiers">
+          <div class="tier" [class.warn]="r.primaryOk < r.documents">
+            <div class="tier-h">Live copy <span class="tier-tag">R2</span></div>
+            <div class="tier-desc">The working store - live reads &amp; writes.</div>
+            <div class="tier-n">{{ r.primaryOk }}/{{ r.documents }}</div>
+            <div class="bar"><span [style.width.%]="pct(r.primaryOk, r.documents)"></span></div>
+            <button type="button" class="tier-more" (click)="toggleTier('live')">
+              {{ openTier() === 'live' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'live'">▾</span>
+            </button>
+          </div>
+          <div class="tier" [class.warn]="r.sidecarOk < r.documents">
+            <div class="tier-h">Sidecar <span class="tier-tag">JSON</span></div>
+            <div class="tier-desc">Self-describing metadata beside each file.</div>
+            <div class="tier-n">{{ r.sidecarOk }}/{{ r.documents }}</div>
+            <div class="bar"><span [style.width.%]="pct(r.sidecarOk, r.documents)"></span></div>
+            <button type="button" class="tier-more" (click)="toggleTier('sidecar')">
+              {{ openTier() === 'sidecar' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'sidecar'">▾</span>
+            </button>
+          </div>
+          <div class="tier" [class.warn]="r.mirrorOk !== null && r.mirrorOk < r.documents">
+            <div class="tier-h">Mirror <span class="tier-tag">B2</span></div>
+            <div class="tier-desc">Independent second-cloud copy.</div>
+            @if (r.mirrorOk === null) {
+              <div class="tier-n muted">Off</div>
+              <div class="bar off"></div>
+            } @else {
+              <div class="tier-n">{{ r.mirrorOk }}/{{ r.documents }}</div>
+              <div class="bar"><span [style.width.%]="pct(r.mirrorOk, r.documents)"></span></div>
+            }
+            <button type="button" class="tier-more" (click)="toggleTier('mirror')">
+              {{ openTier() === 'mirror' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'mirror'">▾</span>
+            </button>
+          </div>
+          <div class="tier">
+            <div class="tier-h">Drive <span class="tier-tag">Tier-3</span></div>
+            <div class="tier-desc">Human-browsable copy in Google Drive.</div>
+            <div class="tier-n">{{ r.driveOk }}/{{ r.documents }}</div>
+            <div class="bar"><span [style.width.%]="pct(r.driveOk, r.documents)"></span></div>
+            <button type="button" class="tier-more" (click)="toggleTier('drive')">
+              {{ openTier() === 'drive' ? 'Hide' : 'Read more' }} <span class="chev" [class.up]="openTier() === 'drive'">▾</span>
+            </button>
+          </div>
+        </div>
+
+        @if (openTier(); as k) {
+          <div class="tier-detail">
+            <span class="dev-badge">Dev note</span>
+            <strong>{{ tierName(k) }}</strong>
+            <p>{{ tierDetail(k) }}</p>
+          </div>
+        }
+
+        <!-- Global object-store integrity -->
+        <h3>Object store</h3>
+        <div class="stats">
+          <div><span class="k">Objects in R2</span><span class="v">{{ r.storage.r2Objects }}</span></div>
+          <div><span class="k">Referenced by the index</span><span class="v">{{ r.storage.indexedKeys }}</span></div>
+          <div>
+            <span class="k">Orphan files
+              <trove-info-tip text="Files in R2 with no database row - usually left after a delete or a DB rebuild. Harmless: they don't affect your documents."></trove-info-tip>
+            </span>
+            <span class="v">{{ r.storage.orphanObjects }}</span>
+          </div>
+          <div>
+            <span class="k">Rebuildable from sidecar
+              <trove-info-tip text="Of those orphans, how many carry a sidecar JSON - enough to recreate their database row. Proof the DB is a rebuildable index, not the source of truth."></trove-info-tip>
+            </span>
+            <span class="v">{{ r.storage.rebuildableOrphans }}</span>
+          </div>
+          @if (r.storage.mirrorEnabled) {
+            <div><span class="k">Objects in B2 mirror</span><span class="v">{{ r.storage.mirrorObjects }}</span></div>
+          }
+        </div>
+
+        <!-- Documents with gaps -->
+        @if (r.issues.length) {
+          <h3>Gaps ({{ r.issues.length }})</h3>
+          <div class="issues">
+            @for (i of r.issues; track $index) {
+              <a class="issue" [routerLink]="['/documents', i.documentId, 'review']">
+                <span class="sev" [class]="i.severity">{{ i.severity }}</span>
+                <span class="issue-title">{{ i.title }}</span>
+                <span class="issue-problem muted">{{ i.problem }}</span>
+              </a>
+            }
+          </div>
+        }
+      } @else if (error()) {
+        <p class="error">{{ error() }}</p>
+      } @else {
+        <p class="muted">Loading…</p>
+      }
+    </div>
+
+    <div class="card">
+      <h3>Recent backup &amp; verification runs</h3>
+      @if (history().length === 0) {
+        <p class="muted">No runs recorded yet.</p>
+      } @else {
+        <div class="runs">
+          @for (h of history(); track $index) {
+            <div class="run">
+              <span class="run-status" [class]="h.status">{{ h.status }}</span>
+              <span class="run-kind">{{ h.kind }}</span>
+              <span class="run-when muted">{{ (h.finishedAt || h.startedAt) | prettyDate }}</span>
+              <span class="run-detail muted">{{ h.detail }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>

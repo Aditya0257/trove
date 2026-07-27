@@ -1,0 +1,14 @@
+    <ol class="steps" aria-label="Sign-up progress">
+      @for (label of labels; track label; let i = $index) {
+        <li class="step" [class.active]="i + 1 === active" [class.done]="i + 1 < active"
+            [attr.aria-current]="i + 1 === active ? 'step' : null">
+          <span class="dot">@if (i + 1 < active) {
+            <svg class="tick" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+              stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4 4L19 7" />
+            </svg>
+          } @else { {{ i + 1 }} }</span>
+          <span class="label">{{ label }}</span>
+        </li>
+      }
+    </ol>

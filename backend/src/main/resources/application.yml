@@ -38,6 +38,18 @@ spring:
     url: ${TROVE_DB_URL:jdbc:postgresql://localhost:5432/trove}
     username: ${TROVE_DB_USER:trove}
     password: ${TROVE_DB_PASSWORD:trove}
+    hikari:
+      # Tuned for serverless Postgres (Neon free tier scales compute to zero after
+      # ~5 min idle and drops its connections). Recycle/validate our pooled connections
+      # BEFORE Neon kills them so a request after a quiet period gets a fresh, live
+      # connection instead of a timed-out "connection has been closed" 500. Keep the
+      # pool small — free tiers cap total connections.
+      maximum-pool-size: ${TROVE_DB_POOL_MAX:5}
+      minimum-idle: ${TROVE_DB_POOL_MIN_IDLE:0}
+      max-lifetime: ${TROVE_DB_MAX_LIFETIME_MS:240000}      # 4 min < Neon's idle cutoff
+      keepalive-time: ${TROVE_DB_KEEPALIVE_MS:120000}       # ping idle connections every 2 min
+      idle-timeout: ${TROVE_DB_IDLE_TIMEOUT_MS:120000}
+      connection-timeout: ${TROVE_DB_CONN_TIMEOUT_MS:30000} # allow for a Neon cold start
 
   jpa:
     hibernate:
@@ -104,6 +116,12 @@ trove:
     auto-create-bucket: ${TROVE_S3_AUTO_CREATE_BUCKET:true}
     # TTL for presigned view/download URLs handed to clients.
     presign-ttl-seconds: ${TROVE_S3_PRESIGN_TTL:900}
+    # Free-tier storage ceiling shown on the Developer gauge (R2 = 10 GB).
+    free-bytes: ${TROVE_STORAGE_FREE_BYTES:10737418240}
+
+  # Neon Postgres free tier is ~0.5 GB per project; surfaced on the Developer gauge.
+  database:
+    free-bytes: ${TROVE_DATABASE_FREE_BYTES:536870912}
 
   mirror:
     # Independent second-cloud copy (e.g. Backblaze B2, which is S3-compatible).
@@ -116,6 +134,8 @@ trove:
     bucket: ${TROVE_MIRROR_BUCKET:}
     path-style-access: ${TROVE_MIRROR_PATH_STYLE:true}
     sync-fixed-delay-ms: ${TROVE_MIRROR_SYNC_DELAY_MS:3600000}
+    # Free-tier storage ceiling shown on the Developer gauge (B2 = 10 GB).
+    free-bytes: ${TROVE_MIRROR_FREE_BYTES:10737418240}
 
   extraction:
     # WHICH PROVIDER READS DOCUMENTS.
@@ -196,6 +216,9 @@ trove:
     api-key: ${TROVE_EMAIL_API_KEY:}
     from-email: ${TROVE_EMAIL_FROM:}
     from-name: ${TROVE_EMAIL_FROM_NAME:Trove}
+    # Brevo free tier is 300 emails/day, shared by the whole app; sends stop at this
+    # cap (and the gauge shows the remaining allowance) until it resets at 00:00 UTC.
+    daily-limit: ${TROVE_EMAIL_DAILY_LIMIT:300}
 
   ingest:
     # Shared secret gating the email/WhatsApp ingestion webhooks. Set via env in prod.

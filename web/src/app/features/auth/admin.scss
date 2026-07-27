@@ -1,0 +1,13 @@
+      .reqs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .req {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+      }
+      .who { display: flex; flex-direction: column; gap: 2px; }
+      .name { font-weight: 600; }
+      .email { font-family: monospace; font-size: 13px; }
+      .small { font-size: 12px; }
+      .actions { display: flex; gap: 8px; }
+      .actions button { margin: 0; }
+      .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+      .btn-ghost:hover { background: var(--hover); }

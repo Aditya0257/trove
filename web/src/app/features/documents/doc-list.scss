@@ -1,0 +1,80 @@
+      /* Column-level help legend, above the table so its tooltips never clip in the scroll box. */
+      .list-help { display: flex; gap: 18px; margin: 4px 0 10px; font-size: 12px; color: var(--muted); }
+      .list-help > span { display: inline-flex; align-items: center; gap: 5px; }
+      /* Let a wide table scroll inside the card instead of the page scrolling sideways. */
+      .table-scroll { overflow-x: auto; max-width: 100%; }
+      .table-scroll table { min-width: 560px; }
+      /* A calm nudge above the list: reminders that need attention, linking to the page. */
+      .reminder-strip {
+        display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 14px;
+        border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: 10px;
+        text-decoration: none; color: var(--ink); font-size: 13px;
+      }
+      .reminder-strip:hover { filter: brightness(1.02); border-color: var(--accent); }
+      .reminder-strip.overdue { border-color: var(--danger-line); background: var(--danger-soft); }
+      .rs-icon { font-size: 15px; flex: none; }
+      .rs-text { flex: 1; line-height: 1.4; }
+      .rs-cta { flex: none; color: var(--accent); font-weight: 600; white-space: nowrap; }
+      .reminder-strip.overdue .rs-cta { color: var(--danger); }
+      /* Admin-only nudge: sign-ups awaiting approval. Uses the indigo secondary hue so it
+         reads as informational and stays distinct from the teal reminders strip and the red
+         overdue state. Tokens recolour with the theme, so it is correct in light and dark. */
+      .admin-strip {
+        display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 14px;
+        border: 1px solid var(--accent-2-line); background: var(--accent-2-soft); border-radius: 10px;
+        text-decoration: none; color: var(--ink); font-size: 13px;
+      }
+      .admin-strip:hover { filter: brightness(1.02); border-color: var(--accent-2); }
+      .admin-strip .rs-cta { color: var(--accent-2); }
+      .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+      .chip {
+        border: 1px solid var(--accent-line); background: transparent; color: var(--accent);
+        border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
+      }
+      .chip.on { background: var(--accent); color: var(--brand-ink); border-color: var(--accent); }
+      td { vertical-align: middle; }
+      /* Subtle "higher than usual" flag next to an anomalous amount. */
+      .anom {
+        margin-left: 6px; font-size: 11px; font-weight: 700; white-space: nowrap;
+        color: var(--warn, #b8860b); cursor: help;
+      }
+      .del {
+        margin: 0; border: 1px solid var(--danger-line); background: transparent; color: var(--danger);
+        border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; white-space: nowrap;
+      }
+      .del:hover { background: var(--danger-soft); }
+      .del.sm { padding: 4px 12px; }
+      /* Trash bulk-action bar + selection column. */
+      .bulk-bar { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap; }
+      .bulk-bar .spacer { flex: 1 1 auto; }
+      .bulk-bar button:disabled { opacity: 0.5; cursor: default; }
+      th.chk, td.chk { width: 1%; text-align: center; padding-right: 4px; }
+      th.chk input, td.chk input { cursor: pointer; }
+      tr.sel td { background: var(--accent-soft); }
+      /* Trash + Upload are a matched pair on one line - neutralise the global button's
+         top margin and give the ghost the same box so they align and read as siblings. */
+      .head-actions { display: flex; align-items: center; gap: 10px; }
+      .head-actions > * { margin: 0; }
+      .btn-ghost {
+        margin: 0; border: 1px solid var(--line); background: transparent; color: var(--muted);
+        border-radius: 8px; padding: 0.6rem 1.1rem; font-size: 0.95rem; font-weight: 600;
+        cursor: pointer; line-height: 1.2;
+      }
+      .btn-ghost:hover { background: var(--hover); color: var(--accent); }
+      .btn-ghost.sm { padding: 4px 12px; font-size: 12px; line-height: 1.4; }
+      /* Keep this a normal table cell (NOT display:flex, which drops the cell out of the
+         row and leaves a detached white block on selection). Buttons lay out inline. */
+      .row-actions { white-space: nowrap; text-align: right; }
+      .row-actions button + button { margin-left: 8px; }
+      .pager { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+      .page-size { display: inline-block; width: 200px; }
+      .pages { display: flex; align-items: center; gap: 10px; }
+      /* Override the global brand button (light text on brand fill): these are neutral
+         nav buttons on a white row, so give them a dark label + no stray top margin. */
+      .pages button {
+        margin: 0; border: 1px solid var(--line); background: var(--card); color: var(--accent);
+        border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
+      }
+      .pages button:hover:not(:disabled) { background: var(--accent-soft); }
+      .pages button:disabled { opacity: 0.4; cursor: default; }
+      .pager .total { margin-left: auto; font-size: 13px; }

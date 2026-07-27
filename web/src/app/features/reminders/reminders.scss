@@ -1,0 +1,60 @@
+      .warn { color: var(--danger); font-weight: 600; }
+      .reminder-form { margin: 8px 0 4px; }
+      .form-grid { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; }
+      .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+      .form-grid label.wide { flex: 1 1 220px; }
+      .form-grid input, .form-grid trove-select { min-width: 150px; }
+      .form-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+      .form-actions button { margin: 0; }
+      .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 1.1rem; cursor: pointer; }
+      .btn-ghost:hover { background: var(--hover); }
+
+      .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 12px; border-bottom: 1px solid var(--line); }
+      .tab {
+        margin: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+        padding: 8px 12px; font-size: 13px; font-weight: 600; border-bottom: 2px solid transparent;
+      }
+      .tab:hover { color: var(--ink); }
+      .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+      .tab .count {
+        display: inline-block; min-width: 18px; text-align: center; font-size: 11px; margin-left: 2px;
+        background: var(--hover); border-radius: 999px; padding: 0 6px; color: var(--muted);
+      }
+      .tab.on .count { background: var(--accent-soft); color: var(--accent); }
+
+      .table-scroll { overflow-x: auto; max-width: 100%; }
+      .table-scroll table { min-width: 640px; }
+      .act-col { width: 1%; }
+      tr.due td { background: var(--danger-soft); }
+      .r-title { font-weight: 600; }
+      .r-doc { font-size: 12px; color: var(--accent); text-decoration: none; }
+      .r-doc:hover { text-decoration: underline; }
+      .r-sub { font-size: 12px; color: var(--muted); }
+      .badge.ok { background: var(--accent-soft); color: var(--accent); }
+
+      .r-actions { white-space: nowrap; }
+      .r-actions .mini {
+        margin: 0 4px 0 0; border: 1px solid var(--accent); background: var(--accent); color: var(--brand-ink);
+        border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+      }
+      .r-actions .mini.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+      .r-actions .mini.ghost:hover { background: var(--hover); color: var(--ink); }
+      .r-actions .mini.ghost.danger:hover { color: var(--danger); border-color: var(--danger-line); }
+      /* Snooze options revealed inline (in normal flow) so the table's overflow never clips them. */
+      .snooze-inline { display: inline-flex; align-items: center; gap: 4px; }
+      .snooze-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+      .error { color: var(--danger); }
+
+      /* Edit dialog. */
+      .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1100; }
+      .modal {
+        position: fixed; z-index: 1101; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: min(560px, 94vw); background: var(--card); border: 1px solid var(--line);
+        border-radius: 12px; padding: 1.25rem 1.4rem; box-shadow: 0 20px 60px var(--shadow);
+      }
+      .modal h3 { margin: 0 0 0.9rem; }
+      .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+      .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+      .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
+      .modal-actions button { margin: 0; }
+      @media (max-width: 480px) { .modal-grid { grid-template-columns: 1fr; } }

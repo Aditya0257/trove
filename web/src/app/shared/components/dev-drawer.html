@@ -1,0 +1,172 @@
+    <button class="pill" (click)="open.set(!open())" title="Developer">
+      dev<span class="count">{{ entries().length }}</span>
+    </button>
+
+    @if (open()) {
+      <div class="scrim" (click)="open.set(false)"></div>
+      <aside class="panel">
+        <header>
+          <strong>Developer</strong>
+          <span class="sub">request trail</span>
+          <span class="grow"></span>
+          <button class="link" [class.active]="errorsOnly()" (click)="errorsOnly.set(!errorsOnly())">
+            {{ errorsOnly() ? 'Show all' : 'Errors only' }}
+          </button>
+          <button class="link" (click)="log.clear()">Clear</button>
+          <button class="link" (click)="open.set(false)">Close</button>
+        </header>
+
+        @if (usage(); as u) {
+          <div class="gauge">
+            <div class="gauge-row">
+              <span>All users today
+                <span class="tip" tabindex="0">i<span class="bubble">Total across everyone using {{ terms.aiService }} today. Measured in {{ terms.aiCredits }}, the unit it bills; this is what counts toward the free {{ fmt(u.ai.limitNeurons) }}/day limit.</span></span>
+              </span>
+              <span class="gauge-nums">{{ fmt(u.ai.globalNeurons) }} / {{ fmt(u.ai.limitNeurons) }} {{ terms.aiCredits }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.ai.globalNeurons, u.ai.limitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.ai.globalTokens) }} tokens · {{ fmt(left(u.ai.globalNeurons, u.ai.limitNeurons)) }} {{ terms.aiCredits }} left today</div>
+
+            <div class="gauge-row two">
+              <span>Your usage today
+                <span class="tip" tabindex="0">i<span class="bubble">AI that you (this account) triggered today, a subset of the global total above. Each user is capped at {{ fmt(u.ai.perUserLimitNeurons) }} {{ terms.aiCredits }}/day so one person can't drain the shared budget; over it, uploads still file via {{ terms.aiReader }}'s free fallback.</span></span>
+              </span>
+              <span class="gauge-nums you">{{ fmt(u.ai.userNeurons) }} / {{ fmt(u.ai.perUserLimitNeurons) }} {{ terms.aiCredits }}</span>
+            </div>
+            <div class="bar"><div class="fill you" [style.width.%]="pct(u.ai.userNeurons, u.ai.perUserLimitNeurons)"></div></div>
+            <div class="gauge-sub">{{ fmt(u.ai.userTokens) }} tokens · {{ fmt(left(u.ai.userNeurons, u.ai.perUserLimitNeurons)) }} {{ terms.aiCredits }} left today</div>
+            <div class="gauge-sub">Resets 00:00 UTC · {{ resetAt(u.dailyResetAt) }} IST (in {{ resetIn(u.dailyResetAt) }})</div>
+
+            <div class="gauge-foot">
+              <span class="dot"></span>Your usage updates instantly · the shared total refreshes every minute while this panel is open
+            </div>
+
+            <button type="button" class="ai-toggle" [class.off]="!settings.aiReading()" (click)="settings.toggleAiReading()">
+              {{ settings.aiReading() ? '⏸ Pause AI reading' : '▶ Resume AI reading' }}
+            </button>
+            <div class="ai-toggle-note">
+              {{ settings.aiReading()
+                ? 'Uploads are read by the AI. Pause to stop spending credits - uploads then wait for no read and you fill the details yourself.'
+                : 'AI reading is OFF. New uploads are stored and go straight to the review form for manual entry, with no wait and no credits.' }}
+            </div>
+
+            <details class="ai-where">
+              <summary>Where AI credits are spent</summary>
+              <ul>
+                <li><b>Uploading images</b> - only while "Read images with AI" is on. Images only; PDFs are stored but never sent to AI.</li>
+                <li><b>Mail</b> - only if you tick "read with AI" when filing an email (off by default).</li>
+                <li><b>Search</b> - each plain-English search; it falls back to keyword rules when the daily budget is spent.</li>
+                <li><b>Ask your vault</b> - each question the assistant answers, plus a tiny amount to keep new documents searchable (indexing). It answers from text already read, so it never re-reads your files.</li>
+                <li>A hard-to-read scan may cost <b>2 calls</b> (one automatic retry).</li>
+                <li>Confirming, editing, deleting, backups and everything else use <b>no</b> AI.</li>
+              </ul>
+            </details>
+
+            <details class="other-limits">
+            <summary>Other free-tier limits</summary>
+
+            <div class="gauge-row">
+              <span>Email today
+                <span class="tip" tabindex="0">i<span class="bubble">Shared daily allowance for outbound email (reminders, password resets, approvals) across {{ terms.emailService }}. When it's used up, new emails wait until the reset - reminders still show in-app and as phone notifications.</span></span>
+              </span>
+              <span class="gauge-nums">{{ fmt(u.email.sentToday) }} / {{ fmt(u.email.dailyLimit) }} emails</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.email.sentToday, u.email.dailyLimit)"></div></div>
+            <div class="gauge-sub">{{ fmt(left(u.email.sentToday, u.email.dailyLimit)) }} left · resets {{ resetAt(u.dailyResetAt) }} IST (in {{ resetIn(u.dailyResetAt) }})</div>
+            @if (u.email.sentToday >= u.email.dailyLimit) {
+              <div class="gauge-warn">Daily email limit reached - new emails won't send until {{ resetAt(u.dailyResetAt) }} IST. Reminders still appear in-app and as phone notifications.</div>
+            }
+
+            <div class="gauge-row two">
+              <span>Object storage
+                <span class="tip" tabindex="0">i<span class="bubble">Total size of your stored originals (images and PDFs) in {{ terms.objectStorage }}, the tier-1 hot store - this is where file bytes live, not the database. A running total, not a daily limit; the free tier is {{ bytes(u.storage.limitBytes) }}.</span></span>
+              </span>
+              <span class="gauge-nums">{{ bytes(u.storage.usedBytes) }} / {{ bytes(u.storage.limitBytes) }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.storage.usedBytes, u.storage.limitBytes)"></div></div>
+            <div class="gauge-sub">{{ pct(u.storage.usedBytes, u.storage.limitBytes) }}% used · running total, no daily reset</div>
+
+            <div class="gauge-row two">
+              <span>Database
+                <span class="tip" tabindex="0">i<span class="bubble">Whole-{{ terms.database }} size, app-wide (not per user) and updated live. Most of it is fixed baseline that Postgres and the vector-search extension carry - system catalogs and indexes, ~8-10 MB before any data. The rest is your rows: only kilobytes of text + metadata per document. Images and PDFs never live here - they are in {{ terms.objectStorage }}. What actually grows this is per-document search embeddings. Free tier is {{ bytes(u.database.limitBytes) }}.</span></span>
+              </span>
+              <span class="gauge-nums">{{ bytes(u.database.usedBytes) }} / {{ bytes(u.database.limitBytes) }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="pct(u.database.usedBytes, u.database.limitBytes)"></div></div>
+            <div class="gauge-sub">{{ pct(u.database.usedBytes, u.database.limitBytes) }}% used · running total, no daily reset</div>
+
+            @if (u.mirror.enabled) {
+              <div class="gauge-row two">
+                <span>Mirror copy
+                  <span class="tip" tabindex="0">i<span class="bubble">Size of the independent second-cloud copy ({{ terms.mirrorStorage }}). A running total; the free tier is {{ bytes(u.mirror.limitBytes) }}.</span></span>
+                </span>
+                <span class="gauge-nums">{{ bytes(u.mirror.usedBytes) }} / {{ bytes(u.mirror.limitBytes) }}</span>
+              </div>
+              <div class="bar"><div class="fill" [style.width.%]="pct(u.mirror.usedBytes, u.mirror.limitBytes)"></div></div>
+              <div class="gauge-sub">{{ pct(u.mirror.usedBytes, u.mirror.limitBytes) }}% used · running total, no daily reset</div>
+            } @else {
+              <div class="gauge-sub muted">Mirror copy: not configured.</div>
+            }
+            </details>
+          </div>
+        }
+
+        @if (!shown().length) {
+          <p class="empty">{{ errorsOnly() ? 'No errors. All good.' : 'No requests yet.' }}</p>
+        }
+
+        @for (e of shown(); track e.at) {
+          <details class="entry" [class.err]="!ok(e)" [class.ai]="isAi(e)">
+            <summary>
+              <div class="line1">
+                <span class="time">{{ time(e.at) }}</span>
+                <span class="method">{{ e.method }}</span>
+                @if (aiTokens(e) != null) { <span class="ai-chip">AI · {{ aiTokens(e) }} tok</span> }
+                <span class="grow"></span>
+                @if (fellBack(e)) { <span class="fallback">fell back</span> }
+                <span class="status" [attr.data-ok]="ok(e)">{{ e.status || 'ERR' }}</span>
+                <span class="ms">{{ e.durationMs }}ms</span>
+              </div>
+              <div class="line2">
+                <span class="desc">{{ meaning(e).label }}</span>
+                <span class="path">{{ path(e) }}</span>
+              </div>
+            </summary>
+            <div class="detail">
+              <div class="kv"><span>you</span><div>{{ meaning(e).user }}</div></div>
+              <div class="kv"><span>dev</span><div>{{ meaning(e).dev }}</div></div>
+              <div class="kv"><span>biz</span><div>{{ meaning(e).business }}</div></div>
+              <div class="kv"><span>flow</span><code class="flow">{{ meaning(e).flow }}</code></div>
+              @if (e.requestId) { <div class="kv"><span>req</span><code>{{ e.requestId }}</code></div> }
+              @if (e.notice) {
+                <div class="kv"><span>notice</span><code>{{ e.notice.code }} · {{ e.notice.level }}</code></div>
+                @if (e.notice.devNote) { <div class="kv"><span>why</span><div>{{ e.notice.devNote }}</div></div> }
+              }
+              @if (attempts(e).length) {
+                <div class="trail-title">extraction chain</div>
+                @for (a of attempts(e); track $index) {
+                  <div class="trail" [attr.data-status]="a['status']">{{ a['provider'] }} · {{ a['status'] }}<!--
+                    -->{{ a['confidencePct'] != null ? ' · ' + a['confidencePct'] + '%' : '' }} · {{ a['latencyMs'] }}ms<!--
+                    -->{{ a['tokens'] != null ? ' · ' + a['tokens'] + ' tok' : '' }}<!--
+                    -->{{ a['neurons'] != null ? ' · ' + a['neurons'] + ' ' + terms.aiCredits : '' }}<!--
+                    -->{{ a['reason'] ? ' · ' + a['reason'] : '' }}</div>
+                }
+              }
+              @if (e.extracted) {
+                <div class="db-panel">
+                  <div class="db-head">
+                    <span class="db-badge">DB</span>
+                    <span>Saved to {{ terms.database }}: the extracted record</span>
+                  </div>
+                  <pre class="json">{{ pretty(e.extracted) }}</pre>
+                </div>
+              }
+              @if (e.body != null) {
+                <div class="trail-title">response body</div>
+                <pre class="json body-json">{{ pretty(e.body) }}</pre>
+              }
+            </div>
+          </details>
+        }
+      </aside>
+    }

@@ -1,0 +1,120 @@
+    <div class="card">
+      <div class="row-between">
+        <h1>Mail</h1>
+        <button type="button" class="button" (click)="showAdd.set(!showAdd())">
+          {{ showAdd() ? 'Close' : '＋ Add email screenshots' }}
+        </button>
+      </div>
+      <p class="muted">Screenshot the important bits of an email and keep them findable
+        by account, subject and date.</p>
+
+      @if (showAdd()) {
+        <div class="add">
+          <div
+            class="dropzone"
+            [class.drag]="dragging()"
+            (dragover)="onDragOver($event)"
+            (dragleave)="dragging.set(false)"
+            (drop)="onDrop($event)"
+          >
+            <span class="hint">Paste ({{ pasteHint }}) or drop screenshots</span>
+            <label class="filebtn">Choose files
+              <input type="file" (change)="onPick($event)" accept="image/*" multiple hidden />
+            </label>
+          </div>
+
+          @if (queue().length) {
+            <div class="thumbs">
+              @for (item of queue(); track item.url) {
+                <div class="thumb">
+                  <img [src]="item.url" alt="email screenshot" />
+                  <button class="rm" (click)="remove(item)" [disabled]="saving()">×</button>
+                </div>
+              }
+            </div>
+          }
+
+          <div class="row">
+            <label>
+              <span class="lbl">Account <span class="tip" tabindex="0">i<span class="bubble">{{ tips.account }}</span></span></span>
+              <input name="account" [(ngModel)]="account" list="mailAccounts" placeholder="Personal / Office" />
+              <datalist id="mailAccounts">
+                <option value="Personal"></option>
+                <option value="Office"></option>
+                @for (a of knownAccounts(); track a) { <option [value]="a"></option> }
+              </datalist>
+            </label>
+            <label>
+              <span class="lbl">Email date <span class="tip" tabindex="0">i<span class="bubble">{{ tips.date }}</span></span></span>
+              <input type="date" name="mdate" [(ngModel)]="emailDate" />
+            </label>
+          </div>
+          <label>
+            <span class="lbl">Email address (inbox) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.address }}</span></span></span>
+            <input name="address" type="email" [(ngModel)]="address" list="mailAddresses" placeholder="e.g. you@work.com" />
+            <datalist id="mailAddresses">
+              @for (a of knownAddresses(); track a) { <option [value]="a"></option> }
+            </datalist>
+          </label>
+          <label>
+            <span class="lbl">Topic / sender <span class="tip" tabindex="0">i<span class="bubble">{{ tips.topic }}</span></span></span>
+            <input name="topic" [(ngModel)]="topic" list="mailTopics"
+              placeholder="e.g. Plum Insurance, HDFC Bank, Amazon" />
+            <datalist id="mailTopics">
+              @for (t of knownTopics(); track t) { <option [value]="t"></option> }
+            </datalist>
+          </label>
+          <label>
+            <span class="lbl">Subject <span class="tip" tabindex="0">i<span class="bubble">{{ tips.subject }}</span></span></span>
+            <input name="subject" [(ngModel)]="subject" placeholder="Copy the exact subject line from the email" />
+          </label>
+          <label>
+            <span class="lbl">Notes / description (optional) <span class="tip" tabindex="0">i<span class="bubble">{{ tips.notes }}</span></span></span>
+            <textarea name="desc" [(ngModel)]="description" rows="2"
+              placeholder="Anything to remember or find this by later"></textarea>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="vital" [(ngModel)]="vital" /> Sensitive: encrypt at rest
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="aiRead" [(ngModel)]="aiRead" />
+            Also read the text with AI (optional - makes the email body searchable; uses AI credits)
+          </label>
+
+          @if (saving()) { <p class="muted">Reading &amp; filing {{ done() + 1 }} of {{ total() }}…</p> }
+          <button type="button" (click)="save()" [disabled]="!canSave()">
+            {{ saving() ? 'Saving…' : 'Save email' }}
+          </button>
+        </div>
+      }
+
+      @if (loading()) { <p class="muted">Loading…</p> }
+      @else if (entries().length === 0) { <p class="muted">No emails filed yet.</p> }
+      @else {
+        <div class="entries">
+          @for (e of entries(); track e.bundleId) {
+            <a class="entry" [routerLink]="['/mail', e.bundleId]">
+              <div class="entry-thumbs">
+                @for (d of e.docs; track d.id) {
+                  <img [src]="thumb(d)" alt="screenshot" />
+                }
+              </div>
+              <div class="entry-meta">
+                <b>{{ e.topic || e.subject || 'Email' }}</b>
+                @if (e.topic && e.subject) { <span class="subj">{{ e.subject }}</span> }
+                <span class="tag">{{ e.account || '-' }}</span>
+                <span class="muted">{{ e.address ? e.address + ' · ' : '' }}{{ e.date || '' }} · {{ e.docs.length }} screenshot(s)</span>
+              </div>
+            </a>
+          }
+        </div>
+        @if (totalPages() > 1) {
+          <div class="pager">
+            <button type="button" [disabled]="page() === 0" (click)="goToPage(page() - 1)">‹ Prev</button>
+            <span>Page {{ page() + 1 }} of {{ totalPages() }}</span>
+            <button type="button" [disabled]="page() >= totalPages() - 1" (click)="goToPage(page() + 1)">Next ›</button>
+            <span class="muted total">{{ totalBundles() }} thread(s)</span>
+          </div>
+        }
+      }
+    </div>

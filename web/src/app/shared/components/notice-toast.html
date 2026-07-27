@@ -1,0 +1,18 @@
+    @if (notice(); as n) {
+      <div class="toast" [attr.data-level]="n.level">
+        <button class="x" (click)="notices.dismiss()" aria-label="Dismiss">×</button>
+        <span class="dot"></span>
+        <div class="body">
+          <p class="msg">{{ n.userMessage }}</p>
+          @if (n.devNote) {
+            <button class="dev-toggle" (click)="expanded.set(!expanded())">
+              <span class="chev">{{ expanded() ? '▾' : '▸' }}</span> Developer note
+              <span class="code">{{ n.code }}</span>
+            </button>
+            @if (expanded()) {
+              <pre class="dev-note">{{ n.devNote }}</pre>
+            }
+          }
+        </div>
+      </div>
+    }

@@ -1,76 +1,17 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { MoneyPipe } from '../../core/money.pipe';
-import { SearchResult } from '../../core/models';
-import { HelpCard } from '../../core/help-card';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { SearchResult } from '../../core/models/models';
+import { HelpCard } from '../../shared/components/help-card';
 
 @Component({
   selector: 'app-search',
   imports: [FormsModule, RouterLink, MoneyPipe, HelpCard],
-  template: `
-    <div class="card">
-      <h1>Search</h1>
-      <trove-help-card
-        title="How search works"
-        [open]="false"
-        user="Type what you're after in plain English. Search understands a category (food, electricity, and so on), a time range (&quot;from July&quot;, &quot;last month&quot;), amounts (&quot;over 1000&quot;), sorting (&quot;most expensive&quot;, &quot;latest&quot;), and a merchant or brand keyword (&quot;Reliance&quot;, &quot;Nike&quot;). It matches the fields Trove has extracted, so &quot;food bills from July&quot; and &quot;Nike purchases&quot; work well. It is not yet full free-text search over every word inside a document, so a very specific phrase may not match."
-        dev="Your text goes to a small language model that returns structured filters (category, date range, amount range, sort, limit, keyword); those run against the confirmed-document index. If the daily AI budget is spent or the model is unavailable, it falls back to a rule-based parser, so search always returns something.">
-      </trove-help-card>
-      <p class="muted">Tap an example or type your own:</p>
-      <div class="examples">
-        @for (ex of examples; track ex) {
-          <button type="button" class="chip" (click)="runExample(ex)" [disabled]="loading()">{{ ex }}</button>
-        }
-      </div>
-      <form (ngSubmit)="run()">
-        <div class="row">
-          <input name="q" [(ngModel)]="q" placeholder="Search your documents…" style="flex:1" />
-          <button type="submit" [disabled]="loading()">Search</button>
-        </div>
-      </form>
-
-      @if (loading()) {
-        <p class="muted searching">{{ status() }}<span class="dots"></span></p>
-      } @else if (result(); as r) {
-        <p class="muted">
-          Interpreted → category: <b>{{ interpreted(r, 'categoryCode') }}</b>,
-          sort: {{ interpreted(r, 'sortBy') }} {{ interpreted(r, 'sortDir') }},
-          range: {{ interpreted(r, 'dateFrom') }} … {{ interpreted(r, 'dateTo') }},
-          text: <b>{{ interpreted(r, 'text') }}</b> · {{ r.count }} result(s)
-        </p>
-        @if (r.results.length) {
-          <table>
-            <thead><tr><th>File</th><th>Category</th><th>Merchant</th><th>Amount</th><th>Date</th></tr></thead>
-            <tbody>
-              @for (d of r.results; track d.id) {
-                <tr>
-                  <td><a [routerLink]="['/documents', d.id, 'review']">{{ d.originalFilename || d.id }}</a></td>
-                  <td>{{ d.category || '-' }}</td>
-                  <td>{{ d.merchant || '-' }}</td>
-                  <td>{{ d.amount | money: d.currency }}</td>
-                  <td>{{ d.docDate || '-' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        } @else { <p class="muted">No matches.</p> }
-      }
-    </div>
-  `,
-  styles: [
-    `
-      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
-      .chip {
-        border: 1px solid var(--accent-line); background: var(--accent-soft);
-        color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer;
-      }
-      .chip:hover { background: var(--accent-soft); }
-      .chip:disabled { opacity: 0.5; cursor: default; }
-    `,
-  ],
+  templateUrl: './search.html',
+  styleUrl: './search.scss',
 })
 export class Search implements OnDestroy {
   private api = inject(ApiService);

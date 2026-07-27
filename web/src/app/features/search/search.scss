@@ -1,0 +1,7 @@
+      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+      .chip {
+        border: 1px solid var(--accent-line); background: var(--accent-soft);
+        color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+      }
+      .chip:hover { background: var(--accent-soft); }
+      .chip:disabled { opacity: 0.5; cursor: default; }

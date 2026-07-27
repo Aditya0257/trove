@@ -1,0 +1,38 @@
+    <div class="card auth-card">
+      @if (done()) {
+        <div class="success">
+          <span class="badge">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4 4L19 7" />
+            </svg>
+          </span>
+          <h1>You're verified</h1>
+          <p class="lead">Your request has gone to the admin for a quick approval.</p>
+          <p class="muted">We'll email you the moment it's approved, and then you can sign in.</p>
+          <a routerLink="/login" class="btn">Back to sign in</a>
+        </div>
+      } @else {
+        <h1>Verify your email</h1>
+        <trove-auth-steps [active]="2"></trove-auth-steps>
+        <p class="sent">Enter the 6-digit code we sent to <b>{{ email || 'your email' }}</b>.</p>
+        <form (ngSubmit)="submit()">
+          <input class="otp" type="text" inputmode="numeric" maxlength="6" name="code" [(ngModel)]="code"
+            autocomplete="one-time-code" placeholder="- - - - - -" aria-label="6-digit code" required />
+          @if (error()) { <p class="error">{{ error() }}</p> }
+          <button type="submit" [disabled]="loading() || code.trim().length < 6">
+            {{ loading() ? 'Verifying…' : 'Verify email' }}
+          </button>
+        </form>
+        <p class="resend">
+          Didn't get it?
+          <button type="button" class="link" (click)="resend()" [disabled]="resending()">
+            {{ resending() ? 'Sending…' : 'Resend code' }}
+          </button>
+          @if (resent()) { <span class="ok">Sent. Check your inbox and spam.</span> }
+        </p>
+        <p class="why muted">You verify your email first because Trove sends password resets and reminders
+          to it. Next comes a quick admin approval, then you're in.</p>
+        <p class="muted back"><a routerLink="/login">Back to sign in</a></p>
+      }
+    </div>

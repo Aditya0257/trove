@@ -296,14 +296,22 @@ lend them to requests. Trove uses HikariCP (Spring Boot's default). This matters
 serverless Postgres such as Neon, where a small, well-behaved pool keeps within connection limits
 and avoids the latency of constant reconnection.
 
-### Package-by-feature
+### Package-by-layer
 
 Code can be organised by layer (all controllers together, all services together) or by feature
-(everything for "reminders" together, everything for "documents" together). Trove is organised
-package-by-feature: each module owns its controller, service, repository and domain types, and
-modules talk through interfaces and events. The benefit is that a feature is understandable and
-changeable in one place, and cross-feature coupling is explicit; the trade-off is a little
-duplication compared with sharing a single fat service layer.
+(everything for "reminders" together, everything for "documents" together). Trove's backend is
+organised **package-by-layer**: `controllers`, `service` (contracts) and `service.impl`
+(implementations), `repository`, `entity`, `dto`, `security`, `config`, `integration`, and a few
+others. Each service is an interface in `service` with its implementation in `service.impl`, so
+callers depend on the contract and providers stay swappable; response shapes are top-level records
+in `dto`. The benefit is that each layer is uniform and easy to navigate and the interface/impl
+seam keeps implementations replaceable; the trade-off is that a single feature's code is spread
+across layer packages rather than gathered in one folder.
+
+The Angular web app mirrors the same spirit on the front end but leans feature-first: app-wide
+singletons in `core` (`guards`, `interceptors`, `services`, `models`, `config`), reusable pieces in
+`shared` (`components`, `directives`, `pipes`), and one folder per feature under `features`, each
+component split into `.ts` / `.html` / `.scss`.
 
 ### The Notice System
 

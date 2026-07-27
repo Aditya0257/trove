@@ -22,8 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/notice/ai_usage.dart';
 import '../../core/notice/dev_log.dart';
+import '../../core/notice/usage_overview.dart';
 
 class DeveloperDrawer extends ConsumerStatefulWidget {
   const DeveloperDrawer({super.key});
@@ -121,15 +121,16 @@ class _DeveloperDrawerState extends ConsumerState<DeveloperDrawer> {
   }
 }
 
-/// Today's AI-budget gauge: shows the shared and per-user spend as two clamped
-/// progress bars, refreshable in place. Degrades quietly - never throws into the UI.
+/// Free-tier usage gauge: the two daily pools (AI, email) and the running-total
+/// storage meters as clamped progress bars, refreshable in place. Degrades quietly -
+/// never throws into the UI.
 class _AiUsageGauge extends ConsumerWidget {
   const _AiUsageGauge();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final async = ref.watch(aiUsageProvider);
+    final async = ref.watch(usageProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -144,7 +145,7 @@ class _AiUsageGauge extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Text('AI usage today',
+                Text('Free-tier usage',
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -154,13 +155,13 @@ class _AiUsageGauge extends ConsumerWidget {
                   visualDensity: VisualDensity.compact,
                   iconSize: 18,
                   tooltip: 'Refresh',
-                  onPressed: () => ref.invalidate(aiUsageProvider),
+                  onPressed: () => ref.invalidate(usageProvider),
                   icon: Icon(Icons.refresh, color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
             async.when(
-              data: (usage) => _bars(usage, scheme),
+              data: (usage) => _content(usage, scheme),
               loading: () => Padding(
                 padding: const EdgeInsets.only(top: 8, right: 6),
                 child: LinearProgressIndicator(
@@ -170,7 +171,7 @@ class _AiUsageGauge extends ConsumerWidget {
               ),
               error: (_, __) => Padding(
                 padding: const EdgeInsets.only(top: 6, right: 6),
-                child: Text('AI usage unavailable',
+                child: Text('Usage unavailable',
                     style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),),
               ),
             ),
@@ -180,36 +181,150 @@ class _AiUsageGauge extends ConsumerWidget {
     );
   }
 
-  Widget _bars(AiUsage usage, ColorScheme scheme) => Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _content(UsageOverview u, ColorScheme scheme) {
+    final reset = u.dailyResetAt;
+    final resetLine = reset == null
+        ? null
+        : 'Resets 00:00 UTC · ${_istLabel(reset)} IST (in ${_resetIn(reset)})';
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Daily pools ──────────────────────────────────────────────
+          _row('AI · everyone today',
+              used: u.ai.globalNeurons, limit: u.ai.limitNeurons,
+              tokens: u.ai.globalTokens, scheme: scheme,),
+          const SizedBox(height: 12),
+          _row('AI · you today',
+              used: u.ai.userNeurons, limit: u.ai.perUserLimitNeurons,
+              tokens: u.ai.userTokens, scheme: scheme,),
+          const SizedBox(height: 12),
+          _row('Email today',
+              used: u.email.sentToday, limit: u.email.dailyLimit,
+              unit: 'emails', scheme: scheme,),
+          if (resetLine != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(resetLine,
+                  style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant),),
+            ),
+          if (u.email.reached)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                "Email limit reached - new emails won't send until "
+                '${reset == null ? 'the daily reset' : '${_istLabel(reset)} IST'}. '
+                'Reminders still appear in-app and as phone notifications.',
+                style: TextStyle(fontSize: 10.5, color: scheme.error),
+              ),
+            ),
+          const SizedBox(height: 14),
+          // ── Running totals ───────────────────────────────────────────
+          _storeRow('Object storage',
+              used: u.storage.usedBytes, limit: u.storage.limitBytes, scheme: scheme,),
+          const SizedBox(height: 12),
+          _storeRow('Database',
+              used: u.database.usedBytes, limit: u.database.limitBytes, scheme: scheme,),
+          const SizedBox(height: 12),
+          if (u.mirror.enabled)
+            _storeRow('Mirror copy',
+                used: u.mirror.usedBytes, limit: u.mirror.limitBytes, scheme: scheme,)
+          else
+            Text('Mirror copy: not configured.',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontStyle: FontStyle.italic,
+                    color: scheme.onSurfaceVariant,),),
+          const SizedBox(height: 10),
+          Text(
+            'AI credits are the unit the shared reader bills; everyone shares a daily pool and '
+            'each person has a smaller per-user cap. Email is a shared daily send allowance. '
+            'Both reset at the time shown above.\n'
+            'Storage figures are app-wide (not per user), updated live. Database size is '
+            'mostly fixed Postgres + search-extension baseline (~8-10 MB); your rows are only '
+            'KB of text + metadata per document. Images and PDFs live in object storage, never '
+            'the database.',
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A running-total byte meter (used / limit), no daily reset.
+  Widget _storeRow(String label,
+      {required num used, required num limit, required ColorScheme scheme,}) {
+    final progress = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
+    final percent = limit > 0 ? (used / limit * 100).round() : 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            _row(
-              'Everyone today',
-              used: usage.globalNeurons,
-              limit: usage.limitNeurons,
-              tokens: usage.globalTokens,
-              scheme: scheme,
-            ),
-            const SizedBox(height: 12),
-            _row(
-              'You today',
-              used: usage.userNeurons,
-              limit: usage.perUserLimitNeurons,
-              tokens: usage.userTokens,
-              scheme: scheme,
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface,),),
+            const Spacer(),
+            Text('${_bytes(used)} / ${_bytes(limit)}',
+                style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant,),),
           ],
         ),
-      );
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progress, minHeight: 6, backgroundColor: scheme.surface,),
+        ),
+        const SizedBox(height: 3),
+        Text('$percent% used · running total, no daily reset',
+            style: TextStyle(
+                fontFamily: 'monospace', fontSize: 10.5, color: scheme.onSurfaceVariant,),),
+      ],
+    );
+  }
 
+  /// The reset instant rendered in IST (UTC+5:30, no DST), e.g. "5:30 AM".
+  static String _istLabel(DateTime utc) {
+    final ist = utc.toUtc().add(const Duration(hours: 5, minutes: 30));
+    final ampm = ist.hour < 12 ? 'AM' : 'PM';
+    var h = ist.hour % 12;
+    if (h == 0) h = 12;
+    return '$h:${ist.minute.toString().padLeft(2, '0')} $ampm';
+  }
+
+  /// Coarse time remaining until the reset (e.g. "6h 12m").
+  static String _resetIn(DateTime utc) {
+    final mins = utc.toUtc().difference(DateTime.now().toUtc()).inMinutes;
+    if (mins <= 0) return 'now';
+    final h = mins ~/ 60;
+    final m = mins % 60;
+    return h > 0 ? '${h}h ${m}m' : '${m}m';
+  }
+
+  /// Human bytes, e.g. 24.4 MB / 10.0 GB.
+  static String _bytes(num n) {
+    if (n < 1024) return '${n.round()} B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    double v = n / 1024;
+    var i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i++;
+    }
+    return '${v.toStringAsFixed(v < 10 ? 1 : 0)} ${units[i]}';
+  }
+
+  /// A daily-pool meter (used / limit). `tokens` adds a sub-line (AI only); `unit`
+  /// labels the numbers (credits for AI, emails for the email pool).
   Widget _row(
     String label, {
     required num used,
     required num limit,
-    required num tokens,
     required ColorScheme scheme,
+    num? tokens,
+    String unit = 'credits',
   }) {
     final fmt = NumberFormat.compact();
     final progress = limit > 0 ? (used / limit).clamp(0.0, 1.0) : 0.0;
@@ -224,7 +339,7 @@ class _AiUsageGauge extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                     color: scheme.onSurface,),),
             const Spacer(),
-            Text('${fmt.format(used)} / ${fmt.format(limit)} credits',
+            Text('${fmt.format(used)} / ${fmt.format(limit)} $unit',
                 style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 11,
@@ -240,12 +355,14 @@ class _AiUsageGauge extends ConsumerWidget {
             backgroundColor: scheme.surface,
           ),
         ),
-        const SizedBox(height: 3),
-        Text('${fmt.format(tokens)} tokens',
-            style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 10.5,
-                color: scheme.onSurfaceVariant,),),
+        if (tokens != null) ...[
+          const SizedBox(height: 3),
+          Text('${fmt.format(tokens)} tokens',
+              style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  color: scheme.onSurfaceVariant,),),
+        ],
       ],
     );
   }
@@ -518,7 +635,7 @@ _Meaning _meaningFor(String method, String path) {
     return mk('Recurring', 'Finding your subscriptions', 'group confirmed docs by merchant+category; infer cadence + predict next', 'spot what recurs', '$a -> InsightsController.recurring() -> InsightsService');
   }
   if (p.startsWith('/api/integrations/google-drive')) {
-    return mk('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-navigable third copy', '$a -> DriveController');
+    return mk('Google Drive', 'Talking to Google Drive', 'per-owner OAuth backup / sync', 'human-browsable third copy', '$a -> DriveController');
   }
   if (p.startsWith('/api/integrity')) {
     return mk('Data health', 'Checking your backups', 'verify the tiers agree; recent runs', 'proof the copies are intact', '$a -> IntegrityController');
