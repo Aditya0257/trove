@@ -32,6 +32,7 @@
  * ============================================================================
  */
 package com.trove.integration;
+import com.trove.service.NeuronRateService;
 import com.trove.config.CloudflareProperties;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -74,11 +75,11 @@ public class CloudflareExtractionProvider implements ExtractionProvider {
 
     private final CloudflareProperties props;
     private final ObjectMapper mapper;
-    private final com.trove.service.impl.NeuronRateService neuronRates;
+    private final com.trove.service.NeuronRateService neuronRates;
     private final HttpClient http;
 
     public CloudflareExtractionProvider(CloudflareProperties props, ObjectMapper mapper,
-                                        com.trove.service.impl.NeuronRateService neuronRates) {
+                                        com.trove.service.NeuronRateService neuronRates) {
         this.props = props;
         this.mapper = mapper;
         this.neuronRates = neuronRates;

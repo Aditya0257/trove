@@ -12,10 +12,11 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.MailService;
+import com.trove.dto.MailPage;
+import com.trove.service.MailService;
 
 import com.trove.security.CurrentUser;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,13 +41,13 @@ public class MailController {
 
     /** One page of email threads (defaults to the personal space). size = 0 means "all". */
     @GetMapping
-    public ResponseEntity<MailService.MailPage> list(
+    public ResponseEntity<MailPage> list(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "page", required = false, defaultValue = "0") int page,
             @RequestParam(value = "size", required = false, defaultValue = "0") int size) {
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        MailService.MailPage result = mailService.bundles(space, user, page, size);
+        MailPage result = mailService.bundles(space, user, page, size);
         return ResponseEntity.ok()
                 .header("X-Total-Count", String.valueOf(result.total()))
                 .body(result);

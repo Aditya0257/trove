@@ -11,14 +11,14 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.IntegrityService;
+import com.trove.service.IntegrityService;
 
 import com.trove.entity.BackupRun;
-import com.trove.service.impl.BackupRunService;
+import com.trove.service.BackupRunService;
 import com.trove.security.CurrentUser;
 import com.trove.dto.IntegrityDtos.IntegrityReport;
 import com.trove.security.SpaceAuthorization;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;

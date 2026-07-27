@@ -25,6 +25,7 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.dto.Usage;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -132,6 +133,5 @@ public class AiUsageTracker {
     }
 
     /** A day's usage figures. */
-    public record Usage(double neurons, long tokens) {
-    }
+
 }

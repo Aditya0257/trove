@@ -27,10 +27,10 @@
  */
 package com.trove.controllers;
 import com.trove.enums.EmailVerificationService;
-import com.trove.service.impl.TotpService;
+import com.trove.service.TotpService;
 import com.trove.entity.User;
 import com.trove.repository.UserRepository;
-import com.trove.service.impl.UserService;
+import com.trove.service.UserService;
 
 import com.trove.exception.NotFoundException;
 import com.trove.security.UnauthorizedException;

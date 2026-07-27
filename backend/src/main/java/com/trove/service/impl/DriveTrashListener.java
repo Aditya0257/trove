@@ -29,6 +29,7 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.service.DriveSyncService;
 
 import com.trove.event.DocumentPurgedEvent;
 import com.trove.event.DocumentRestoredEvent;

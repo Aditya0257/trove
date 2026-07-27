@@ -12,6 +12,7 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.service.ReminderService;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

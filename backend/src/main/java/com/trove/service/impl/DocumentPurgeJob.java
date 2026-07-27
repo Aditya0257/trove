@@ -12,6 +12,7 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.service.DocumentService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

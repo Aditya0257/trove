@@ -13,9 +13,9 @@
 package com.trove.controllers;
 
 import com.trove.security.CurrentUser;
-import com.trove.service.impl.DocumentService;
+import com.trove.service.DocumentService;
 import com.trove.dto.DocumentResponse;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;

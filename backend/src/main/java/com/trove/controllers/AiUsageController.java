@@ -11,6 +11,7 @@
  * ============================================================================
  */
 package com.trove.controllers;
+import com.trove.dto.Usage;
 import com.trove.service.impl.AiUsageTracker;
 
 import com.trove.security.CurrentUser;
@@ -32,8 +33,8 @@ public class AiUsageController {
 
     @GetMapping
     public UsageResponse today() {
-        AiUsageTracker.Usage global = usage.globalToday();
-        AiUsageTracker.Usage mine = usage.userToday(currentUser.requireUserId());
+        Usage global = usage.globalToday();
+        Usage mine = usage.userToday(currentUser.requireUserId());
         return new UsageResponse(
                 usage.dailyNeuronLimit(),
                 usage.perUserNeuronLimit(),

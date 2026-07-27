@@ -23,7 +23,7 @@
 package com.trove.controllers;
 import com.trove.entity.Space;
 import com.trove.entity.SpaceMember;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 
 import com.trove.entity.User;
 import com.trove.repository.UserRepository;

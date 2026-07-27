@@ -15,7 +15,7 @@ package com.trove.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trove.service.impl.AiUsageTracker;
-import com.trove.service.impl.NeuronRateService;
+import com.trove.service.NeuronRateService;
 import com.trove.config.CloudflareProperties;
 import org.springframework.stereotype.Component;
 

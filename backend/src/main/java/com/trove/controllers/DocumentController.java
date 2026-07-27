@@ -26,12 +26,14 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.DocumentService;
+import com.trove.dto.DownloadedFile;
+import com.trove.dto.Paged;
+import com.trove.service.DocumentService;
 
 import com.trove.security.CurrentUser;
 import com.trove.dto.ConfirmRequest;
 import com.trove.dto.DocumentResponse;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -84,7 +86,7 @@ public class DocumentController {
     /** Stream the original file bytes (decrypted if the document is vital/encrypted). */
     @GetMapping("/{id}/content")
     public ResponseEntity<byte[]> content(@PathVariable UUID id) {
-        DocumentService.DownloadedFile f = documentService.content(id, currentUser.requireUserId());
+        DownloadedFile f = documentService.content(id, currentUser.requireUserId());
         String filename = f.filename() != null ? f.filename() : "document";
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
@@ -110,7 +112,7 @@ public class DocumentController {
 
         UUID user = currentUser.requireUserId();
         UUID space = spaceId != null ? spaceId : spaceService.personalSpaceId(user);
-        DocumentService.Paged<DocumentResponse> paged = documentService.listPaged(space, user, category, page, size);
+        Paged<DocumentResponse> paged = documentService.listPaged(space, user, category, page, size);
         return ResponseEntity.ok()
                 .header("X-Total-Count", String.valueOf(paged.total()))
                 .body(paged.items());

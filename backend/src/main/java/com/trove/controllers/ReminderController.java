@@ -11,10 +11,10 @@
  */
 package com.trove.controllers;
 import com.trove.entity.Reminder;
-import com.trove.service.impl.ReminderService;
+import com.trove.service.ReminderService;
 
 import com.trove.security.CurrentUser;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;

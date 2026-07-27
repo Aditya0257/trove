@@ -32,7 +32,7 @@ package com.trove.service.impl;
 import com.trove.dto.ExtractionResult;
 
 import com.trove.entity.Category;
-import com.trove.service.impl.CategoryService;
+import com.trove.service.CategoryService;
 import com.trove.entity.Document;
 import com.trove.repository.DocumentRepository;
 import com.trove.enums.DocumentStatus;
@@ -42,7 +42,7 @@ import com.trove.service.impl.SidecarFactory;
 import com.trove.integration.ExtractionEngine;
 import com.trove.dto.ExtractionOutcome;
 import com.trove.entity.Merchant;
-import com.trove.service.impl.MerchantService;
+import com.trove.service.MerchantService;
 import com.trove.dto.DocumentSidecar;
 import com.trove.integration.StorageService;
 import org.slf4j.Logger;

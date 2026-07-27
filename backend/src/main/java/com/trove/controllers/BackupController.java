@@ -22,17 +22,19 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.BackupRunService;
-import com.trove.service.impl.ExportService;
-import com.trove.service.impl.ImportService;
-import com.trove.service.impl.MirrorService;
+import com.trove.dto.MirrorSummary;
+import com.trove.dto.RebuildSummary;
+import com.trove.service.BackupRunService;
+import com.trove.service.ExportService;
+import com.trove.service.ImportService;
+import com.trove.service.MirrorService;
 import com.trove.service.impl.PgDumpJob;
-import com.trove.service.impl.RebuildService;
+import com.trove.service.RebuildService;
 
 import com.trove.config.DevProperties;
 import com.trove.exception.ForbiddenException;
 import com.trove.security.CurrentUser;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -96,14 +98,14 @@ public class BackupController {
 
     /** Restore from an export ZIP (admin only). */
     @PostMapping("/import")
-    public RebuildService.RebuildSummary importZip(@RequestPart("file") MultipartFile file) throws IOException {
+    public RebuildSummary importZip(@RequestPart("file") MultipartFile file) throws IOException {
         requireAdmin();
         return importService.importZip(file.getBytes());
     }
 
     /** Rebuild the document index from object-storage sidecars (admin only). */
     @PostMapping("/admin/rebuild")
-    public RebuildService.RebuildSummary rebuild() {
+    public RebuildSummary rebuild() {
         requireAdmin();
         return rebuildService.rebuild();
     }
@@ -117,7 +119,7 @@ public class BackupController {
 
     /** Mirror the vault to the configured second cloud now (admin only). */
     @PostMapping("/admin/mirror")
-    public MirrorService.MirrorSummary mirror() {
+    public MirrorSummary mirror() {
         requireAdmin();
         return mirrorService.mirror();
     }

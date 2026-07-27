@@ -20,10 +20,10 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.AccountDeletionService;
+import com.trove.service.AccountDeletionService;
 import com.trove.entity.User;
 import com.trove.repository.UserRepository;
-import com.trove.service.impl.UserService;
+import com.trove.service.UserService;
 
 import com.trove.exception.ForbiddenException;
 import com.trove.exception.NotFoundException;

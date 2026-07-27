@@ -11,6 +11,7 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.service.EmbeddingService;
 
 import com.trove.event.DocumentConfirmedEvent;
 import org.springframework.stereotype.Component;

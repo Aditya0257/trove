@@ -11,7 +11,7 @@
  */
 package com.trove.controllers;
 import com.trove.entity.IngestToken;
-import com.trove.service.impl.IngestTokenService;
+import com.trove.service.IngestTokenService;
 
 import com.trove.security.CurrentUser;
 import com.trove.security.SpaceAuthorization;

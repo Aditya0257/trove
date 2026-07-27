@@ -16,10 +16,12 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.InsightsService;
+import com.trove.dto.ExpiringItem;
+import com.trove.dto.RecurringGroup;
+import com.trove.service.InsightsService;
 
 import com.trove.security.CurrentUser;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,7 +47,7 @@ public class InsightsController {
 
     /** Bills due, warranties ending and renewals within the window (default 90 days). */
     @GetMapping("/expiring")
-    public List<InsightsService.ExpiringItem> expiring(
+    public List<ExpiringItem> expiring(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "withinDays", required = false, defaultValue = "90") int withinDays) {
         return insightsService.expiring(resolveSpace(spaceId), currentUser.requireUserId(), withinDays);
@@ -53,7 +55,7 @@ public class InsightsController {
 
     /** Merchant+category groups that repeat on a regular cadence, with the next predicted date. */
     @GetMapping("/recurring")
-    public List<InsightsService.RecurringGroup> recurring(
+    public List<RecurringGroup> recurring(
             @RequestParam(value = "spaceId", required = false) UUID spaceId) {
         return insightsService.recurring(resolveSpace(spaceId), currentUser.requireUserId());
     }

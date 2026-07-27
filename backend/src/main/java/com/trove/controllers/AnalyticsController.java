@@ -21,10 +21,13 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.AnalyticsService;
+import com.trove.dto.CategorySpendResponse;
+import com.trove.dto.MonthlySpendResponse;
+import com.trove.dto.SpendSummary;
+import com.trove.service.AnalyticsService;
 
 import com.trove.security.CurrentUser;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -52,7 +55,7 @@ public class AnalyticsController {
 
     /** Spend grouped by category. */
     @GetMapping("/by-category")
-    public List<AnalyticsService.CategorySpendResponse> byCategory(
+    public List<CategorySpendResponse> byCategory(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -62,7 +65,7 @@ public class AnalyticsController {
 
     /** Spend grouped by month (YYYY-MM). */
     @GetMapping("/by-month")
-    public List<AnalyticsService.MonthlySpendResponse> byMonth(
+    public List<MonthlySpendResponse> byMonth(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -73,7 +76,7 @@ public class AnalyticsController {
 
     /** Overall total + per-category breakdown. */
     @GetMapping("/summary")
-    public AnalyticsService.SpendSummary summary(
+    public SpendSummary summary(
             @RequestParam(value = "spaceId", required = false) UUID spaceId,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,

@@ -23,9 +23,9 @@ import com.trove.enums.EmailVerificationService;
 import com.trove.entity.User;
 import com.trove.repository.UserRepository;
 import com.trove.security.JwtService;
-import com.trove.service.impl.PasswordResetService;
-import com.trove.service.impl.TotpService;
-import com.trove.service.impl.UserService;
+import com.trove.service.PasswordResetService;
+import com.trove.service.TotpService;
+import com.trove.service.UserService;
 
 import com.trove.security.UnauthorizedException;
 import com.trove.security.EncryptionService;

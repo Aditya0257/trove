@@ -12,10 +12,12 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.service.IntegrityService;
+import com.trove.dto.GlobalCheck;
 
 import com.trove.enums.BackupKind;
 import com.trove.entity.BackupRun;
-import com.trove.service.impl.BackupRunService;
+import com.trove.service.BackupRunService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,7 +47,7 @@ public class IntegrityJob {
         }
         BackupRun runRow = backupRunService.start(BackupKind.INTEGRITY);
         try {
-            IntegrityService.GlobalCheck c = integrityService.globalCheck();
+            GlobalCheck c = integrityService.globalCheck();
             String detail = "live=" + c.liveDocuments() + " missingPrimary=" + c.missingPrimary()
                     + " missingSidecar=" + c.missingSidecar() + " orphans=" + c.orphanObjects();
             if (c.missingPrimary() > 0) {

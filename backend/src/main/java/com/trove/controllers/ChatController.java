@@ -10,13 +10,13 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.EmbeddingService;
-import com.trove.service.impl.VaultChatService;
+import com.trove.service.EmbeddingService;
+import com.trove.service.VaultChatService;
 
 import com.trove.dto.ChatDtos.ChatAnswer;
 import com.trove.security.CurrentUser;
 import com.trove.security.SpaceAuthorization;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;

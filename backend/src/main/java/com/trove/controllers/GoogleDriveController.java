@@ -25,8 +25,9 @@
  * ============================================================================
  */
 package com.trove.controllers;
+import com.trove.dto.DriveSyncSummary;
 import com.trove.entity.DriveConnection;
-import com.trove.service.impl.DriveSyncService;
+import com.trove.service.DriveSyncService;
 import com.trove.integration.GoogleDriveOAuthService;
 import com.trove.config.GoogleOAuthProperties;
 
@@ -157,7 +158,7 @@ public class GoogleDriveController {
 
     /** Trigger a sync now (any writing member). */
     @PostMapping("/sync")
-    public DriveSyncService.DriveSyncSummary sync(@RequestParam("spaceId") UUID spaceId) {
+    public DriveSyncSummary sync(@RequestParam("spaceId") UUID spaceId) {
         authorization.requireCanWrite(spaceId, currentUser.requireUserId());
         return driveSyncService.sync(spaceId);
     }

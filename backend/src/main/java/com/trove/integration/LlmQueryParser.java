@@ -27,6 +27,7 @@
  * ============================================================================
  */
 package com.trove.integration;
+import com.trove.service.NeuronRateService;
 import com.trove.config.SearchProperties;
 import com.trove.dto.SearchQuery;
 
@@ -66,13 +67,13 @@ public class LlmQueryParser {
     private final CloudflareProperties cloudflare;
     private final ObjectMapper mapper;
     private final com.trove.service.impl.AiUsageTracker usage;
-    private final com.trove.service.impl.NeuronRateService neuronRates;
+    private final com.trove.service.NeuronRateService neuronRates;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
     public LlmQueryParser(SearchProperties props, OllamaProperties ollama,
                           CloudflareProperties cloudflare, ObjectMapper mapper,
                           com.trove.service.impl.AiUsageTracker usage,
-                          com.trove.service.impl.NeuronRateService neuronRates) {
+                          com.trove.service.NeuronRateService neuronRates) {
         this.props = props;
         this.ollama = ollama;
         this.cloudflare = cloudflare;

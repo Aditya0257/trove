@@ -12,6 +12,7 @@
  * ============================================================================
  */
 package com.trove.service.impl;
+import com.trove.service.ReminderService;
 
 import com.trove.event.DocumentConfirmedEvent;
 import org.springframework.stereotype.Component;

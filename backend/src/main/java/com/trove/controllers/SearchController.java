@@ -11,12 +11,13 @@
  * ============================================================================
  */
 package com.trove.controllers;
+import com.trove.dto.SearchResult;
 import com.trove.dto.SearchQuery;
-import com.trove.service.impl.SearchService;
+import com.trove.service.SearchService;
 
 import com.trove.security.CurrentUser;
 import com.trove.dto.DocumentResponse;
-import com.trove.service.impl.SpaceService;
+import com.trove.service.SpaceService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,7 +46,7 @@ public class SearchController {
 
     /** Natural-language search: "my last water bill", "all Nike purchases", … */
     @GetMapping
-    public SearchService.SearchResult natural(
+    public SearchResult natural(
             @RequestParam("q") String q,
             @RequestParam(value = "spaceId", required = false) UUID spaceId) {
         UUID user = currentUser.requireUserId();

@@ -22,7 +22,7 @@
  * ============================================================================
  */
 package com.trove.controllers;
-import com.trove.service.impl.IngestionService;
+import com.trove.service.IngestionService;
 
 import com.trove.dto.DocumentResponse;
 import org.springframework.http.HttpStatus;
