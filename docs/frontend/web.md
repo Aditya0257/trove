@@ -12,11 +12,20 @@ the client renders it and handles interaction. This document maps its architectu
   for derived values and `effect` for reactions (for example reloading when the current space
   changes). This keeps state explicit and change detection cheap.
 - **Thin services over the API.** A single `ApiService` wraps HTTP; feature-specific services and
-  components call it and map to typed models in `core/models.ts`.
+  components call it and map to typed models in `core/models/models.ts`.
 - **Cross-cutting UI is centralised.** Authentication, the current-space context, notices,
   confirmation dialogs, settings and theme are shared services mounted once at the app root.
 
-## 2. Core services and shared building blocks (`core/`)
+## 2. Core services and shared building blocks (`core/` + `shared/`)
+
+The app is laid out as `core/` (app-wide singletons, imported once — split into
+`guards/`, `interceptors/`, `services/`, `models/`, `config/`), `shared/`
+(reusable pieces — `components/`, `directives/`, `pipes/`), and `features/` (one
+folder per screen). Every component is a four-file unit: `name.ts` + `name.html`
++ `name.scss` (specs deferred). The table lists the files by name; their homes
+follow that layout — for example `api.service.ts` lives in `core/services/`,
+`auth.guard.ts` in `core/guards/`, `models.ts` in `core/models/`, the pipes in
+`shared/pipes/`, and the reusable widgets in `shared/components/`.
 
 | File | Role |
 | --- | --- |
@@ -27,7 +36,7 @@ the client renders it and handles interaction. This document maps its architectu
 | `avatar.ts` | The round profile avatar in the top bar: the profile photo (presigned URL) or initials on a name-derived colour. |
 | `auth-steps.ts` | The 3-step sign-up indicator ("Your details" / "Verify email" / "Admin approval"). |
 | `space.context.ts` | The loaded spaces and the current space id (signals); screens read the id and reload on change. Loads with retry and a re-entrancy guard so a slow first load cannot wedge the switcher. |
-| `notice/` | The Notice System on the client: a toast, an interceptor that raises notices from API responses, and a developer drawer that retains recent notices, API calls, and the live AI-budget gauge. |
+| Notice System | The client Notice System, now spread across the layout: `shared/components/notice-toast.ts` and `dev-drawer.ts`, `core/interceptors/notice.interceptor.ts`, `core/services/notice.service.ts` and `dev-log.service.ts`, `core/models/notice.model.ts` — a toast, an interceptor that raises notices from API responses, and a developer drawer that retains recent notices, API calls, and the live AI-budget gauge. |
 | `confirm.service.ts` / `confirm-dialog.ts` | An in-app confirmation dialog (replacing the browser's native confirm), with a busy state so the dialog stays up while the action runs. |
 | `settings.service.ts` | Persisted user preferences, notably the "read images with AI" toggle. |
 | `theme.service.ts` | Light and dark theme. |

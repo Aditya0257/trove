@@ -98,8 +98,8 @@ without a client at all, by forwarding email to a per-space ingest address.
 
 | Layer | Choice | Notes |
 | --- | --- | --- |
-| Backend | Spring Boot, Java 21 | Package-by-feature. Compiles to Java 21 bytecode; the dev machine runs JDK 25 (D2). No Lombok; explicit code with structured headers (D7). |
-| Web | Angular | Standalone components, signal-based state, lazy-loaded routes. |
+| Backend | Spring Boot, Java 21 | Package-by-layer (`config`, `controllers`, `service`/`service.impl`, `repository`, `entity`, `dto`, `security`, `integration`, ...). Compiles to Java 21 bytecode; the dev machine runs JDK 25 (D2). No Lombok; explicit code with structured headers (D7). |
+| Web | Angular | Standalone components, signal-based state, lazy-loaded routes; `core` / `shared` / `features` layout with four-file components. |
 | Mobile | Flutter | Single codebase, camera-first capture, on-device reminder notifications. |
 | Database | PostgreSQL (Neon free tier in production) | Metadata and extracted text only, kilobytes per document. Flyway owns the schema; Hibernate is `ddl-auto: validate`. pgvector for embeddings. |
 | Object storage | Cloudflare R2 (S3-compatible) | Accessed through the AWS S3 SDK with the endpoint overridden, so the same code targets MinIO locally and R2 in production (D1). |
@@ -110,12 +110,15 @@ without a client at all, by forwarding email to a per-space ingest address.
 | Host | Oracle Cloud Always Free ARM | Runs the stateless jar. If reclaimed, redeploy; no data lives on the host. |
 | Local dev | docker-compose | Postgres + MinIO, so the whole app builds and runs with no cloud account. |
 
-## 5. Module map (package-by-feature)
+## 5. Module map (logical features)
 
-The backend is organised by feature, not by layer. Every module owns its controller,
-service, repository, and domain types. Cross-module contact is through interfaces
-(`StorageService`, `ExtractionProvider`, `EmbeddingProvider`) and Spring events, so
-providers are swappable and features stay decoupled.
+The backend source is organised **by layer** (`config`, `controllers`,
+`service` + `service.impl`, `repository`, `entity`, `dto`, `security`,
+`integration`, ...). The table below is the *logical* feature map — how the
+responsibilities group conceptually — which cuts across those layer packages.
+Cross-feature contact is through service interfaces (`StorageService`,
+`ExtractionProvider`, `EmbeddingProvider`, and every `FooService`) and Spring
+events, so implementations are swappable and features stay decoupled.
 
 ```mermaid
 flowchart LR
@@ -277,7 +280,7 @@ the manual equivalent and can also restore onto a fresh, empty system.
 | Security | Stateless JWT, BCrypt passwords, optional TOTP two-factor, admin-approved sign-up, per-space authorization, and AES-256-GCM encryption at rest for vital documents (D18, D21). Secrets via environment only. |
 | Privacy | Vital documents (passport, ID, policies) are sensitive PII and are encrypted at rest, decided at the storage layer, and served through a decrypt-stream path rather than a public URL. |
 | Observability | The Notice System surfaces developer notes to the client; a health endpoint and a backup-runs view expose job outcomes; the integrity report shows tier agreement. |
-| Maintainability | Package-by-feature, provider interfaces, Flyway-owned schema, explicit code with file and method headers, and a living decision log. |
+| Maintainability | Package-by-layer with service interfaces separated from implementations, Flyway-owned schema, explicit code with file and method headers, and a living decision log. |
 
 ## 10. What Trove deliberately does not do
 

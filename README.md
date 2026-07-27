@@ -361,12 +361,18 @@ Trove/
 ├── DESIGN.md  DECISIONS.md                      # architecture + decision log
 ├── infra/docker-compose.yml                     # Postgres + MinIO for local dev
 ├── backend/                                     # Spring Boot (Java 21) API
-│   ├── src/main/resources/db/migration/         # Flyway V1-V6 (schema + seed)
-│   └── src/main/java/com/trove/                 # package-by-feature
-│       ├── common/  storage/  extraction/
-│       └── category/  merchant/  document/
-├── web/     (placeholder - Angular, later)
-└── mobile/  (placeholder - Flutter, later)
+│   ├── src/main/resources/db/migration/         # Flyway (schema + seed)
+│   └── src/main/java/com/trove/                 # package-by-layer
+│       ├── config/  controllers/  security/
+│       ├── service/  service/impl/              # contracts + implementations
+│       ├── repository/  entity/  dto/  enums/
+│       └── event/  exception/  integration/  common/
+├── web/                                          # Angular (core / shared / features)
+│   └── src/app/
+│       ├── core/     guards, interceptors, services, models, config
+│       ├── shared/   components, directives, pipes
+│       └── features/ one folder per feature (four-file components)
+└── mobile/                                       # Flutter (feature-first)
 ```
 
 ## Prerequisites
