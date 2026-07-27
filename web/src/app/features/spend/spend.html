@@ -18,8 +18,8 @@
         <div class="row-between section-head">
           <h3>By category</h3>
           <div class="ccy">
-            <button type="button" class="chip sm" [class.on]="chartType() === 'bar'" (click)="chartType.set('bar')">Bars</button>
-            <button type="button" class="chip sm" [class.on]="chartType() === 'donut'" (click)="chartType.set('donut')">Donut</button>
+            <button type="button" class="chip sm" [class.on]="chartType() === 'bar'" (click)="setChartType('bar')">Bars</button>
+            <button type="button" class="chip sm" [class.on]="chartType() === 'donut'" (click)="setChartType('donut')">Donut</button>
           </div>
         </div>
         @if (s.byCategory.length) {
@@ -77,8 +77,8 @@
         <!-- Chart-type toggle: same teal chips as the category Bars/Donut, so "how to draw it"
              looks identical in both sections. -->
         <div class="ccy">
-          <button type="button" class="chip sm" [class.on]="trendType() === 'bar'" (click)="trendType.set('bar')">Bars</button>
-          <button type="button" class="chip sm" [class.on]="trendType() === 'wave'" (click)="trendType.set('wave')">Wave</button>
+          <button type="button" class="chip sm" [class.on]="trendType() === 'bar'" (click)="setTrendType('bar')">Bars</button>
+          <button type="button" class="chip sm" [class.on]="trendType() === 'wave'" (click)="setTrendType('wave')">Wave</button>
         </div>
       </div>
       <!-- Granularity is a different kind of choice (timeframe, not chart style), so it sits on

@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { SpaceContext } from '../../core/services/space.context';
+import { SettingsService, CategoryChart, TrendChart } from '../../core/services/settings.service';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
 import { CURRENCIES } from '../../core/config/currencies';
@@ -16,12 +17,22 @@ import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models/
 export class Spend {
   private api = inject(ApiService);
   private spaceCtx = inject(SpaceContext);
+  private settings = inject(SettingsService);
 
   protected readonly currencies = CURRENCIES;
   protected currency = signal<string>('INR');
-  protected chartType = signal<'bar' | 'donut'>('bar');
+  /** Chart-view choices are held in SettingsService so they persist across reloads and re-login. */
+  protected chartType = this.settings.categoryChart;
   protected trendGran = signal<'day' | 'week' | 'month'>('month');
-  protected trendType = signal<'bar' | 'wave'>('bar');
+  protected trendType = this.settings.trendChart;
+
+  protected setChartType(value: CategoryChart): void {
+    this.settings.setCategoryChart(value);
+  }
+
+  protected setTrendType(value: TrendChart): void {
+    this.settings.setTrendChart(value);
+  }
   private static readonly ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   /** Smooth area/line ("wave") chart geometry for the over-time series. */

@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/chart_prefs_controller.dart';
 import '../../core/models/spend.dart';
 import '../../ui/widgets/help_card.dart';
 import 'spend_api.dart';
@@ -58,10 +59,6 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
   /// refetches the series (it is part of the provider key). Defaults to month.
   String _granularity = 'month';
 
-  /// Chart-type toggles - pure view state, no refetch.
-  bool _timeWave = false; // false = bar, true = wave
-  bool _catDonut = false; // false = bar, true = donut
-
   SpendSeriesKey get _seriesKey =>
       (spaceId: widget.spaceId, granularity: _granularity);
 
@@ -70,6 +67,8 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
     final scheme = Theme.of(context).colorScheme;
     final summary = ref.watch(spendSummaryProvider(widget.spaceId));
     final byMonth = ref.watch(spendByMonthProvider(_seriesKey));
+    // Watched here so a change to a remembered chart view rebuilds _body below.
+    final chart = ref.watch(chartPrefsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Spend')),
@@ -93,7 +92,7 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
               ),
             ],
           ),
-          data: (s) => _body(context, s, byMonth, scheme),
+          data: (s) => _body(context, s, byMonth, scheme, chart),
         ),
       ),
     );
@@ -104,6 +103,7 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
     SpendSummary s,
     AsyncValue<List<MonthlySpend>> byMonth,
     ColorScheme scheme,
+    ChartPrefs chart,
   ) {
     final money =
         NumberFormat.currency(symbol: '${s.currency} ', decimalDigits: 2);
@@ -114,12 +114,14 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
           'review is left out until you confirm its amount, so the totals and '
           'charts only ever reflect figures you have checked. Switch each chart '
           'between views, pick a Day / Week / Month grouping for the time '
-          'series, and pull down to refresh.',
+          'series, and pull down to refresh. Your chart-view choices are '
+          'remembered for next time.',
       dev: 'Reads GET /api/spend/summary (confirmed documents only) for the '
           'total and per-category breakdown, and GET /api/spend/by-month for '
           'the time series. The granularity toggle (day | week | month) is part '
           'of the by-month provider key, so changing it refetches; the Bar / '
-          'Donut and Bar / Wave toggles are local view state only.',
+          'Donut and Bar / Wave choices are held in chartPrefsProvider and '
+          'persisted to the keychain, so they survive reloads and re-login.',
     );
 
     if (s.count == 0) {
@@ -171,17 +173,17 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
           'Spend by category',
           scheme,
           trailing: _boolToggle(
-            selected: _catDonut,
+            selected: chart.catDonut,
             offLabel: 'Bar',
             onLabel: 'Donut',
-            onChanged: (v) => setState(() => _catDonut = v),
+            onChanged: (v) => ref.read(chartPrefsProvider.notifier).setCatDonut(v),
           ),
         ),
         const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
-            child: _catDonut
+            child: chart.catDonut
                 ? _DonutChart(categories: sorted, money: money)
                 : _BarChart(bars: catBars, money: money),
           ),
@@ -224,10 +226,10 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
           'Spend over time',
           scheme,
           trailing: _boolToggle(
-            selected: _timeWave,
+            selected: chart.timeWave,
             offLabel: 'Bar',
             onLabel: 'Wave',
-            onChanged: (v) => setState(() => _timeWave = v),
+            onChanged: (v) => ref.read(chartPrefsProvider.notifier).setTimeWave(v),
           ),
         ),
         const SizedBox(height: 12),
@@ -246,7 +248,7 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
               setState(() => _granularity = sel.first),
         ),
         const SizedBox(height: 12),
-        _timeCard(context, byMonth, money, scheme),
+        _timeCard(context, byMonth, money, scheme, chart.timeWave),
       ],
     );
   }
@@ -292,6 +294,7 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
     AsyncValue<List<MonthlySpend>> byMonth,
     NumberFormat money,
     ColorScheme scheme,
+    bool timeWave,
   ) {
     return Card(
       child: Padding(
@@ -330,7 +333,7 @@ class _SpendScreenState extends ConsumerState<SpendScreen> {
             final bars = [
               for (final m in ordered) _Bar(label: m.period, value: m.total),
             ];
-            return _timeWave
+            return timeWave
                 ? _WaveChart(bars: bars, money: money)
                 : _BarChart(bars: bars, money: money);
           },
