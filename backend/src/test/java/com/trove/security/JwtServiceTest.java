@@ -7,7 +7,7 @@
  *  Design:         pure JUnit, no Spring context. Uses a >=32-byte dev secret.
  * ============================================================================
  */
-package com.trove.auth;
+package com.trove.security;
 
 import org.junit.jupiter.api.Test;
 

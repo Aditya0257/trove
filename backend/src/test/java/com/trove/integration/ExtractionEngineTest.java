@@ -21,12 +21,12 @@
  *  so cooldown behavior is tested without sleeping.
  * ============================================================================
  */
-package com.trove.extraction.engine;
+package com.trove.integration;
 
-import com.trove.extraction.ExtractionException;
-import com.trove.extraction.ExtractionProperties;
-import com.trove.extraction.ExtractionProvider;
-import com.trove.extraction.ExtractionResult;
+import com.trove.config.ExtractionProperties;
+import com.trove.dto.ExtractionOutcome;
+import com.trove.dto.ExtractionResult;
+import com.trove.exception.ExtractionException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
