@@ -1,12 +1,12 @@
 import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { AuthService } from '../../core/auth.service';
-import { SpaceContext } from '../../core/space.context';
-import { NoticeService } from '../../core/notice/notice.service';
-import { MoneyPipe } from '../../core/money.pipe';
-import { ChatAnswer, ChatCitation } from '../../core/models';
+import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { NoticeService } from '../../core/services/notice.service';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { ChatAnswer, ChatCitation } from '../../core/models/models';
 
 interface Turn {
   question: string;

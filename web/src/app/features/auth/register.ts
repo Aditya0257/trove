@@ -1,9 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
-import { PasswordInput } from '../../core/password-input';
-import { AuthSteps } from '../../core/auth-steps';
+import { AuthService } from '../../core/services/auth.service';
+import { PasswordInput } from '../../shared/components/password-input';
+import { AuthSteps } from '../../shared/components/auth-steps';
 
 @Component({
   selector: 'app-register',

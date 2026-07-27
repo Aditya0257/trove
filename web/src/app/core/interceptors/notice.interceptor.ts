@@ -1,9 +1,9 @@
 import { HttpErrorResponse, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, tap, throwError } from 'rxjs';
-import { DevLogService } from './dev-log.service';
-import { Notice, noticeFrom } from './notice.model';
-import { NoticeService } from './notice.service';
+import { DevLogService } from '../services/dev-log.service';
+import { Notice, noticeFrom } from '../models/notice.model';
+import { NoticeService } from '../services/notice.service';
 
 /**
  * Makes every request legible (D23): times the round-trip, reads the server's

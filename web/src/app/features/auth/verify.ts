@@ -1,8 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
-import { AuthSteps } from '../../core/auth-steps';
+import { AuthService } from '../../core/services/auth.service';
+import { AuthSteps } from '../../shared/components/auth-steps';
 
 /**
  * Email verification: a new sign-up confirms the 6-digit code we emailed before the

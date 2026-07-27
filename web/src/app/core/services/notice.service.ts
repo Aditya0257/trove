@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { Notice } from './notice.model';
+import { Notice } from '../models/notice.model';
 
 /**
  * Holds the single active toast. Anything (interceptor, a component, a guard) can

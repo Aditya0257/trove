@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal } from '@angular/core';
-import { NoticeService } from './notice.service';
+import { NoticeService } from '../../core/services/notice.service';
 
 /**
  * The on-screen toast: a calm one-liner for everyone, with the developer note one

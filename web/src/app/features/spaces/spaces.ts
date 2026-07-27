@@ -1,17 +1,17 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { AuthService } from '../../core/auth.service';
-import { NoticeService } from '../../core/notice/notice.service';
-import { ConfirmService } from '../../core/confirm.service';
-import { DriveConnectionView, DriveStatus, IngestAddress, Invitation, Member } from '../../core/models';
-import { HelpCard } from '../../core/help-card';
-import { InfoTip } from '../../core/info-tip';
-import { DateTimePipe } from '../../core/datetime.pipe';
-import { TERMS } from '../../core/terms';
-import { TroveSelect, SelectOption } from '../../core/select';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { AuthService } from '../../core/services/auth.service';
+import { NoticeService } from '../../core/services/notice.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { DriveConnectionView, DriveStatus, IngestAddress, Invitation, Member } from '../../core/models/models';
+import { HelpCard } from '../../shared/components/help-card';
+import { InfoTip } from '../../shared/components/info-tip';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { TERMS } from '../../core/config/terms';
+import { TroveSelect, SelectOption } from '../../shared/components/select';
 
 @Component({
   selector: 'app-spaces',

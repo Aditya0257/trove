@@ -1,12 +1,12 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { NoticeService } from '../../core/notice/notice.service';
-import { DocumentResponse, ReminderResponse } from '../../core/models';
-import { TroveSelect, SelectOption } from '../../core/select';
-import { HelpCard } from '../../core/help-card';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { NoticeService } from '../../core/services/notice.service';
+import { DocumentResponse, ReminderResponse } from '../../core/models/models';
+import { TroveSelect, SelectOption } from '../../shared/components/select';
+import { HelpCard } from '../../shared/components/help-card';
 
 /** The lifecycle buckets a reminder can sit in, as shown by the tabs. */
 type TabKey = 'due' | 'upcoming' | 'done' | 'dismissed';

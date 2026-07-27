@@ -2,10 +2,10 @@ import { Component, HostListener, computed, effect, inject, signal } from '@angu
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { NoticeService } from '../../core/notice/notice.service';
-import { ConfirmRequest, DocumentResponse, MailBundleView } from '../../core/models';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { NoticeService } from '../../core/services/notice.service';
+import { ConfirmRequest, DocumentResponse, MailBundleView } from '../../core/models/models';
 
 /**
  * Mail - file the important emails you screenshot (tax paid, subscription renewed) so

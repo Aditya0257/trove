@@ -1,11 +1,11 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { MoneyPipe } from '../../core/money.pipe';
-import { SearchResult } from '../../core/models';
-import { HelpCard } from '../../core/help-card';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { SearchResult } from '../../core/models/models';
+import { HelpCard } from '../../shared/components/help-card';
 
 @Component({
   selector: 'app-search',

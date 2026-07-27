@@ -2,12 +2,12 @@ import { Component, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { NoticeService } from '../../core/notice/notice.service';
-import { noticeFrom } from '../../core/notice/notice.model';
-import { HelpCard } from '../../core/help-card';
-import { SettingsService } from '../../core/settings.service';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { NoticeService } from '../../core/services/notice.service';
+import { noticeFrom } from '../../core/models/notice.model';
+import { HelpCard } from '../../shared/components/help-card';
+import { SettingsService } from '../../core/services/settings.service';
 
 /** A queued image awaiting upload, with a preview URL to revoke later. */
 interface Queued {

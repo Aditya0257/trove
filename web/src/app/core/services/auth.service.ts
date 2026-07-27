@@ -1,8 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
-import { API_BASE } from './config';
-import { AccountResponse, AdminUser, AuthResponse, PendingUser } from './models';
+import { API_BASE } from '../config/config';
+import { AccountResponse, AdminUser, AuthResponse, PendingUser } from '../models/models';
 
 const TOKEN_KEY = 'trove_token';
 const USER_KEY = 'trove_user';

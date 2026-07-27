@@ -1,5 +1,5 @@
 import { Component, HostListener, inject } from '@angular/core';
-import { ConfirmService } from './confirm.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 /**
  * The single confirm dialog, mounted once at the app root. Renders whatever the

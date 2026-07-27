@@ -2,11 +2,11 @@ import { Component, inject, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { NoticeService } from '../../core/notice/notice.service';
-import { ConfirmService } from '../../core/confirm.service';
-import { DocumentResponse } from '../../core/models';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { NoticeService } from '../../core/services/notice.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { DocumentResponse } from '../../core/models/models';
 
 /**
  * Mail detail - an email as one thing, not a stray receipt. Shows every screenshot in

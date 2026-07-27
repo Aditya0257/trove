@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
+import { ApiService } from '../../core/services/api.service';
 
 /** Landing for a space join link (?token=...): requests to join, owner approves later. */
 @Component({

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { map } from 'rxjs';
-import { API_BASE } from './config';
+import { API_BASE } from '../config/config';
 
 /** Display order for categories - by everyday usefulness, financial kinds clustered,
  *  with the catch-all buckets pinned to the end. Codes not listed sort alphabetically
@@ -36,7 +36,7 @@ import {
   SearchResult,
   SpaceSummary,
   SpendSummary,
-} from './models';
+} from '../models/models';
 
 /**
  * Wrapper over the Trove REST API (see docs/API.md). `spaceId` is optional - when

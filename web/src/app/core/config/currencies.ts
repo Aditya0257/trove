@@ -1,4 +1,4 @@
-import { SelectOption } from './select';
+import { SelectOption } from '../../shared/components/select';
 
 /** Currencies Trove supports today (kept short; matches the backend's list). */
 export const CURRENCIES = ['INR', 'USD', 'EUR'] as const;

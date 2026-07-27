@@ -1,11 +1,11 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { MoneyPipe } from '../../core/money.pipe';
-import { DateTimePipe } from '../../core/datetime.pipe';
-import { CURRENCIES } from '../../core/currencies';
-import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { CURRENCIES } from '../../core/config/currencies';
+import { DocumentResponse, MonthlySpend, SpendSummary } from '../../core/models/models';
 
 @Component({
   selector: 'app-spend',

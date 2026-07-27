@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { Notice } from './notice.model';
+import { Notice } from '../models/notice.model';
 
 /** One recorded API round-trip, for the Developer drawer + console. */
 export interface DevLogEntry {

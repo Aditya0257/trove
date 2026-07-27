@@ -2,13 +2,13 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { Category, ConfirmRequest, DocumentResponse } from '../../core/models';
-import { NoticeService } from '../../core/notice/notice.service';
-import { ConfirmService } from '../../core/confirm.service';
-import { TroveSelect, SelectOption } from '../../core/select';
-import { MoneyPipe } from '../../core/money.pipe';
-import { CURRENCY_OPTIONS } from '../../core/currencies';
+import { ApiService } from '../../core/services/api.service';
+import { Category, ConfirmRequest, DocumentResponse } from '../../core/models/models';
+import { NoticeService } from '../../core/services/notice.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { TroveSelect, SelectOption } from '../../shared/components/select';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { CURRENCY_OPTIONS } from '../../core/config/currencies';
 
 @Component({
   selector: 'app-review',

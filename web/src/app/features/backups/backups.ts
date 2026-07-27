@@ -1,11 +1,11 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { DateTimePipe } from '../../core/datetime.pipe';
-import { HelpCard } from '../../core/help-card';
-import { InfoTip } from '../../core/info-tip';
-import { BackupRun, IntegrityReport } from '../../core/models';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { HelpCard } from '../../shared/components/help-card';
+import { InfoTip } from '../../shared/components/info-tip';
+import { BackupRun, IntegrityReport } from '../../core/models/models';
 
 /**
  * Backups & integrity dashboard - verifies the "three copies, zero data loss" promise

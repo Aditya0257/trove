@@ -1,17 +1,17 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
-import { AuthService } from './core/auth.service';
-import { SpaceContext } from './core/space.context';
-import { ThemeService } from './core/theme.service';
-import { ApiService } from './core/api.service';
-import { NoticeService } from './core/notice/notice.service';
-import { TroveSelect, SelectOption } from './core/select';
-import { NoticeToast } from './core/notice/notice-toast';
-import { DevDrawer } from './core/notice/dev-drawer';
+import { AuthService } from './core/services/auth.service';
+import { SpaceContext } from './core/services/space.context';
+import { ThemeService } from './core/services/theme.service';
+import { ApiService } from './core/services/api.service';
+import { NoticeService } from './core/services/notice.service';
+import { TroveSelect, SelectOption } from './shared/components/select';
+import { NoticeToast } from './shared/components/notice-toast';
+import { DevDrawer } from './shared/components/dev-drawer';
 import { AssistantWidget } from './features/ask/assistant';
-import { ConfirmDialog } from './core/confirm-dialog';
-import { Avatar } from './core/avatar';
+import { ConfirmDialog } from './shared/components/confirm-dialog';
+import { Avatar } from './shared/components/avatar';
 
 @Component({
   selector: 'app-root',

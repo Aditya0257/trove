@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { retry, timer } from 'rxjs';
 import { ApiService } from './api.service';
-import { SpaceSummary } from './models';
+import { SpaceSummary } from '../models/models';
 
 /**
  * Holds the list of spaces the user belongs to and the "current" space id (driven by

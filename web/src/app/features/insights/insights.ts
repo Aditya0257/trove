@@ -1,12 +1,12 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
-import { SpaceContext } from '../../core/space.context';
-import { ExpiringItem, RecurringGroup } from '../../core/models';
-import { HelpCard } from '../../core/help-card';
-import { TroveSelect, SelectOption } from '../../core/select';
-import { MoneyPipe } from '../../core/money.pipe';
+import { ApiService } from '../../core/services/api.service';
+import { SpaceContext } from '../../core/services/space.context';
+import { ExpiringItem, RecurringGroup } from '../../core/models/models';
+import { HelpCard } from '../../shared/components/help-card';
+import { TroveSelect, SelectOption } from '../../shared/components/select';
+import { MoneyPipe } from '../../shared/pipes/money.pipe';
 
 /**
  * Insights — document intelligence over confirmed documents: what is expiring soon

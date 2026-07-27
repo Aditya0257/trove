@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
+import { AuthService } from '../../core/services/auth.service';
 
 /** Request a password-reset email. Always shows the same confirmation (no account-existence leak). */
 @Component({

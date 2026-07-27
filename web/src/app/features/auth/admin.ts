@@ -1,10 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
-import { NoticeService } from '../../core/notice/notice.service';
-import { ConfirmService } from '../../core/confirm.service';
-import { DateTimePipe } from '../../core/datetime.pipe';
-import { PendingUser } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+import { NoticeService } from '../../core/services/notice.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { PendingUser } from '../../core/models/models';
 
 /** Admin-only: approve or decline the people awaiting access to Trove. */
 @Component({

@@ -1,13 +1,13 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../../core/auth.service';
-import { NoticeService } from '../../core/notice/notice.service';
-import { HelpCard } from '../../core/help-card';
-import { InfoTip } from '../../core/info-tip';
-import { Avatar } from '../../core/avatar';
-import { TroveSelect, SelectOption } from '../../core/select';
-import { DateTimePipe } from '../../core/datetime.pipe';
-import { AdminUser } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+import { NoticeService } from '../../core/services/notice.service';
+import { HelpCard } from '../../shared/components/help-card';
+import { InfoTip } from '../../shared/components/info-tip';
+import { Avatar } from '../../shared/components/avatar';
+import { TroveSelect, SelectOption } from '../../shared/components/select';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { AdminUser } from '../../core/models/models';
 
 /**
  * The account / profile screen reached from the top-bar avatar. One place for a user to

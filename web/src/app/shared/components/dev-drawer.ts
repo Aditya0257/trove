@@ -1,9 +1,9 @@
 import { Component, effect, inject, signal } from '@angular/core';
-import { DevLogService, DevLogEntry } from './dev-log.service';
-import { ApiService } from '../api.service';
-import { AiUsage } from '../models';
-import { TERMS } from '../terms';
-import { SettingsService } from '../settings.service';
+import { DevLogService, DevLogEntry } from '../../core/services/dev-log.service';
+import { ApiService } from '../../core/services/api.service';
+import { AiUsage } from '../../core/models/models';
+import { TERMS } from '../../core/config/terms';
+import { SettingsService } from '../../core/services/settings.service';
 
 /**
  * The in-app "inspect" surface: a slide-over listing recent API calls with method,
