@@ -120,7 +120,8 @@ class UsageOverview {
 /// The free-tier usage snapshot, refreshed each time the drawer's gauge mounts.
 final usageProvider = FutureProvider.autoDispose<UsageOverview>((ref) async {
   final api = ref.watch(apiClientProvider);
-  // silent: the gauge poll shouldn't clutter the Developer request trail.
-  final d = await api.get('/api/usage', silent: true) as Map<String, dynamic>;
+  // Not silent: the trail shows every call, including this gauge poll. (The mobile drawer
+  // refreshes the gauge only on demand, so logging it can't feed back into a loop.)
+  final d = await api.get('/api/usage') as Map<String, dynamic>;
   return UsageOverview.fromJson(d);
 });

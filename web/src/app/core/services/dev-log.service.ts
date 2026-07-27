@@ -13,6 +13,10 @@ export interface DevLogEntry {
   extractionMeta?: Record<string, unknown> | null;
   /** The key fields extracted + stored for a document response (the "JSON in the DB"). */
   extracted?: Record<string, unknown> | null;
+  /** Request query params (sensitive values masked), so the drawer shows what was asked. */
+  reqQuery?: Record<string, string> | null;
+  /** Request body (size-capped; sensitive fields masked; files summarised, no binary). */
+  reqBody?: unknown;
   /** The response body (size-capped), so the drawer can show exactly what came back. */
   body?: unknown;
 }
@@ -22,8 +26,9 @@ export interface DevLogEntry {
  * monospace format (no emoji) - the "inspect" experience for a developer, plus a
  * live feed for the in-app Developer drawer. Bounded to the last 100 calls.
  *
- * Nothing sensitive is stored or printed: method, path, status, timing, request-id,
- * and the notice/extraction trail only - never headers or tokens.
+ * Request query + body are captured for the trail, but sensitive fields (password,
+ * token, otp, secret, api-key, ...) are masked and files are summarised - never raw
+ * secrets, headers, auth tokens, or binary.
  */
 @Injectable({ providedIn: 'root' })
 export class DevLogService {

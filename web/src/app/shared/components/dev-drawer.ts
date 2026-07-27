@@ -32,23 +32,24 @@ export class DevDrawer {
   private static readonly POLL_MS = 60_000;
 
   constructor() {
-    // Your own usage updates the instant you trigger AI: refresh on every real logged
-    // call (the interceptor deliberately doesn't log the usage poll itself, so this
-    // can't feed back into a loop).
+    // Your own usage updates the instant you act: refetch when a new call is logged.
+    // The /api/usage poll is itself logged (it shows in the trail), so we must NOT let a
+    // usage entry retrigger a fetch - that was the old infinite loop. Guard: only refetch
+    // when the newest entry isn't a usage poll.
     effect(() => {
-      const n = this.entries().length; // track: a new call should refresh the gauge
-      if (this.open()) {
-        void n;
-        this.fetchUsage();
-      }
+      const list = this.entries();
+      if (!this.open()) return;
+      const latest = list[0];
+      if (latest && /\/api\/(ai-)?usage/.test(latest.url)) return;
+      this.fetchUsage();
     });
 
-    // The global bar moves when OTHER users consume AI, which no local event can tell
-    // us about - so poll lightly, but ONLY while the drawer is open (the poll stops the
-    // moment it closes). Two indexed SELECTs at 60s is negligible even for all users at
-    // once; no websocket needed at this scale.
+    // The global bar moves when OTHER users consume AI, which no local event can tell us
+    // about - so fetch once on open, then poll lightly, but ONLY while the drawer is open
+    // (it stops the moment it closes). One request/min is negligible at this scale.
     effect((onCleanup) => {
       if (!this.open()) return;
+      this.fetchUsage(); // immediate fetch on open
       const id = setInterval(() => this.fetchUsage(), DevDrawer.POLL_MS);
       onCleanup(() => clearInterval(id));
     });

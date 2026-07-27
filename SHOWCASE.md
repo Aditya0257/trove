@@ -119,6 +119,12 @@ pools — **AI credits** and **Email** — show the exact IST reset instant and 
 
 ![Developer usage meters](docs/screenshots/12-dev-usage-meters.png)
 
+Every API call is logged in the trail — expand one to see a three-lens explanation
+(user / dev / business), the server request-id, and the request **query**/**body**
+(secrets masked) alongside the **response body**.
+
+![Developer request detail](docs/screenshots/13-dev-request-detail.png)
+
 ---
 
 ## Mobile (Flutter) — screens for the mobile walkthrough
