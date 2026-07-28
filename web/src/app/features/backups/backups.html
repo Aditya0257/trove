@@ -22,7 +22,7 @@
           <div class="banner ok">No documents in this space yet.</div>
         } @else {
           <div class="banner ok">
-            <span class="tick"></span>All {{ r.documents }} document(s) are safely stored. Verified {{ r.checkedAt | prettyDate }}.
+            <span class="ok-check"></span>All {{ r.documents }} document(s) are safely stored. Verified {{ r.checkedAt | prettyDate }}.
             <trove-info-tip text="Counts every stored file in this space, including each email screenshot. Mail groups screenshots into records, but each screenshot is its own file - so this can be higher than the Documents tab, which hides emails. Example: 26 documents + 5 email screenshots = 31."></trove-info-tip>
           </div>
         }

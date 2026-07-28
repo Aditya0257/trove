@@ -262,25 +262,26 @@ tr.due td { background: var(--badge-bg); }
 .badge.due { background: var(--danger-soft); color: var(--error); }
 
 /* Success check — a small filled circle with a white tick, for confirmation
- * messages (replaces the flat ✅ emoji). Sizes to the surrounding text. */
-.tick {
+ * messages (replaces the flat ✅ emoji). Sizes to the surrounding text and sits
+ * centered on the text line. (Named .ok-check to avoid the stepper's own .tick.) */
+.ok-check {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.1em;
+  height: 1.1em;
   border-radius: 50%;
   background: #2e7d5b;
   flex: 0 0 auto;
-  vertical-align: -0.24em;
+  vertical-align: middle;
   margin-right: 0.4em;
 }
-.tick::before {
+.ok-check::before {
   content: "";
   display: block;
-  width: 0.3em;
-  height: 0.56em;
+  width: 0.28em;
+  height: 0.52em;
   border: solid #fff;
-  border-width: 0 0.14em 0.14em 0;
-  transform: translateY(-0.05em) rotate(45deg);
+  border-width: 0 0.13em 0.13em 0;
+  transform: translateY(-0.06em) rotate(45deg);
 }

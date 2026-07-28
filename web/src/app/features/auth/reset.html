@@ -4,7 +4,7 @@
         <p class="error">This reset link is missing its token. Request a new one.</p>
         <p class="muted"><a routerLink="/forgot">Reset password</a></p>
       } @else if (done()) {
-        <p><span class="tick"></span>Your password has been reset. You can sign in with it now.</p>
+        <p><span class="ok-check"></span>Your password has been reset. You can sign in with it now.</p>
         <p class="muted"><a routerLink="/login">Go to sign in</a></p>
       } @else {
         <form (ngSubmit)="submit()">
