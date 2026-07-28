@@ -18,7 +18,7 @@ public interface SpaceService {
     List<SpaceMember> pendingInvitations(UUID userId);
     String joinToken(UUID spaceId, UUID actingUserId, boolean rotate);
     void revokeJoinToken(UUID spaceId, UUID actingUserId);
-    Space requestJoin(String token, UUID userId);
+    com.trove.dto.JoinResult requestJoin(String token, UUID userId);
     SpaceMember approveMember(UUID spaceId, UUID actingUserId, UUID targetUserId);
     void removeMember(UUID spaceId, UUID actingUserId, UUID targetUserId);
     Space getSpace(UUID spaceId);

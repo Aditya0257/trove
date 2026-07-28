@@ -229,7 +229,7 @@ export class ApiService {
     return this.http.delete<void>(`${API_BASE}/api/spaces/${spaceId}/join-link`);
   }
   requestJoinSpace(token: string) {
-    return this.http.post<{ spaceId: string; spaceName: string }>(
+    return this.http.post<{ spaceId: string; spaceName: string; status: string }>(
       `${API_BASE}/api/spaces/join${this.qs({ token })}`, {});
   }
 

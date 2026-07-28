@@ -260,3 +260,27 @@ code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 6px; 
 
 tr.due td { background: var(--badge-bg); }
 .badge.due { background: var(--danger-soft); color: var(--error); }
+
+/* Success check — a small filled circle with a white tick, for confirmation
+ * messages (replaces the flat ✅ emoji). Sizes to the surrounding text. */
+.tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  background: #2e7d5b;
+  flex: 0 0 auto;
+  vertical-align: -0.24em;
+  margin-right: 0.4em;
+}
+.tick::before {
+  content: "";
+  display: block;
+  width: 0.3em;
+  height: 0.56em;
+  border: solid #fff;
+  border-width: 0 0.14em 0.14em 0;
+  transform: translateY(-0.05em) rotate(45deg);
+}

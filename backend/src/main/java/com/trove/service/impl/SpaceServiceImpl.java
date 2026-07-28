@@ -195,18 +195,22 @@ public class SpaceServiceImpl implements SpaceService {
      * Never auto-joins - the owner still approves. Already-active members are a no-op.
      */
     @Transactional
-    public Space requestJoin(String token, UUID userId) {
+    public com.trove.dto.JoinResult requestJoin(String token, UUID userId) {
         Space space = spaceRepository.findByJoinToken(token == null ? "" : token.trim())
                 .orElseThrow(() -> new NotFoundException("This join link is invalid or has been revoked"));
         var existing = memberRepository.findBySpaceIdAndUserId(space.getId(), userId);
         if (existing.isPresent() && MembershipStatus.ACTIVE.equals(existing.get().getStatus())) {
-            return space;   // already in the space
+            // Already a member (owner or member): nothing to do — tell the client so it
+            // doesn't wrongly show "request sent, wait for approval".
+            return new com.trove.dto.JoinResult(space.getId(), space.getName(),
+                    com.trove.dto.JoinResult.ALREADY_MEMBER);
         }
         SpaceMember member = existing.orElseGet(() -> new SpaceMember(space.getId(), userId, SpaceRole.MEMBER));
         member.setStatus(MembershipStatus.PENDING);
         member.setInvitedBy(null);   // self-requested (not invited by the owner)
         memberRepository.save(member);
-        return space;
+        return new com.trove.dto.JoinResult(space.getId(), space.getName(),
+                com.trove.dto.JoinResult.REQUESTED);
     }
 
     /** Owner approves a pending member (invited or self-requested via a link). */

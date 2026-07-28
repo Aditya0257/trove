@@ -150,11 +150,11 @@ public class SpaceController {
         return ResponseEntity.noContent().build();
     }
 
-    /** A logged-in user requests to join a space via a share token (creates a pending request). */
+    /** A logged-in user opens a share token: creates a pending request, or reports that
+     *  they're already a member so the join page shows the right message. */
     @PostMapping("/join")
-    public JoinResult requestJoin(@RequestParam("token") String token) {
-        Space s = spaceService.requestJoin(token, currentUser.requireUserId());
-        return new JoinResult(s.getId(), s.getName());
+    public com.trove.dto.JoinResult requestJoin(@RequestParam("token") String token) {
+        return spaceService.requestJoin(token, currentUser.requireUserId());
     }
 
     private JoinLink joinLinkFor(String token) {
@@ -162,9 +162,6 @@ public class SpaceController {
     }
 
     public record JoinLink(String token, String url) {
-    }
-
-    public record JoinResult(UUID spaceId, String spaceName) {
     }
 
     /** The caller's outstanding invitations (pending), with who invited them. */

@@ -1,9 +1,15 @@
     <div class="card auth-card">
       <h1>Join a space</h1>
-      @if (result()) {
-        <p>✅ Your request to join <b>{{ result()!.spaceName }}</b> has been sent. The owner will
-          approve it, and then the space appears in your switcher at the top.</p>
-        <p class="muted"><a routerLink="/spaces">Go to Spaces</a></p>
+      @if (result(); as r) {
+        @if (r.status === 'already_member') {
+          <p><span class="tick"></span>You're already a member of <b>{{ r.spaceName }}</b> — pick it
+            from the space switcher at the top to open it.</p>
+          <p class="muted"><a routerLink="/spaces">Go to Spaces</a></p>
+        } @else {
+          <p><span class="tick"></span>Your request to join <b>{{ r.spaceName }}</b> has been sent.
+            The owner approves it, and then the space appears in your switcher at the top.</p>
+          <p class="muted"><a routerLink="/spaces">Go to Spaces</a></p>
+        }
       } @else if (error()) {
         <p class="error">{{ error() }}</p>
         <p class="muted"><a routerLink="/documents">Back home</a></p>

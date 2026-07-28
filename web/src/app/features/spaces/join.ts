@@ -12,7 +12,7 @@ export class Join {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
 
-  result = signal<{ spaceId: string; spaceName: string } | null>(null);
+  result = signal<{ spaceId: string; spaceName: string; status: string } | null>(null);
   error = signal<string | null>(null);
 
   constructor() {
